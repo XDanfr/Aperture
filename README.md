@@ -1,6 +1,12 @@
-# Aperture
+<p align="center">
+  <img src="icon.png" width="96" height="96" alt="Aperture Logo" />
+</p>
 
-> Finally, a Material 3 Expressive media player for Android TV!
+<h1 align="center">Aperture</h1>
+
+<p align="center">
+  <i>Finally, a Material 3 media player for Android TV!</i>
+</p>
 
 ---
 
