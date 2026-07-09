@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.screen.details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -11,9 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -34,9 +38,20 @@ fun MediaDetailsModal(
     onClose: () -> Unit
 ) {
     val media by viewModel.media.collectAsState()
+    val playButtonFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(mediaId) {
         viewModel.loadMedia(mediaId)
+    }
+
+    LaunchedEffect(media) {
+        if (media != null) {
+            playButtonFocusRequester.requestFocus()
+        }
+    }
+
+    BackHandler(enabled = media != null) {
+        onClose()
     }
 
     Box(
@@ -105,7 +120,8 @@ fun MediaDetailsModal(
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Button(
-                                onClick = { onPlay(m.id) }
+                                onClick = { onPlay(m.id) },
+                                modifier = Modifier.focusRequester(playButtonFocusRequester)
                             ) {
                                 Icon(Icons.Rounded.PlayArrow, null)
                                 Spacer(Modifier.width(8.dp))
@@ -119,15 +135,6 @@ fun MediaDetailsModal(
                                 Spacer(Modifier.width(8.dp))
                                 Text("My List")
                             }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        OutlinedButton(
-                            onClick = onClose,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Back")
                         }
                     }
                 }

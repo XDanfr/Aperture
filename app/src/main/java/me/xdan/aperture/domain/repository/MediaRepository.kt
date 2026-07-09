@@ -14,6 +14,7 @@ interface MediaRepository {
     fun searchMedia(query: String): Flow<List<MediaEntity>>
     
     suspend fun getProgress(mediaId: Long): PlaybackProgressEntity?
+    fun getAllProgress(): Flow<List<PlaybackProgressEntity>>
     suspend fun saveProgress(progress: PlaybackProgressEntity)
     
     suspend fun scanLocalFiles()

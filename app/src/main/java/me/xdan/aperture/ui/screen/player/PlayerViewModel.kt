@@ -52,6 +52,7 @@ class PlayerViewModel @Inject constructor(
                 }
                 player.playWhenReady = true
                 startProgressTracker(m.id)
+                resetOsdTimer()
             }
         }
     }

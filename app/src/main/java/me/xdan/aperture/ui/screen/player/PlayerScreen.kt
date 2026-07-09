@@ -11,6 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,12 +50,21 @@ fun PlayerScreen(
         viewModel.loadMedia(mediaId)
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            player.stop()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                    if (!isQuickMenuVisible && keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
+                        viewModel.showOsdBriefly()
+                    }
                     when (keyEvent.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                             if (!isQuickMenuVisible) {
@@ -82,6 +95,9 @@ fun PlayerScreen(
                                 isQuickMenuVisible = false
                                 true
                             } else {
+                                if (player.isPlaying) {
+                                    player.pause()
+                                }
                                 onBack()
                                 true
                             }
@@ -265,11 +281,13 @@ private fun PlayerOsd(
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
+    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
 
     LaunchedEffect(player) {
         while (true) {
             currentPosition = player.currentPosition
             duration = player.duration
+            isPlaying = player.playWhenReady
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -289,7 +307,7 @@ private fun PlayerOsd(
                 color = Color.White
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
             Box(
                 modifier = Modifier
@@ -305,13 +323,38 @@ private fun PlayerOsd(
                         .background(MaterialTheme.colorScheme.primary)
                 )
             }
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(formatTime(currentPosition), color = Color.White)
                 Text(formatTime(duration), color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { player.seekTo(player.currentPosition - 10000) }) {
+                    Icon(Icons.Rounded.FastRewind, contentDescription = "Rewind", tint = Color.White, modifier = Modifier.size(48.dp))
+                }
+                Spacer(modifier = Modifier.width(32.dp))
+                IconButton(onClick = { if (isPlaying) player.pause() else player.play() }) {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(32.dp))
+                IconButton(onClick = { player.seekTo(player.currentPosition + 10000) }) {
+                    Icon(Icons.Rounded.FastForward, contentDescription = "Fast Forward", tint = Color.White, modifier = Modifier.size(48.dp))
+                }
             }
         }
     }

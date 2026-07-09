@@ -50,53 +50,6 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Visual Pointers
-        // Sidebar Pointer
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 120.dp)
-                .alpha(0.8f)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack, 
-                    null, 
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    "Sidebar Menu", 
-                    color = Color.White, 
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-
-        // Content Rows Pointer
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 150.dp)
-                .alpha(0.8f)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "Content Rows", 
-                    color = Color.White, 
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Icon(
-                    Icons.Rounded.ArrowDownward, 
-                    null, 
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-        }
-
         // Main Center UI
         Box(
             modifier = Modifier.fillMaxSize(),

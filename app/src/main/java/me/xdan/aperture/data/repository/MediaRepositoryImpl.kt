@@ -40,6 +40,8 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun getProgress(mediaId: Long): PlaybackProgressEntity? = progressDao.getProgressForMedia(mediaId)
 
+    override fun getAllProgress(): Flow<List<PlaybackProgressEntity>> = progressDao.getAllProgress()
+
     override suspend fun saveProgress(progress: PlaybackProgressEntity) = progressDao.saveProgress(progress)
 
     override suspend fun scanLocalFiles() {

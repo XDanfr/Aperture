@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.*
 import me.xdan.aperture.ui.screen.home.HomeScreen
 import me.xdan.aperture.ui.screen.search.SearchScreen
@@ -38,7 +39,12 @@ fun NavGraph(
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
 
-    if (!isOnboardingCompleted) {
+    if (isOnboardingCompleted == null) {
+        // Loading state, show nothing or a splash screen
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (isOnboardingCompleted == false) {
         OnboardingScreen(onComplete = { mainViewModel.completeOnboarding() })
     } else {
         if (showDrawer) {
@@ -98,6 +104,13 @@ fun NavGraph(
                             Text("Shows")
                         }
                         NavigationDrawerItem(
+                            selected = currentDestination is Destination.MyList,
+                            onClick = { onNavigate(Destination.MyList) },
+                            leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
+                        ) {
+                            Text("My List")
+                        }
+                        NavigationDrawerItem(
                             selected = currentDestination is Destination.Settings,
                             onClick = { onNavigate(Destination.Settings) },
                             leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
@@ -146,6 +159,9 @@ private fun NavContent(
                     viewModel = viewModel(),
                     onMediaClick = onMediaClick
                 )
+                is Destination.MyList -> Box(modifier = Modifier.fillMaxSize()) {
+                    Text("My List - Coming Soon", modifier = Modifier.padding(32.dp))
+                }
                 is Destination.Settings -> SettingsScreen()
                 is Destination.Player -> PlayerScreen(
                     mediaId = destination.mediaId,

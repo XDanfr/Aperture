@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.repository.MediaRepository
@@ -22,20 +23,38 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             repository.scanLocalFiles()
-            repository.getAllMedia().collectLatest { mediaList ->
+            
+            combine(
+                repository.getAllMedia(),
+                repository.getAllProgress()
+            ) { mediaList, progressList ->
                 if (mediaList.isEmpty()) {
-                    _homeState.value = HomeState.Empty
+                    HomeState.Empty
                 } else {
-                    _homeState.value = HomeState.Success(
+                    val progressMap = progressList.associateBy { it.mediaId }
+                    
+                    val continueWatching = mediaList.filter { media ->
+                        val p = progressMap[media.id]
+                        p != null && p.position > 0 && p.position < (p.duration * 0.95)
+                    }.sortedByDescending { progressMap[it.id]?.lastUpdated ?: 0L }
+
+                    HomeState.Success(
                         featured = mediaList.take(5).shuffled(),
-                        rows = listOf(
-                            HomeRow("Continue Watching", mediaList.shuffled()),
-                            HomeRow("Recently Added", mediaList),
-                            HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }.shuffled()),
-                            HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }.shuffled())
-                        )
+                        rows = buildList {
+                            if (continueWatching.isNotEmpty()) {
+                                add(HomeRow("Continue Watching", continueWatching))
+                            }
+                            add(HomeRow("Recently Added", mediaList))
+                            add(HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }))
+                            add(HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }))
+                        },
+                        progressMap = progressList.associate { 
+                            it.mediaId to (if (it.duration > 0) it.position.toFloat() / it.duration else 0f)
+                        }
                     )
                 }
+            }.collectLatest {
+                _homeState.value = it
             }
         }
     }
@@ -57,7 +76,8 @@ sealed interface HomeState {
     data object Empty : HomeState
     data class Success(
         val featured: List<MediaEntity>,
-        val rows: List<HomeRow>
+        val rows: List<HomeRow>,
+        val progressMap: Map<Long, Float> = emptyMap()
     ) : HomeState
 }
 

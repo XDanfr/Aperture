@@ -69,7 +69,7 @@ private fun HomeContent(
             FeaturedCarousel(state.featured, onMediaClick)
         }
         items(state.rows) { row ->
-            HomeMediaRow(row, onMediaClick)
+            HomeMediaRow(row, onMediaClick, state.progressMap)
         }
     }
 }
@@ -133,7 +133,8 @@ private fun FeaturedCarousel(
 @Composable
 private fun HomeMediaRow(
     row: HomeRow,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long) -> Unit,
+    progressMap: Map<Long, Float> = emptyMap()
 ) {
     if (row.items.isEmpty()) return
 
@@ -155,7 +156,8 @@ private fun HomeMediaRow(
                 MediaCard(
                     media = media,
                     onClick = { onMediaClick(media.id) },
-                    modifier = Modifier.width(150.dp)
+                    modifier = Modifier.width(150.dp),
+                    progress = progressMap[media.id] ?: 0f
                 )
             }
         }
