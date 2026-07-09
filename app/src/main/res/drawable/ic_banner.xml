@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:fillColor="#001F3F"
+        android:pathData="M0,0h320v180h-320z" />
+
+    <group
+        android:translateX="40"
+        android:translateY="40"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        <!-- Square Logo Part -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,24c-16.57,0-30,13.43-30,30s13.43,30,30,30s30-13.43,30-30S70.57,24,54,24z M54,80c-14.36,0-26-11.64-26-26s11.64-26,26-26s26,11.64,26,26S68.36,80,54,80z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M48,42l18,12l-18,12z" />
+    </group>
+
+    <!-- Placeholder for text "Aperture" -->
+    <!-- I'll use simple lines to represent text for now if it's too hard to draw letters -->
+    <group android:translateX="130" android:translateY="80">
+        <!-- A -->
+        <path android:fillColor="#FFFFFF" android:pathData="M0,20 l10,-20 l10,20 h-5 l-5,-10 l-5,10 z" />
+        <!-- P -->
+        <path android:fillColor="#FFFFFF" android:pathData="M25,0 h10 c5,0 5,10 0,10 h-10 v10 h-5 v-20 M30,5 h5 c2,0 2,0 0,0 h-5 z" />
+        <!-- E -->
+        <path android:fillColor="#FFFFFF" android:pathData="M45,0 h15 v5 h-10 v3 h8 v5 h-8 v3 h10 v4 h-15 z" />
+        <!-- R -->
+        <path android:fillColor="#FFFFFF" android:pathData="M70,0 h10 c5,0 5,10 0,10 l5,10 h-5 l-5,-10 h-5 v10 h-5 v-20 M75,5 h5 c2,0 2,0 0,0 h-5 z" />
+        <!-- T -->
+        <path android:fillColor="#FFFFFF" android:pathData="M95,0 h15 v5 h-5 v15 h-5 v-15 h-5 z" />
+        <!-- U -->
+        <path android:fillColor="#FFFFFF" android:pathData="M120,0 h5 v15 h10 v-15 h5 v20 h-20 z" />
+        <!-- R -->
+        <path android:fillColor="#FFFFFF" android:pathData="M150,0 h10 c5,0 5,10 0,10 l5,10 h-5 l-5,-10 h-5 v10 h-5 v-20 M155,5 h5 c2,0 2,0 0,0 h-5 z" />
+        <!-- E -->
+        <path android:fillColor="#FFFFFF" android:pathData="M175,0 h15 v5 h-10 v3 h8 v5 h-8 v3 h10 v4 h-15 z" />
+    </group>
+</vector>
