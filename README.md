@@ -13,7 +13,6 @@ Coming soon 😝
 * Material 3 UI: Eventually, we plan to add dynamic color support that adapts to your media thumbnails.
 * TV-Optimized Navigation: Built specifically for D-pad and remote control inputs.
 * Media3 Powered: Robust, high-performance playback architecture.
-* Custom Theming: Easily switch between curated, vibrant color palettes. Suggest some more in the issues tab, or fork it yourself and add them!
 
 ## Getting Started
 
