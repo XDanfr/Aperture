@@ -42,11 +42,10 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 
 ### Build From Source
 1. **Clone the repository:**
+
    ```bash
    git clone [https://github.com/XDanfr/Aperture.git](https://github.com/XDanfr/Aperture.git)
-  ```
-
-```
+   ```
 
 2. **Open in Android Studio:** Ensure your environment is configured to use **JDK 17 or 21** (others are currently untested).
 3. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your Android TV physical device or an emulator running **API 27+**.
