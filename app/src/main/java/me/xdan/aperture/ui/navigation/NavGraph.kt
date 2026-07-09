@@ -25,6 +25,7 @@ import me.xdan.aperture.ui.screen.details.MediaDetailsModal
 import me.xdan.aperture.ui.screen.details.MediaDetailsViewModel
 import me.xdan.aperture.ui.screen.onboarding.OnboardingScreen
 import me.xdan.aperture.ui.screen.settings.SettingsScreen
+import me.xdan.aperture.ui.component.ProvideFocusMemory
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -37,6 +38,7 @@ fun NavGraph(
     val showDrawer = currentDestination !is Destination.Player
     
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
+    var lastFocusedMediaId by remember { mutableStateOf<Long?>(null) }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
 
     if (isOnboardingCompleted == null) {
@@ -47,95 +49,107 @@ fun NavGraph(
     } else if (isOnboardingCompleted == false) {
         OnboardingScreen(onComplete = { mainViewModel.completeOnboarding() })
     } else {
-        if (showDrawer) {
-            NavigationDrawer(
-                drawerContent = { _ ->
-                    Column(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Logo and Title
-                        Row(
-                            modifier = Modifier.padding(bottom = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+        ProvideFocusMemory {
+            if (showDrawer) {
+                NavigationDrawer(
+                    drawerContent = { _ ->
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                painter = androidx.compose.ui.res.painterResource(id = me.xdan.aperture.R.drawable.ic_square_logo),
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp),
-                                tint = Color.Unspecified
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Aperture",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                            )
-                        }
+                            // Logo and Title
+                            Row(
+                                modifier = Modifier.padding(bottom = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = androidx.compose.ui.res.painterResource(id = me.xdan.aperture.R.drawable.ic_square_logo),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                    tint = Color.Unspecified
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Aperture",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
 
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.Home,
-                            onClick = { onNavigate(Destination.Home) },
-                            leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
-                        ) {
-                            Text("Home")
-                        }
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.Search,
-                            onClick = { onNavigate(Destination.Search) },
-                            leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
-                        ) {
-                            Text("Search")
-                        }
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.Movies,
-                            onClick = { onNavigate(Destination.Movies) },
-                            leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
-                        ) {
-                            Text("Movies")
-                        }
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.Shows,
-                            onClick = { onNavigate(Destination.Shows) },
-                            leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
-                        ) {
-                            Text("Shows")
-                        }
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.MyList,
-                            onClick = { onNavigate(Destination.MyList) },
-                            leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
-                        ) {
-                            Text("My List")
-                        }
-                        NavigationDrawerItem(
-                            selected = currentDestination is Destination.Settings,
-                            onClick = { onNavigate(Destination.Settings) },
-                            leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
-                        ) {
-                            Text("Settings")
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.Home,
+                                onClick = { onNavigate(Destination.Home) },
+                                leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
+                            ) {
+                                Text("Home")
+                            }
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.Search,
+                                onClick = { onNavigate(Destination.Search) },
+                                leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
+                            ) {
+                                Text("Search")
+                            }
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.Movies,
+                                onClick = { onNavigate(Destination.Movies) },
+                                leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
+                            ) {
+                                Text("Movies")
+                            }
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.Shows,
+                                onClick = { onNavigate(Destination.Shows) },
+                                leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
+                            ) {
+                                Text("Shows")
+                            }
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.MyList,
+                                onClick = { onNavigate(Destination.MyList) },
+                                leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
+                            ) {
+                                Text("My List")
+                            }
+                            NavigationDrawerItem(
+                                selected = currentDestination is Destination.Settings,
+                                onClick = { onNavigate(Destination.Settings) },
+                                leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
+                            ) {
+                                Text("Settings")
+                            }
                         }
                     }
+                ) {
+                    NavContent(backstack, onNavigate, onMediaClick = { mediaId ->
+                        lastFocusedMediaId = mediaId
+                        selectedMediaId = mediaId
+                    })
                 }
-            ) {
-                NavContent(backstack, onNavigate, onMediaClick = { selectedMediaId = it })
+            } else {
+                NavContent(backstack, onNavigate, onMediaClick = { mediaId ->
+                    lastFocusedMediaId = mediaId
+                    selectedMediaId = mediaId
+                })
             }
-        } else {
-            NavContent(backstack, onNavigate, onMediaClick = { selectedMediaId = it })
-        }
 
-        selectedMediaId?.let { mediaId ->
-            MediaDetailsModal(
-                mediaId = mediaId,
-                viewModel = viewModel(),
-                onPlay = { 
-                    selectedMediaId = null
-                    onNavigate(Destination.Player(it))
-                },
-                onClose = { selectedMediaId = null }
-            )
+            selectedMediaId?.let { mediaId ->
+                MediaDetailsModal(
+                    mediaId = mediaId,
+                    viewModel = viewModel(),
+                    onPlay = { 
+                        selectedMediaId = null
+                        onNavigate(Destination.Player(it))
+                    },
+                    onClose = { selectedMediaId = null },
+                    restoreFocus = {
+                        // Focus will be restored by the MediaCard component when it regains focus
+                        lastFocusedMediaId = null
+                    }
+                )
+            }
         }
     }
 }

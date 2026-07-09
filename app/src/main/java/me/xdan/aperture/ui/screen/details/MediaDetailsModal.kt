@@ -1,7 +1,10 @@
 package me.xdan.aperture.ui.screen.details
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,12 +15,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -35,10 +47,12 @@ fun MediaDetailsModal(
     mediaId: Long,
     viewModel: MediaDetailsViewModel,
     onPlay: (Long) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    restoreFocus: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
+    var isPlayButtonFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(mediaId) {
         viewModel.loadMedia(mediaId)
@@ -51,6 +65,7 @@ fun MediaDetailsModal(
     }
 
     BackHandler(enabled = media != null) {
+        restoreFocus()
         onClose()
     }
 
@@ -61,15 +76,24 @@ fun MediaDetailsModal(
     ) {
         AnimatedVisibility(
             visible = media != null,
-            enter = slideInHorizontally { it },
-            exit = slideOutHorizontally { it },
+            enter = slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(durationMillis = 300)
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(durationMillis = 300)
+            ),
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             media?.let { m ->
                 Surface(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(500.dp),
+                        .width(500.dp)
+                        .focusProperties {
+                            canFocus = true
+                        },
                     colors = SurfaceDefaults.colors(containerColor = GlassBackground),
                     shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp)
                 ) {
@@ -121,7 +145,20 @@ fun MediaDetailsModal(
                         ) {
                             Button(
                                 onClick = { onPlay(m.id) },
-                                modifier = Modifier.focusRequester(playButtonFocusRequester)
+                                modifier = Modifier
+                                    .focusRequester(playButtonFocusRequester)
+                                    .onFocusChanged { isPlayButtonFocused = it.isFocused }
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.key == Key.DirectionLeft && 
+                                            keyEvent.type == KeyEventType.KeyDown &&
+                                            isPlayButtonFocused) {
+                                            restoreFocus()
+                                            onClose()
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
                             ) {
                                 Icon(Icons.Rounded.PlayArrow, null)
                                 Spacer(Modifier.width(8.dp))
