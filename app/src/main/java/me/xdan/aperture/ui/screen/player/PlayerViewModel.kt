@@ -37,14 +37,14 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val mediaEntity = repository.getMediaById(mediaId)
             _media.value = mediaEntity
-            
+
             mediaEntity?.let { m ->
                 val progress = repository.getProgress(m.id)
-                
+
                 // Construct file URI safely
                 val file = File(m.filePath)
                 val uri = Uri.fromFile(file)
-                
+
                 player.setMediaItem(MediaItem.fromUri(uri))
                 player.prepare()
                 progress?.let {
@@ -83,6 +83,11 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun hideOsd() {
+        osdTimerJob?.cancel()
+        _isOsdVisible.value = false
+    }
+
     fun showOsdBriefly() {
         _isOsdVisible.value = true
         resetOsdTimer()
@@ -97,12 +102,13 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun seekForward() {
-        player.seekTo(player.currentPosition + 10000)
+        val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        player.seekTo((player.currentPosition + 10000).coerceAtMost(duration))
         showOsdBriefly()
     }
 
     fun seekBackward() {
-        player.seekTo(player.currentPosition - 10000)
+        player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
         showOsdBriefly()
     }
 

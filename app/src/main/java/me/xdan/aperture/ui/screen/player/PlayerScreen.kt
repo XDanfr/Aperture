@@ -1,9 +1,10 @@
 package me.xdan.aperture.ui.screen.player
 
-import android.net.Uri
 import android.view.KeyEvent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.*
@@ -22,19 +24,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
-import androidx.media3.ui.PlayerView
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.PlayerSurface
 import androidx.tv.material3.*
 import me.xdan.aperture.data.local.entity.MediaEntity
-import java.io.File
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, UnstableApi::class)
 @Composable
 fun PlayerScreen(
     mediaId: Long,
@@ -45,6 +48,9 @@ fun PlayerScreen(
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     val player = viewModel.player
+    val playerFocusRequester = remember { FocusRequester() }
+    val controlsFocusRequester = remember { FocusRequester() }
+    val quickMenuFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(mediaId) {
         viewModel.loadMedia(mediaId)
@@ -56,66 +62,80 @@ fun PlayerScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        playerFocusRequester.requestFocus()
+    }
+
+    LaunchedEffect(isOsdVisible, isQuickMenuVisible) {
+        if (isOsdVisible && !isQuickMenuVisible) {
+            controlsFocusRequester.requestFocus()
+        } else if (isQuickMenuVisible) {
+            quickMenuFocusRequester.requestFocus()
+        } else {
+            playerFocusRequester.requestFocus()
+        }
+    }
+
+    BackHandler {
+        when {
+            isQuickMenuVisible -> isQuickMenuVisible = false
+            isOsdVisible -> viewModel.toggleOsd()
+            else -> {
+                if (player.isPlaying) player.pause()
+                onBack()
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .onKeyEvent { keyEvent ->
+            .onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    if (!isQuickMenuVisible && keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
+                    if (isOsdVisible && !isQuickMenuVisible &&
+                        keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK
+                    ) {
                         viewModel.showOsdBriefly()
                     }
                     when (keyEvent.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                            if (!isQuickMenuVisible) {
-                                viewModel.toggleOsd()
-                            }
-                            true
+                            if (!isOsdVisible && !isQuickMenuVisible) {
+                                viewModel.showOsdBriefly()
+                                true
+                            } else false
                         }
                         KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (!isQuickMenuVisible) {
+                            if (!isQuickMenuVisible && !isOsdVisible) {
                                 viewModel.seekBackward()
-                            }
-                            true
+                                true
+                            } else false
                         }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (!isQuickMenuVisible) {
+                            if (!isQuickMenuVisible && !isOsdVisible) {
                                 viewModel.seekForward()
-                            }
-                            true
+                                true
+                            } else false
                         }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            if (!isQuickMenuVisible) {
-                                isQuickMenuVisible = true
+                        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (!isQuickMenuVisible && !isOsdVisible) {
+                                viewModel.showOsdBriefly()
                                 true
                             } else false
                         }
                         KeyEvent.KEYCODE_BACK -> {
-                            if (isQuickMenuVisible) {
-                                isQuickMenuVisible = false
-                                true
-                            } else {
-                                if (player.isPlaying) {
-                                    player.pause()
-                                }
-                                onBack()
-                                true
-                            }
+                            // BackHandler owns the layered close behaviour.
+                            false
                         }
                         else -> false
                     }
                 } else false
             }
+            .focusRequester(playerFocusRequester)
+            .focusable()
     ) {
-        AndroidView(
-            factory = { context ->
-                PlayerView(context).apply {
-                    this.player = player
-                    useController = false
-                    // Set surface type to ensure compatibility
-                    // (Default is SurfaceView, which is usually best, but TextureView can sometimes fix 'green screen' issues if there are z-order problems)
-                }
-            },
+        PlayerSurface(
+            player = player,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -127,19 +147,26 @@ fun PlayerScreen(
         ) {
             PlayerOsd(
                 media = media,
-                player = player
+                player = player,
+                controlsFocusRequester = controlsFocusRequester,
+                onInteraction = viewModel::showOsdBriefly,
+                onQuickMenu = {
+                    isQuickMenuVisible = true
+                    viewModel.toggleOsd()
+                }
             )
         }
 
         // Quick Menu
         AnimatedVisibility(
             visible = isQuickMenuVisible,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
+            enter = slideInVertically { it / 2 } + fadeIn(),
+            exit = slideOutVertically { it / 2 } + fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             QuickMenu(
-                player = player
+                player = player,
+                focusRequester = quickMenuFocusRequester
             )
         }
     }
@@ -147,16 +174,20 @@ fun PlayerScreen(
 
 @Composable
 private fun QuickMenu(
-    player: androidx.media3.common.Player
+    player: androidx.media3.common.Player,
+    focusRequester: FocusRequester
 ) {
     val tracks = player.currentTracks
-    
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(350.dp),
-        colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.9f)),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            .fillMaxHeight(0.46f)
+            .padding(horizontal = 32.dp, vertical = 20.dp)
+            .focusRequester(focusRequester)
+            .focusable(),
+        colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+        shape = RoundedCornerShape(32.dp)
     ) {
         Row(
             modifier = Modifier
@@ -180,7 +211,7 @@ private fun QuickMenu(
                         .build()
                 }
             )
-            
+
             QuickMenuColumn(
                 title = "Subtitles",
                 icon = Icons.Rounded.Subtitles,
@@ -233,13 +264,13 @@ private fun RowScope.QuickMenuColumn(
             items(items) { item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
-                
+
                 Surface(
-                    onClick = { 
+                    onClick = {
                         if (item is TrackItem) onItemSelected(item.group, item.index)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                     )
@@ -277,7 +308,10 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
 @Composable
 private fun PlayerOsd(
     media: MediaEntity?,
-    player: androidx.media3.common.Player
+    player: androidx.media3.common.Player,
+    controlsFocusRequester: FocusRequester,
+    onInteraction: () -> Unit,
+    onQuickMenu: () -> Unit
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
@@ -339,29 +373,81 @@ private fun PlayerOsd(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { player.seekTo(player.currentPosition - 10000) }) {
-                    Icon(Icons.Rounded.FastRewind, contentDescription = "Rewind", tint = Color.White, modifier = Modifier.size(48.dp))
-                }
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.FastRewind,
+                    contentDescription = "Rewind",
+                    onClick = {
+                        player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                        onInteraction()
+                    }
+                )
                 Spacer(modifier = Modifier.width(32.dp))
-                IconButton(onClick = { if (isPlaying) player.pause() else player.play() }) {
-                    Icon(
-                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
+                PlayerControlIconButton(
+                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    iconSize = 64.dp,
+                    onClick = {
+                        if (isPlaying) player.pause() else player.play()
+                        onInteraction()
+                    },
+                    modifier = Modifier.focusRequester(controlsFocusRequester)
+                )
                 Spacer(modifier = Modifier.width(32.dp))
-                IconButton(onClick = { player.seekTo(player.currentPosition + 10000) }) {
-                    Icon(Icons.Rounded.FastForward, contentDescription = "Fast Forward", tint = Color.White, modifier = Modifier.size(48.dp))
-                }
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.FastForward,
+                    contentDescription = "Fast Forward",
+                    onClick = {
+                        val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                        player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
+                        onInteraction()
+                    }
+                )
+                Spacer(modifier = Modifier.width(32.dp))
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.MoreVert,
+                    contentDescription = "Audio and subtitle options",
+                    onClick = onQuickMenu
+                )
             }
         }
     }
 }
 
+@Composable
+private fun PlayerControlIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 48.dp
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier,
+        colors = IconButtonDefaults.colors(
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = Color.Black,
+            pressedContainerColor = MaterialTheme.colorScheme.primary,
+            pressedContentColor = Color.Black
+        ),
+        scale = IconButtonDefaults.scale(
+            scale = 1f,
+            focusedScale = 1.12f,
+            pressedScale = 0.84f
+        )
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
+
 private fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
+    val totalSeconds = ms.coerceAtLeast(0) / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60

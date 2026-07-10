@@ -16,7 +16,7 @@ val localProps = Properties().also { props ->
 android {
     namespace = "me.xdan.aperture"
     compileSdk = 37
-    
+
     defaultConfig {
         applicationId = "me.xdan.aperture"
         minSdk = 26
@@ -25,7 +25,7 @@ android {
         versionName = "v0.1.7-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
+
         val tmdbApiKey = localProps.getProperty("TMDB_API_KEY") ?: ""
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
     }
@@ -75,7 +75,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.session)
     implementation(libs.coil.compose)
     implementation(libs.converter.moshi)
