@@ -13,7 +13,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -31,7 +33,10 @@ import me.xdan.aperture.ui.theme.HeroGradientStart
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onMediaClick: (Long, FocusRequester) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -53,7 +58,13 @@ fun HomeScreen(
                 }
             }
             is HomeState.Success -> {
-                HomeContent(s, onMediaClick)
+                HomeContent(
+                    state = s,
+                    onMediaClick = onMediaClick,
+                    drawerFocusRequester = drawerFocusRequester,
+                    contentEntryFocusRequester = contentEntryFocusRequester,
+                    onContentFocused = onContentFocused
+                )
             }
         }
     }
@@ -63,7 +74,10 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     state: HomeState.Success,
-    onMediaClick: (Long, FocusRequester) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -73,10 +87,16 @@ private fun HomeContent(
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item {
-            FeaturedCarousel(state.featured, onMediaClick)
+            FeaturedCarousel(
+                featured = state.featured,
+                onMediaClick = onMediaClick,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                onContentFocused = onContentFocused
+            )
         }
         items(state.rows) { row ->
-            HomeMediaRow(row, onMediaClick, state.progressMap)
+            HomeMediaRow(row, onMediaClick, state.progressMap, drawerFocusRequester, onContentFocused)
         }
     }
 }
@@ -85,7 +105,10 @@ private fun HomeContent(
 @Composable
 private fun FeaturedCarousel(
     featured: List<MediaEntity>,
-    onMediaClick: (Long, FocusRequester) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     if (featured.isEmpty()) return
 
@@ -97,7 +120,6 @@ private fun FeaturedCarousel(
             .padding(16.dp)
     ) { index ->
         val media = featured[index]
-        val focusRequester = remember(media.id) { FocusRequester() }
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -131,8 +153,17 @@ private fun FeaturedCarousel(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { onMediaClick(media.id, focusRequester) },
-                    modifier = Modifier.focusRequester(focusRequester)
+                    onClick = { onMediaClick(media.id, contentEntryFocusRequester) },
+                    modifier = Modifier
+                        .then(
+                            if (drawerFocusRequester != null) {
+                                Modifier.focusProperties { left = drawerFocusRequester }
+                            } else Modifier
+                        )
+                        .focusRequester(contentEntryFocusRequester)
+                        .onFocusChanged {
+                            if (it.isFocused) onContentFocused(contentEntryFocusRequester)
+                        }
                 ) {
                     Text("Watch Now")
                 }
@@ -145,7 +176,9 @@ private fun FeaturedCarousel(
 private fun HomeMediaRow(
     row: HomeRow,
     onMediaClick: (Long, FocusRequester) -> Unit,
-    progressMap: Map<Long, Float> = emptyMap()
+    progressMap: Map<Long, Float> = emptyMap(),
+    drawerFocusRequester: FocusRequester?,
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     if (row.items.isEmpty()) return
 
@@ -168,7 +201,9 @@ private fun HomeMediaRow(
                     media = media,
                     onClick = { requester -> onMediaClick(media.id, requester) },
                     modifier = Modifier.width(150.dp),
-                    progress = progressMap[media.id] ?: 0f
+                    progress = progressMap[media.id] ?: 0f,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = onContentFocused
                 )
             }
         }

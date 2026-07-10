@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,23 @@ fun NavGraph(
 
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
     var lastFocusedMediaRequester by remember { mutableStateOf<FocusRequester?>(null) }
+    val homeDrawerRequester = remember { FocusRequester() }
+    val searchDrawerRequester = remember { FocusRequester() }
+    val moviesDrawerRequester = remember { FocusRequester() }
+    val showsDrawerRequester = remember { FocusRequester() }
+    val myListDrawerRequester = remember { FocusRequester() }
+    val settingsDrawerRequester = remember { FocusRequester() }
+    val homeContentEntryRequester = remember { FocusRequester() }
+    val searchContentEntryRequester = remember { FocusRequester() }
+    val currentDrawerRequester = when (currentDestination) {
+        is Destination.Home -> homeDrawerRequester
+        is Destination.Search -> searchDrawerRequester
+        is Destination.Movies -> moviesDrawerRequester
+        is Destination.Shows -> showsDrawerRequester
+        is Destination.MyList -> myListDrawerRequester
+        is Destination.Settings -> settingsDrawerRequester
+        else -> null
+    }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
 
     if (isOnboardingCompleted == null) {
@@ -81,42 +100,82 @@ fun NavGraph(
 
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Home,
-                                onClick = { onNavigate(Destination.Home) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.Home)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(homeDrawerRequester)
+                                    .focusProperties {
+                                        right = lastFocusedMediaRequester ?: homeContentEntryRequester
+                                    },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
                             ) {
                                 Text("Home")
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Search,
-                                onClick = { onNavigate(Destination.Search) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.Search)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(searchDrawerRequester)
+                                    .focusProperties {
+                                        right = lastFocusedMediaRequester ?: searchContentEntryRequester
+                                    },
                                 leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
                             ) {
                                 Text("Search")
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Movies,
-                                onClick = { onNavigate(Destination.Movies) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.Movies)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(moviesDrawerRequester)
+                                    .focusProperties { right = lastFocusedMediaRequester ?: FocusRequester.Default },
                                 leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
                             ) {
                                 Text("Movies")
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Shows,
-                                onClick = { onNavigate(Destination.Shows) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.Shows)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(showsDrawerRequester)
+                                    .focusProperties { right = lastFocusedMediaRequester ?: FocusRequester.Default },
                                 leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
                             ) {
                                 Text("Shows")
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.MyList,
-                                onClick = { onNavigate(Destination.MyList) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.MyList)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(myListDrawerRequester)
+                                    .focusProperties { right = lastFocusedMediaRequester ?: FocusRequester.Default },
                                 leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
                             ) {
                                 Text("My List")
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Settings,
-                                onClick = { onNavigate(Destination.Settings) },
+                                onClick = {
+                                    lastFocusedMediaRequester = null
+                                    onNavigate(Destination.Settings)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(settingsDrawerRequester)
+                                    .focusProperties { right = lastFocusedMediaRequester ?: FocusRequester.Default },
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
                             ) {
                                 Text("Settings")
@@ -124,16 +183,34 @@ fun NavGraph(
                         }
                     }
                 ) {
-                    NavContent(backstack, onNavigate, onMediaClick = { mediaId, requester ->
-                        lastFocusedMediaRequester = requester
-                        selectedMediaId = mediaId
-                    })
+                    NavContent(
+                        backstack = backstack,
+                        onNavigate = onNavigate,
+                        drawerFocusRequester = currentDrawerRequester,
+                        contentEntryFocusRequester = when (currentDestination) {
+                            is Destination.Home -> homeContentEntryRequester
+                            is Destination.Search -> searchContentEntryRequester
+                            else -> FocusRequester.Default
+                        },
+                        onContentFocused = { lastFocusedMediaRequester = it },
+                        onMediaClick = { mediaId, requester ->
+                            lastFocusedMediaRequester = requester
+                            selectedMediaId = mediaId
+                        }
+                    )
                 }
             } else {
-                NavContent(backstack, onNavigate, onMediaClick = { mediaId, requester ->
-                    lastFocusedMediaRequester = requester
-                    selectedMediaId = mediaId
-                })
+                NavContent(
+                    backstack = backstack,
+                    onNavigate = onNavigate,
+                    drawerFocusRequester = null,
+                    contentEntryFocusRequester = FocusRequester.Default,
+                    onContentFocused = { lastFocusedMediaRequester = it },
+                    onMediaClick = { mediaId, requester ->
+                        lastFocusedMediaRequester = requester
+                        selectedMediaId = mediaId
+                    }
+                )
             }
 
             MediaDetailsModal(
@@ -158,7 +235,10 @@ fun NavGraph(
 private fun NavContent(
     backstack: NavBackStack<Destination>,
     onNavigate: (Destination) -> Unit,
-    onMediaClick: (Long, FocusRequester) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     NavDisplay(
         backStack = backstack
@@ -167,11 +247,17 @@ private fun NavContent(
             when (destination) {
                 is Destination.Home -> HomeScreen(
                     viewModel = viewModel(),
-                    onMediaClick = onMediaClick
+                    onMediaClick = onMediaClick,
+                    drawerFocusRequester = drawerFocusRequester,
+                    contentEntryFocusRequester = contentEntryFocusRequester,
+                    onContentFocused = onContentFocused
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),
-                    onMediaClick = onMediaClick
+                    onMediaClick = onMediaClick,
+                    drawerFocusRequester = drawerFocusRequester,
+                    contentEntryFocusRequester = contentEntryFocusRequester,
+                    onContentFocused = onContentFocused
                 )
                 is Destination.MyList -> Box(modifier = Modifier.fillMaxSize()) {
                     Text("My List - Coming Soon", modifier = Modifier.padding(32.dp))

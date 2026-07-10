@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -33,7 +34,9 @@ fun MediaCard(
     onClick: (FocusRequester) -> Unit,
     modifier: Modifier = Modifier,
     aspectRatio: Float = 2f / 3f,
-    progress: Float = 0f
+    progress: Float = 0f,
+    drawerFocusRequester: FocusRequester? = null,
+    onFocused: (FocusRequester) -> Unit = {}
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -58,8 +61,18 @@ fun MediaCard(
             pressedScale = 1f
         ),
         modifier = modifier
+            .then(
+                if (drawerFocusRequester != null) {
+                    Modifier.focusProperties { left = drawerFocusRequester }
+                } else {
+                    Modifier
+                }
+            )
             .focusRequester(focusRequester)
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused(focusRequester)
+            }
             .scale(animatedScale)
             .aspectRatio(aspectRatio)
             .padding(4.dp),
