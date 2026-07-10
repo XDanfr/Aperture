@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.png" width="96" height="96" alt="Aperture Logo" />
+  <img src="aperture.png" width="96" height="96" alt="Aperture Logo" />
 </p>
 
 <h1 align="center">Aperture</h1>
