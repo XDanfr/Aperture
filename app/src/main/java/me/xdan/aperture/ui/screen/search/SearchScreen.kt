@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
@@ -16,7 +17,7 @@ import me.xdan.aperture.ui.component.MediaCard
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
@@ -46,9 +47,9 @@ fun SearchScreen(
                 }
             )
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
             contentPadding = PaddingValues(8.dp),
@@ -59,10 +60,10 @@ fun SearchScreen(
             items(results) { media ->
                 MediaCard(
                     media = media,
-                    onClick = { onMediaClick(media.id) },
+                    onClick = { requester -> onMediaClick(media.id, requester) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
     }
-}
+} // blehhh 69

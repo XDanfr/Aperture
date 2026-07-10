@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -36,9 +37,9 @@ fun NavGraph(
 ) {
     val currentDestination = backstack.last()
     val showDrawer = currentDestination !is Destination.Player
-    
+
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
-    var lastFocusedMediaId by remember { mutableStateOf<Long?>(null) }
+    var lastFocusedMediaRequester by remember { mutableStateOf<FocusRequester?>(null) }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
 
     if (isOnboardingCompleted == null) {
@@ -123,33 +124,32 @@ fun NavGraph(
                         }
                     }
                 ) {
-                    NavContent(backstack, onNavigate, onMediaClick = { mediaId ->
-                        lastFocusedMediaId = mediaId
+                    NavContent(backstack, onNavigate, onMediaClick = { mediaId, requester ->
+                        lastFocusedMediaRequester = requester
                         selectedMediaId = mediaId
                     })
                 }
             } else {
-                NavContent(backstack, onNavigate, onMediaClick = { mediaId ->
-                    lastFocusedMediaId = mediaId
+                NavContent(backstack, onNavigate, onMediaClick = { mediaId, requester ->
+                    lastFocusedMediaRequester = requester
                     selectedMediaId = mediaId
                 })
             }
 
-            selectedMediaId?.let { mediaId ->
-                MediaDetailsModal(
-                    mediaId = mediaId,
-                    viewModel = viewModel(),
-                    onPlay = { 
-                        selectedMediaId = null
-                        onNavigate(Destination.Player(it))
-                    },
-                    onClose = { selectedMediaId = null },
-                    restoreFocus = {
-                        // Focus will be restored by the MediaCard component when it regains focus
-                        lastFocusedMediaId = null
+            MediaDetailsModal(
+                mediaId = selectedMediaId,
+                viewModel = viewModel(),
+                onPlay = {
+                    selectedMediaId = null
+                    onNavigate(Destination.Player(it))
+                },
+                onClose = { selectedMediaId = null },
+                restoreFocus = {
+                    lastFocusedMediaRequester?.let { requester ->
+                        runCatching { requester.requestFocus() }
                     }
-                )
-            }
+                }
+            )
         }
     }
 }
@@ -158,7 +158,7 @@ fun NavGraph(
 private fun NavContent(
     backstack: NavBackStack<Destination>,
     onNavigate: (Destination) -> Unit,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit
 ) {
     NavDisplay(
         backStack = backstack

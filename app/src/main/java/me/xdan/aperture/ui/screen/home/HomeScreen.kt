@@ -9,8 +9,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -28,7 +31,7 @@ import me.xdan.aperture.ui.theme.HeroGradientStart
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -60,10 +63,10 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     state: HomeState.Success,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit
 ) {
     val listState = rememberLazyListState()
-    
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
@@ -82,7 +85,7 @@ private fun HomeContent(
 @Composable
 private fun FeaturedCarousel(
     featured: List<MediaEntity>,
-    onMediaClick: (Long) -> Unit
+    onMediaClick: (Long, FocusRequester) -> Unit
 ) {
     if (featured.isEmpty()) return
 
@@ -94,6 +97,7 @@ private fun FeaturedCarousel(
             .padding(16.dp)
     ) { index ->
         val media = featured[index]
+        val focusRequester = remember(media.id) { FocusRequester() }
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -126,7 +130,10 @@ private fun FeaturedCarousel(
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { onMediaClick(media.id) }) {
+                Button(
+                    onClick = { onMediaClick(media.id, focusRequester) },
+                    modifier = Modifier.focusRequester(focusRequester)
+                ) {
                     Text("Watch Now")
                 }
             }
@@ -137,7 +144,7 @@ private fun FeaturedCarousel(
 @Composable
 private fun HomeMediaRow(
     row: HomeRow,
-    onMediaClick: (Long) -> Unit,
+    onMediaClick: (Long, FocusRequester) -> Unit,
     progressMap: Map<Long, Float> = emptyMap()
 ) {
     if (row.items.isEmpty()) return
@@ -159,7 +166,7 @@ private fun HomeMediaRow(
             items(row.items) { media ->
                 MediaCard(
                     media = media,
-                    onClick = { onMediaClick(media.id) },
+                    onClick = { requester -> onMediaClick(media.id, requester) },
                     modifier = Modifier.width(150.dp),
                     progress = progressMap[media.id] ?: 0f
                 )

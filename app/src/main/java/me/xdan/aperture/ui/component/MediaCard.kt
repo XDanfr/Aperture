@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -28,12 +30,13 @@ import me.xdan.aperture.data.remote.api.TmdbApi
 @Composable
 fun MediaCard(
     media: MediaEntity,
-    onClick: () -> Unit,
+    onClick: (FocusRequester) -> Unit,
     modifier: Modifier = Modifier,
     aspectRatio: Float = 2f / 3f,
     progress: Float = 0f
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -48,13 +51,14 @@ fun MediaCard(
     )
 
     Surface(
-        onClick = onClick,
+        onClick = { onClick(focusRequester) },
         interactionSource = interactionSource,
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1f, // Handled by modifier below
             pressedScale = 1f
         ),
         modifier = modifier
+            .focusRequester(focusRequester)
             .onFocusChanged { isFocused = it.isFocused }
             .scale(animatedScale)
             .aspectRatio(aspectRatio)
