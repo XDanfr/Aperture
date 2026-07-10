@@ -65,21 +65,11 @@ fun OnboardingScreen(
                     modifier = Modifier.padding(48.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_square_logo),
+                        painter = painterResource(id = R.drawable.ic_banner_foreground),
                         contentDescription = null,
-                        modifier = Modifier.size(100.dp),
+                        modifier = Modifier.size(300.dp),
                         tint = Color.Unspecified
                     )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Text(
-                        text = "Aperture TV",
-                        style = MaterialTheme.typography.displaySmall,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
                         text = "We need access to your local storage to find and play your movie collection.",

@@ -65,7 +65,7 @@ fun NavGraph(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    painter = androidx.compose.ui.res.painterResource(id = me.xdan.aperture.R.drawable.ic_square_logo),
+                                    painter = androidx.compose.ui.res.painterResource(id = me.xdan.aperture.R.mipmap.ic_launcher_foreground),
                                     contentDescription = null,
                                     modifier = Modifier.size(40.dp),
                                     tint = Color.Unspecified
