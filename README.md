@@ -78,6 +78,7 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 * **UI Framework:** [Jetpack Compose for TV](https://developer.android.com/training/tv/playback/compose)
 * **Media Engine:** [Media3 / ExoPlayer](https://developer.android.com/media/media3)
 * **Theming:** Material 3
+* **Website Components:** [matraic/m3e](https://github.com/matraic/m3e)
 
 ## 🤝 Contributing
 
