@@ -53,7 +53,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Progress Indicators**
 - [ ] **My List**
 - [ ] **Movies and TV Shows sorted separately**
-- [ ] **Dynamic Theming**: True Material 3 dynamic colouring based on active media artwork
+- [ ] **Dynamic Theming**: based on active media artwork, or via custom theme selection in settings.
 
 ## 🚀 Getting Started
 
