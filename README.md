@@ -58,7 +58,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Optionally selecting Assets manually**
 - [X] **Update Checking**
 - [ ] **Press Back to Sidebar Navigation**: Right or OK on the selected destination should return to the previous content position.
-- [ ] **Proper Show and Episode Detection**: Support for more file names and types. Always improving.
+- [X] **Proper Show and Episode Detection**: Support for more file names and types. Always improving.
 - [ ] **Better Movie Detection**: Improve TMDb matching for sequels, years and similarly named films.
 - [ ] **Manual Title Correction**
 
