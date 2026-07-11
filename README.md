@@ -15,6 +15,11 @@
 
 ---
 
+## What you'll need
+* Your own library of local media under `Movies` and `TV Shows` directories in local or extended storage (`Download`, `DCIM` and `Videos` are also supported.)
+* Clear file names representing movie titles
+* Clear folder structure (e.g. `Show/Season/SXXEXX.mp4`) for TV Shows
+
 ## 📸 Screenshots
 
 <p align="center">
