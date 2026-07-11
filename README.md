@@ -53,6 +53,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Progress Indicators**
 - [ ] **My List**
 - [ ] **Movies and TV Shows sorted separately**
+- [ ] **TV Show Season and Episode grouping**
 - [ ] **Dynamic Theming**: based on active media artwork, or via custom theme selection in settings.
 - [ ] **Update Checking**
 
