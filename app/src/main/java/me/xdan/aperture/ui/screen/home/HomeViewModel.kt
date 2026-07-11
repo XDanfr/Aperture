@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import kotlin.random.Random
 import javax.inject.Inject
 
 @HiltViewModel
@@ -63,9 +64,12 @@ class HomeViewModel @Inject constructor(
                     }
                     val spotlightPool = spotlightCandidates.ifEmpty { mediaList }
                     val lastWatched = continueWatching.firstOrNull()
+                    val suggestionSeed = mediaList.fold(generation * 31 + 17) { seed, media ->
+                        seed * 31 + media.id.hashCode()
+                    }
                     val remainingSpotlight = spotlightPool
                         .filterNot { it.id == lastWatched?.id }
-                        .shuffled()
+                        .shuffled(Random(suggestionSeed xor SPOTLIGHT_SEED_SALT))
                     val featured = buildList {
                         if (lastWatched != null) add(lastWatched)
                         addAll(remainingSpotlight.take((5 - size).coerceAtLeast(0)))
@@ -78,8 +82,10 @@ class HomeViewModel @Inject constructor(
                                 add(HomeRow("Continue Watching", continueWatching))
                             }
                             add(HomeRow("Recently Added", mediaList))
-                            add(HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }.shuffled()))
-                            add(HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }.shuffled()))
+                            add(HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }
+                                .shuffled(Random(suggestionSeed xor MOVIES_SEED_SALT))))
+                            add(HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }
+                                .shuffled(Random(suggestionSeed xor SHOWS_SEED_SALT))))
                         },
                         progressMap = progressList.associate { 
                             it.mediaId to (if (it.duration > 0) it.position.toFloat() / it.duration else 0f)
@@ -106,6 +112,9 @@ class HomeViewModel @Inject constructor(
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L
 private const val RESUME_THRESHOLD = 0.05
 private const val COMPLETION_THRESHOLD = 0.95
+private const val SPOTLIGHT_SEED_SALT = 0x5F3759DF
+private const val MOVIES_SEED_SALT = 0x13579BDF
+private const val SHOWS_SEED_SALT = 0x02468ACE
 
 sealed interface HomeState {
     data object Loading : HomeState

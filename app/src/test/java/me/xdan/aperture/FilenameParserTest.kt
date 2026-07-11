@@ -54,4 +54,12 @@ class FilenameParserTest {
         assertEquals("Five Nights at Freddy's 2", result.title)
         assertEquals(2025, result.year)
     }
+
+    @Test
+    fun removesParenthesisedReleaseYearFromTitle() {
+        val result = FilenameParser.parse("Five.Nights.At.Freddys.2 (2025).mp4")
+
+        assertEquals("Five Nights At Freddys 2", result.title)
+        assertEquals(2025, result.year)
+    }
 }

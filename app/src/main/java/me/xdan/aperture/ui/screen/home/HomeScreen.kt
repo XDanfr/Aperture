@@ -48,8 +48,7 @@ fun HomeScreen(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit,
-    onSpotlightChanged: () -> Unit = {}
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -71,9 +70,6 @@ fun HomeScreen(
                 }
             }
             is HomeState.Success -> {
-                LaunchedEffect(s.featured.map { it.id }) {
-                    onSpotlightChanged()
-                }
                 HomeContent(
                     state = s,
                     onMediaClick = onMediaClick,
@@ -190,7 +186,11 @@ private fun FeaturedCarousel(
         if (focusActiveSpotlight) {
             delay(16)
             runCatching {
-                spotlightRequesters[carouselState.activeItemIndex].requestFocus()
+                if (isContentEntry) {
+                    contentEntryFocusRequester.requestFocus()
+                } else {
+                    spotlightRequesters[carouselState.activeItemIndex].requestFocus()
+                }
             }
         }
     }
@@ -202,17 +202,19 @@ private fun FeaturedCarousel(
             .fillMaxWidth()
             .height(400.dp)
             .padding(16.dp)
-            .then(
-                if (isContentEntry) Modifier.focusRequester(contentEntryFocusRequester)
-                else Modifier
-            )
             .onFocusChanged { focusState ->
-                focusActiveSpotlight = focusState.isFocused
+                focusActiveSpotlight = focusState.hasFocus
             }
     ) { index ->
         val media = featured[index]
         var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
-        val watchNowFocusRequester = spotlightRequesters[index]
+        val watchNowFocusRequester = if (
+            isContentEntry && index == carouselState.activeItemIndex
+        ) {
+            contentEntryFocusRequester
+        } else {
+            spotlightRequesters[index]
+        }
         Box(modifier = Modifier.fillMaxSize()) {
             if (media.backdropPath.isNullOrBlank()) {
                 ArtworkFallback(
@@ -309,8 +311,10 @@ private fun HomeMediaRow(
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
         LazyRow(
+            modifier = Modifier.height(250.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             itemsIndexed(row.items) { index, media ->
                 val focusKey = "row:${row.title}:${media.id}"

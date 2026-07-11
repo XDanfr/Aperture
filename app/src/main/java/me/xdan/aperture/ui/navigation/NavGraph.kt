@@ -110,6 +110,10 @@ fun NavGraph(
             lastFocusedRequesters.remove("settings")
             settingsRestoreFocusKey = null
         }
+        if (destination is Destination.Home) {
+            lastFocusedRequesters.remove("home")
+            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+        }
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
         if (destination !is Destination.Home) backstack.add(destination)
     }
@@ -232,8 +236,11 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(homeDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["home"]
-                                            ?: homeContentEntryRequester
+                                        right = if (homeRestoreFocusKey?.startsWith("row:") == true) {
+                                            lastFocusedRequesters["home"] ?: homeContentEntryRequester
+                                        } else {
+                                            homeContentEntryRequester
+                                        }
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
                             ) {
@@ -315,10 +322,6 @@ fun NavGraph(
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
-                        onSpotlightChanged = {
-                            lastFocusedRequesters.remove("home")
-                            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                        },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
@@ -348,10 +351,6 @@ fun NavGraph(
                     onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
-                    onSpotlightChanged = {
-                        lastFocusedRequesters.remove("home")
-                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                    },
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
@@ -485,8 +484,7 @@ private fun NavContent(
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
-    onContentFocused: (String, FocusRequester) -> Unit,
-    onSpotlightChanged: () -> Unit
+    onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
         backStack = backstack
@@ -515,8 +513,7 @@ private fun NavContent(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = homeRestoreFocusKey,
                     onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused,
-                    onSpotlightChanged = onSpotlightChanged
+                    onContentFocused = contentFocused
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),

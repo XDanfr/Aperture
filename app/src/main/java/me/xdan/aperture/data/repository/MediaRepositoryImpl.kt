@@ -24,6 +24,8 @@ import me.xdan.aperture.util.FilenameParser
 import me.xdan.aperture.util.MediaScanner
 import me.xdan.aperture.data.remote.dto.TmdbResult
 import retrofit2.HttpException
+import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 
 class MediaRepositoryImpl @Inject constructor(
@@ -221,8 +223,9 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun searchMetadataCandidates(media: MediaEntity): List<TmdbResult> =
         withContext(Dispatchers.IO) {
-            searchWithRetry(media).results
-                .sortedByDescending { metadataMatchScore(media, it) }
+            val lookupMedia = mediaForMetadataLookup(media)
+            searchWithRetry(lookupMedia).results
+                .sortedByDescending { metadataMatchScore(lookupMedia, it) }
                 .take(20)
         }
 
@@ -248,9 +251,10 @@ class MediaRepositoryImpl @Inject constructor(
         check(BuildConfig.TMDB_API_KEY.isNotBlank()) { "TMDB API key is not configured" }
 
         onProgress(0.3f)
-        val response = searchWithRetry(media)
+        val lookupMedia = mediaForMetadataLookup(media)
+        val response = searchWithRetry(lookupMedia)
         onProgress(0.75f)
-        val result = response.results.maxByOrNull { metadataMatchScore(media, it) }
+        val result = response.results.maxByOrNull { metadataMatchScore(lookupMedia, it) }
         val updatedMedia = if (result == null) {
             media.copy(metadataAttemptedAt = System.currentTimeMillis())
         } else {
@@ -268,18 +272,37 @@ class MediaRepositoryImpl @Inject constructor(
         return updatedMedia
     }
 
+    private fun mediaForMetadataLookup(media: MediaEntity): MediaEntity {
+        val parsed = runCatching {
+            FilenameParser.parse(File(media.filePath).name, media.filePath)
+        }.getOrNull() ?: return media
+        return media.copy(
+            title = parsed.title.ifBlank { media.title },
+            year = parsed.year ?: media.year,
+            type = if (parsed.season != null) "EPISODE" else media.type
+        )
+    }
+
     private suspend fun searchWithRetry(media: MediaEntity): me.xdan.aperture.data.remote.dto.TmdbSearchResponse {
-        repeat(MAX_METADATA_ATTEMPTS - 1) { attempt ->
+        var lastFailure: Exception? = null
+        repeat(MAX_METADATA_ATTEMPTS) { attempt ->
             try {
                 return searchTmdb(media)
             } catch (exception: HttpException) {
-                if (exception.code() != 429) throw exception
-                val retryAfterSeconds = exception.response()?.headers()?.get("Retry-After")
+                val retryable = exception.code() == 429 || exception.code() in 500..599
+                if (!retryable || attempt == MAX_METADATA_ATTEMPTS - 1) throw exception
+                lastFailure = exception
+                val retryAfterMillis = exception.response()?.headers()?.get("Retry-After")
                     ?.toLongOrNull()
-                delay((retryAfterSeconds?.times(1_000L)) ?: (1_000L shl attempt))
+                    ?.times(1_000L)
+                delay(retryAfterMillis ?: (1_000L shl attempt))
+            } catch (exception: IOException) {
+                if (attempt == MAX_METADATA_ATTEMPTS - 1) throw exception
+                lastFailure = exception
+                delay(1_000L shl attempt)
             }
         }
-        return searchTmdb(media)
+        throw lastFailure ?: IOException("TMDB metadata request failed")
     }
 
     private suspend fun searchTmdb(media: MediaEntity) = if (media.type == "MOVIE") {
@@ -318,6 +341,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     private fun normaliseTitle(title: String): String = title
         .lowercase()
+        .replace(Regex("['’`´]"), "")
         .replace(NON_ALPHANUMERIC_REGEX, " ")
         .replace(MULTIPLE_SPACES_REGEX, " ")
         .trim()

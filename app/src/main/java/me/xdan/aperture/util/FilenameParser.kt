@@ -54,6 +54,8 @@ object FilenameParser {
         return title.replace(NOISE_REGEX, "")
             .replace(".", " ")
             .replace("_", " ")
+            .replace(Regex("[\\[\\]{}()]"), " ")
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
 
