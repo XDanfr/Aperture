@@ -30,9 +30,10 @@
 
 ## ✨ Features
 
-* **Material 3 UI** (Eventually, we plan to add dynamic colour support that adapts to your media thumbnails!)
+* **Material 3 UI**
 * **TV-Optimised Navigation**
 * **Media3 Powered**
+* **Custom themes**
 
 ## 🗺️ Roadmap
 
@@ -46,7 +47,8 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [X] **Hold-for-actions Context Menu** (https://github.com/XDanfr/Aperture/issues/1)
 - [X] **Movies and TV Shows sorted separately**
 - [X] **TV Show Season and Episode grouping**
-- [ ] **Dynamic Theming**: based on active media artwork, or via custom theme selection in settings.
+- [ ] **Dynamic Theming**: based on active media artwork
+- [X] **Custom Themes**
 - [ ] **Optionally selecting Assets manually**
 - [X] **Update Checking**
 
