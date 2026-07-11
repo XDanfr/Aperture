@@ -17,6 +17,7 @@ data class MediaEntity(
     val posterPath: String? = null,
     val backdropPath: String? = null,
     val overview: String? = null,
+    val metadataAttemptedAt: Long? = null,
     val type: String, // "MOVIE", "TV_SHOW", "EPISODE"
     val duration: Long? = null,
     val lastPlayedPosition: Long? = null,

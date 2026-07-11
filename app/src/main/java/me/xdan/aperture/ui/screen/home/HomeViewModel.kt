@@ -22,8 +22,6 @@ class HomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            repository.scanLocalFiles()
-            
             combine(
                 repository.getAllMedia(),
                 repository.getAllProgress()

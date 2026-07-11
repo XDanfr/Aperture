@@ -41,6 +41,7 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.theme.GlassBackground
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -134,91 +135,101 @@ fun MediaDetailsModal(
                                 .fillMaxSize()
                                 .padding(32.dp)
                         ) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(TmdbApi.IMAGE_BASE_URL + "w780" + m.backdropPath)
-                                    .crossfade(false)
-                                    .build(),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.Gray),
-                                contentScale = ContentScale.Crop
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            Text(
-                                text = m.title,
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            Text(
-                                text = if (m.year != null) "${m.year}" else "",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = m.overview ?: "No synopsis available.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 6
-                            )
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Button(
-                                    onClick = { onPlay(m.id) },
+                            if (m.backdropPath.isNullOrBlank()) {
+                                ArtworkFallback(
+                                    title = m.title,
+                                    isFocused = false,
                                     modifier = Modifier
-                                        .focusRequester(playButtonFocusRequester)
-                                        .onFocusChanged { focusState ->
-                                            if (focusState.isFocused) {
-                                                if (ignoreNextPlayFocus) {
-                                                    ignoreNextPlayFocus = false
-                                                } else {
-                                                    waitForLeftRelease = true
-                                                }
-                                            }
-                                        }
-                                        .onKeyEvent { keyEvent ->
-                                            if (keyEvent.key != Key.DirectionLeft) {
-                                                false
-                                            } else if (waitForLeftRelease) {
-                                                if (keyEvent.type == KeyEventType.KeyUp) {
-                                                    waitForLeftRelease = false
-                                                }
-                                                true
-                                            } else when (keyEvent.type) {
-                                                KeyEventType.KeyDown -> true
-                                                KeyEventType.KeyUp -> {
-                                                    closeModal()
-                                                    true
-                                                }
-                                                else -> false
-                                            }
-                                        }
-                                ) {
-                                    Icon(Icons.Rounded.PlayArrow, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Play")
-                                }
-
-                                OutlinedButton(
-                                    onClick = { /* TODO */ }
-                                ) {
-                                    Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("My List")
-                                }
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            } else {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(TmdbApi.IMAGE_BASE_URL + "w780" + m.backdropPath)
+                                        .crossfade(false)
+                                        .build(),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Text(
+                            text = m.title,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = if (m.year != null) "${m.year}" else "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = m.overview ?: "No synopsis available.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 6
+                        )
+                        
+                        Spacer(modifier = Modifier.weight(1f))
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Button(
+                                onClick = { onPlay(m.id) },
+                                modifier = Modifier
+                                    .focusRequester(playButtonFocusRequester)
+                                    .onFocusChanged { focusState ->
+                                        if (focusState.isFocused) {
+                                            if (ignoreNextPlayFocus) {
+                                                ignoreNextPlayFocus = false
+                                            } else {
+                                                waitForLeftRelease = true
+                                            }
+                                        }
+                                    }
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.key != Key.DirectionLeft) {
+                                            false
+                                        } else if (waitForLeftRelease) {
+                                            if (keyEvent.type == KeyEventType.KeyUp) {
+                                                waitForLeftRelease = false
+                                            }
+                                            true
+                                        } else when (keyEvent.type) {
+                                            KeyEventType.KeyDown -> true
+                                            KeyEventType.KeyUp -> {
+                                                closeModal()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    }
+                            ) {
+                                Icon(Icons.Rounded.PlayArrow, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Play")
+                            }
+                            
+                            OutlinedButton(
+                                onClick = { /* TODO */ }
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("My List")
+                            }
+                        }
                         }
                     }
                 }

@@ -39,7 +39,7 @@ fun NavGraph(
 ) {
     val currentDestination = backstack.last()
     val showDrawer = currentDestination !is Destination.Player
-
+    
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
     var lastFocusedMediaRequester by remember { mutableStateOf<FocusRequester?>(null) }
     val homeDrawerRequester = remember { FocusRequester() }
@@ -60,6 +60,7 @@ fun NavGraph(
         else -> null
     }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
+    val libraryPreparation by mainViewModel.libraryPreparation.collectAsState()
 
     if (isOnboardingCompleted == null) {
         // Loading state, show nothing or a splash screen
@@ -67,7 +68,12 @@ fun NavGraph(
             CircularProgressIndicator()
         }
     } else if (isOnboardingCompleted == false) {
-        OnboardingScreen(onComplete = { mainViewModel.completeOnboarding() })
+        OnboardingScreen(
+            progress = libraryPreparation,
+            onStartPreparation = mainViewModel::startLibraryPreparation,
+            onSkip = mainViewModel::completeOnboarding,
+            onComplete = mainViewModel::completeOnboarding
+        )
     } else {
         ProvideFocusMemory {
             if (showDrawer) {

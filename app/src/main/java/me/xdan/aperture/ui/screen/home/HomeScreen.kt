@@ -9,7 +9,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -27,6 +29,7 @@ import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.theme.HeroGradientEnd
 import me.xdan.aperture.ui.theme.HeroGradientStart
 
@@ -80,7 +83,7 @@ private fun HomeContent(
     onContentFocused: (FocusRequester) -> Unit
 ) {
     val listState = rememberLazyListState()
-
+    
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState,
@@ -120,16 +123,25 @@ private fun FeaturedCarousel(
             .padding(16.dp)
     ) { index ->
         val media = featured[index]
+        var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(TmdbApi.IMAGE_BASE_URL + "original" + (media.backdropPath ?: ""))
-                    .crossfade(false)
-                    .build(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (media.backdropPath.isNullOrBlank()) {
+                ArtworkFallback(
+                    title = media.title,
+                    isFocused = isWatchNowFocused,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(TmdbApi.IMAGE_BASE_URL + "original" + media.backdropPath)
+                        .crossfade(false)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -162,6 +174,7 @@ private fun FeaturedCarousel(
                         )
                         .focusRequester(contentEntryFocusRequester)
                         .onFocusChanged {
+                            isWatchNowFocused = it.isFocused
                             if (it.isFocused) onContentFocused(contentEntryFocusRequester)
                         }
                 ) {

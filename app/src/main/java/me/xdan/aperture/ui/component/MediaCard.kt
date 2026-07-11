@@ -85,15 +85,22 @@ fun MediaCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(TmdbApi.IMAGE_BASE_URL + "w500" + media.posterPath)
-                    .crossfade(false)
-                    .build(),
-                contentDescription = media.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (media.posterPath.isNullOrBlank()) {
+                ArtworkFallback(
+                    title = media.title,
+                    isFocused = isFocused
+                )
+            } else {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + media.posterPath)
+                        .crossfade(false)
+                        .build(),
+                    contentDescription = media.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
             if (progress > 0f) {
                 Box(
