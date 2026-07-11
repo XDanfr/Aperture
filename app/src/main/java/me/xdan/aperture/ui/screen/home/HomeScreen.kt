@@ -1,5 +1,7 @@
 package me.xdan.aperture.ui.screen.home
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ import me.xdan.aperture.ui.theme.HeroGradientStart
 fun HomeScreen(
     viewModel: HomeViewModel,
     onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
@@ -69,6 +73,7 @@ fun HomeScreen(
                 HomeContent(
                     state = s,
                     onMediaClick = onMediaClick,
+                    onMediaLongClick = onMediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = restoreFocusKey,
@@ -85,6 +90,7 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeState.Success,
     onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
@@ -92,6 +98,7 @@ private fun HomeContent(
     onContentFocused: (FocusRequester) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val refreshAlpha = remember { Animatable(1f) }
     val resolvedRestoreFocusKey = restoreFocusKey.takeIf { key ->
         key == HOME_SPOTLIGHT_FOCUS_KEY || state.rows.any { row ->
             row.items.any { media -> key == "row:${row.title}:${media.id}" }
@@ -108,9 +115,16 @@ private fun HomeContent(
             listState.scrollToItem(restoredRowIndex + 1)
         }
     }
+
+    LaunchedEffect(state.suggestionGeneration) {
+        if (state.suggestionGeneration > 0) {
+            refreshAlpha.snapTo(0.42f)
+            refreshAlpha.animateTo(1f, tween(320))
+        }
+    }
     
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = refreshAlpha.value },
         state = listState,
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
@@ -131,6 +145,7 @@ private fun HomeContent(
             HomeMediaRow(
                 row = row,
                 onMediaClick = onMediaClick,
+                onMediaLongClick = onMediaLongClick,
                 progressMap = state.progressMap,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
@@ -265,6 +280,7 @@ private fun FeaturedCarousel(
 private fun HomeMediaRow(
     row: HomeRow,
     onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     progressMap: Map<Long, Float> = emptyMap(),
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -302,6 +318,9 @@ private fun HomeMediaRow(
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)
+                    },
+                    onLongClick = { requester, opensToRight ->
+                        onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)
                     }
                 )
             }

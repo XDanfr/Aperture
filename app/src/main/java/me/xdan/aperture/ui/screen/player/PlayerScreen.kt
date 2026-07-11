@@ -460,9 +460,9 @@ private fun PlayerControlIconButton(
             containerColor = Color.Transparent,
             contentColor = Color.White,
             focusedContainerColor = MaterialTheme.colorScheme.primary,
-            focusedContentColor = Color.Black,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
             pressedContainerColor = MaterialTheme.colorScheme.primary,
-            pressedContentColor = Color.Black
+            pressedContentColor = MaterialTheme.colorScheme.onPrimary
         ),
         scale = IconButtonDefaults.scale(
             scale = 1f,

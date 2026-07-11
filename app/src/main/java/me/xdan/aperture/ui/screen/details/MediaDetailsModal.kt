@@ -14,6 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.ImageSearch
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,11 +63,14 @@ fun MediaDetailsModal(
 ) {
     val media by viewModel.media.collectAsState()
     val playbackProgress by viewModel.progress.collectAsState()
+    val assetCandidates by viewModel.assetCandidates.collectAsState()
+    val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
     var waitForLeftRelease by remember { mutableStateOf(false) }
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<me.xdan.aperture.data.local.entity.MediaEntity?>(null) }
+    var showAssetPicker by remember { mutableStateOf(false) }
     val isVisible = mediaId != null && displayedMedia?.id == mediaId
     val hasActiveProgress = playbackProgress?.let { progress ->
         progress.duration > 0 &&
@@ -270,10 +279,88 @@ fun MediaDetailsModal(
                                 Spacer(Modifier.width(8.dp))
                                 Text(if (m.isFavorite) "Remove from My List" else "My List")
                             }
+                            IconButton(
+                                onClick = {
+                                    showAssetPicker = true
+                                    viewModel.findAssetCandidates()
+                                }
+                            ) {
+                                Icon(Icons.Rounded.ImageSearch, contentDescription = "Select artwork")
+                            }
                         }
                         }
                     }
                 }
+            }
+        }
+        if (showAssetPicker) {
+            AssetPickerDialog(
+                candidates = assetCandidates,
+                loading = isLoadingAssets,
+                onSelect = {
+                    viewModel.selectAssetCandidate(it)
+                    showAssetPicker = false
+                },
+                onDismiss = { showAssetPicker = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssetPickerDialog(
+    candidates: List<me.xdan.aperture.data.remote.dto.TmdbResult>,
+    loading: Boolean,
+    onSelect: (me.xdan.aperture.data.remote.dto.TmdbResult) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(52.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(Modifier.padding(28.dp)) {
+                Text("Choose artwork and metadata", style = MaterialTheme.typography.headlineMedium)
+                Text("Select the correct TMDB match for this file.")
+                Spacer(Modifier.height(20.dp))
+                when {
+                    loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.CircularProgressIndicator()
+                    }
+                    candidates.isEmpty() -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text("No matching artwork found.")
+                    }
+                    else -> LazyVerticalGrid(
+                        columns = GridCells.Adaptive(150.dp),
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(candidates, key = { it.id }) { candidate ->
+                            Surface(
+                                onClick = { onSelect(candidate) },
+                                modifier = Modifier.aspectRatio(2f / 3f),
+                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp))
+                            ) {
+                                if (candidate.posterPath.isNullOrBlank()) {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text(candidate.title ?: candidate.name ?: "Unknown", modifier = Modifier.padding(10.dp))
+                                    }
+                                } else {
+                                    AsyncImage(
+                                        model = TmdbApi.IMAGE_BASE_URL + "w342" + candidate.posterPath,
+                                        contentDescription = candidate.title ?: candidate.name,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
             }
         }
     }

@@ -15,12 +15,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.data.local.entity.MediaEntity
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
     onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit
@@ -62,9 +64,9 @@ fun SearchScreen(
                 }
             )
         }
-
+        
         Spacer(modifier = Modifier.height(16.dp))
-
+        
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
             contentPadding = PaddingValues(8.dp),
@@ -78,7 +80,8 @@ fun SearchScreen(
                     onClick = { requester -> onMediaClick(media.id, requester) },
                     modifier = Modifier.fillMaxWidth(),
                     drawerFocusRequester = drawerFocusRequester,
-                    onFocused = onContentFocused
+                    onFocused = onContentFocused,
+                    onLongClick = { requester, opensToRight -> onMediaLongClick(media, requester, false, opensToRight) }
                 )
             }
         }

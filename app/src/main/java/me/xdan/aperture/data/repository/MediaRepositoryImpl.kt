@@ -22,6 +22,7 @@ import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.util.FilenameParser
 import me.xdan.aperture.util.MediaScanner
+import me.xdan.aperture.data.remote.dto.TmdbResult
 import retrofit2.HttpException
 import javax.inject.Inject
 
@@ -42,6 +43,8 @@ class MediaRepositoryImpl @Inject constructor(
 
     override fun getFavoriteMedia(): Flow<List<MediaEntity>> = mediaDao.getFavoriteMedia()
 
+    override fun getHiddenMedia(): Flow<List<MediaEntity>> = mediaDao.getHiddenMedia()
+
     override suspend fun getMediaById(id: Long): MediaEntity? = mediaDao.getMediaById(id)
 
     override suspend fun insertMedia(media: MediaEntity): Long = mediaDao.insertMedia(media)
@@ -49,7 +52,10 @@ class MediaRepositoryImpl @Inject constructor(
     override suspend fun updateMedia(media: MediaEntity) = mediaDao.updateMedia(media)
 
     override suspend fun setFavorite(mediaId: Long, isFavorite: Boolean) =
-        mediaDao.setFavorite(mediaId, isFavorite)
+        mediaDao.setFavorite(mediaId, isFavorite, System.currentTimeMillis())
+
+    override suspend fun setHidden(mediaId: Long, isHidden: Boolean) =
+        mediaDao.setHidden(mediaId, isHidden)
 
     override suspend fun deleteMedia(media: MediaEntity) = mediaDao.deleteMedia(media)
 
@@ -60,6 +66,8 @@ class MediaRepositoryImpl @Inject constructor(
     override fun getAllProgress(): Flow<List<PlaybackProgressEntity>> = progressDao.getAllProgress()
 
     override suspend fun saveProgress(progress: PlaybackProgressEntity) = progressDao.saveProgress(progress)
+
+    override suspend fun clearProgress(mediaId: Long) = progressDao.deleteProgress(mediaId)
 
     override suspend fun scanLocalFiles() {
         scanMutex.withLock {
@@ -116,16 +124,30 @@ class MediaRepositoryImpl @Inject constructor(
 
     private suspend fun processFile(name: String, path: String, duration: Long) {
         val existing = mediaDao.getMediaByPath(path)
+        val cleanedInfo = FilenameParser.parse(name)
         if (existing == null) {
-            val cleanedInfo = FilenameParser.parse(name)
             val media = MediaEntity(
                 filePath = path,
                 title = cleanedInfo.title,
                 year = cleanedInfo.year,
                 duration = duration,
-                type = if (cleanedInfo.season != null) "EPISODE" else "MOVIE"
+                type = if (cleanedInfo.season != null) "EPISODE" else "MOVIE",
+                seasonNumber = cleanedInfo.season,
+                episodeNumber = cleanedInfo.episode
             )
             mediaDao.insertMedia(media)
+        } else if (
+            cleanedInfo.season != null &&
+            (existing.seasonNumber == null || existing.episodeNumber == null)
+        ) {
+            mediaDao.updateMedia(
+                existing.copy(
+                    title = cleanedInfo.title,
+                    type = "EPISODE",
+                    seasonNumber = cleanedInfo.season,
+                    episodeNumber = cleanedInfo.episode
+                )
+            )
         }
     }
 
@@ -190,6 +212,24 @@ class MediaRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatching { syncMetadataInternal(media) }.onFailure { it.printStackTrace() }
         }
+    }
+
+    override suspend fun searchMetadataCandidates(media: MediaEntity): List<TmdbResult> =
+        withContext(Dispatchers.IO) { searchWithRetry(media).results.take(20) }
+
+    override suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult) {
+        val media = mediaDao.getMediaById(mediaId) ?: return
+        val updated = media.copy(
+            tmdbId = candidate.id,
+            title = candidate.title ?: candidate.name ?: media.title,
+            posterPath = candidate.posterPath,
+            backdropPath = candidate.backdropPath,
+            overview = candidate.overview,
+            year = (candidate.releaseDate ?: candidate.firstAirDate)
+                ?.take(4)?.toIntOrNull() ?: media.year,
+            metadataAttemptedAt = System.currentTimeMillis()
+        )
+        mediaDao.updateMedia(updated)
     }
 
     private suspend fun syncMetadataInternal(

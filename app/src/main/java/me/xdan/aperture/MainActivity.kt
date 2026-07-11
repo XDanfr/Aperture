@@ -6,6 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
@@ -27,7 +31,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ApertureTheme {
+            val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val themeId by mainViewModel.themeId.collectAsState()
+            var appVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(80)
+                appVisible = true
+            }
+            ApertureTheme(themeId = themeId) {
+                AnimatedVisibility(
+                    visible = appVisible,
+                    enter = fadeIn(tween(420)) + scaleIn(tween(420), initialScale = 0.985f)
+                ) {
                 androidx.tv.material3.Surface(
                     modifier = Modifier.fillMaxSize(),
                     colors = androidx.tv.material3.SurfaceDefaults.colors(
@@ -50,12 +65,14 @@ class MainActivity : ComponentActivity() {
                     } else {
                         NavGraph(
                             backstack = backstack,
+                            mainViewModel = mainViewModel,
                             onNavigate = {
                                 lastInteractionTime = System.currentTimeMillis()
                                 backstack.add(it)
                             }
                         )
                     }
+                }
                 }
             }
         }

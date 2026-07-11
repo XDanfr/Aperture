@@ -21,6 +21,7 @@ class HomeViewModel @Inject constructor(
 
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
     val homeState: StateFlow<HomeState> = _homeState
+    private val suggestionGeneration = MutableStateFlow(0)
 
     init {
         viewModelScope.launch {
@@ -32,8 +33,9 @@ class HomeViewModel @Inject constructor(
                 combine(
                     userPreferencesRepository.hideFinishedFromSpotlight,
                     userPreferencesRepository.finishedSpotlightExclusionDays
-                ) { hideFinished, exclusionDays -> hideFinished to exclusionDays }
-            ) { (mediaList, progressList), (hideFinished, exclusionDays) ->
+                ) { hideFinished, exclusionDays -> hideFinished to exclusionDays },
+                suggestionGeneration
+            ) { (mediaList, progressList), (hideFinished, exclusionDays), generation ->
                 if (mediaList.isEmpty()) {
                     HomeState.Empty
                 } else {
@@ -76,15 +78,16 @@ class HomeViewModel @Inject constructor(
                                 add(HomeRow("Continue Watching", continueWatching))
                             }
                             add(HomeRow("Recently Added", mediaList))
-                            add(HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }))
-                            add(HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }))
+                            add(HomeRow("Movies", mediaList.filter { it.type == "MOVIE" }.shuffled()))
+                            add(HomeRow("TV Shows", mediaList.filter { it.type == "EPISODE" }.shuffled()))
                         },
                         progressMap = progressList.associate { 
                             it.mediaId to (if (it.duration > 0) it.position.toFloat() / it.duration else 0f)
                         },
                         completedMediaIds = progressList
                             .filter { it.isCompleted }
-                            .mapTo(mutableSetOf()) { it.mediaId }
+                            .mapTo(mutableSetOf()) { it.mediaId },
+                        suggestionGeneration = generation
                     )
                 }
             }.collectLatest {
@@ -93,16 +96,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun softRefresh() {
-        val currentState = _homeState.value
-        if (currentState is HomeState.Success) {
-            _homeState.value = currentState.copy(
-                rows = currentState.rows.map { row ->
-                    row.copy(items = row.items.shuffled())
-                }
-            )
-        }
+    fun regenerateSuggestions() {
+        suggestionGeneration.value += 1
     }
+
+    fun softRefresh() = regenerateSuggestions()
 }
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L
@@ -116,7 +114,8 @@ sealed interface HomeState {
         val featured: List<MediaEntity>,
         val rows: List<HomeRow>,
         val progressMap: Map<Long, Float> = emptyMap(),
-        val completedMediaIds: Set<Long> = emptySet()
+        val completedMediaIds: Set<Long> = emptySet(),
+        val suggestionGeneration: Int = 0
     ) : HomeState
 }
 

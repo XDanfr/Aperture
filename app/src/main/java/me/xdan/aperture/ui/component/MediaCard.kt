@@ -18,7 +18,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -27,6 +36,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun MediaCard(
@@ -37,13 +49,21 @@ fun MediaCard(
     aspectRatio: Float = 2f / 3f,
     progress: Float = 0f,
     drawerFocusRequester: FocusRequester? = null,
-    onFocused: (FocusRequester) -> Unit = {}
+    onFocused: (FocusRequester) -> Unit = {},
+    onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val internalFocusRequester = remember { FocusRequester() }
     val cardFocusRequester = focusRequester ?: internalFocusRequester
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val scope = rememberCoroutineScope()
+    var holdJob by remember { mutableStateOf<Job?>(null) }
+    var longClickTriggered by remember { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    var opensToRight by remember { mutableStateOf(true) }
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
@@ -63,6 +83,35 @@ fun MediaCard(
             pressedScale = 1f
         ),
         modifier = modifier
+            .onPreviewKeyEvent { event ->
+                if (onLongClick == null) return@onPreviewKeyEvent false
+                val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter
+                if (!isSelect) return@onPreviewKeyEvent false
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (holdJob == null && !longClickTriggered) {
+                            longClickTriggered = false
+                            holdJob = scope.launch {
+                                delay(550)
+                                longClickTriggered = true
+                                onLongClick(cardFocusRequester, opensToRight)
+                            }
+                        }
+                        longClickTriggered
+                    }
+                    KeyEventType.KeyUp -> {
+                        holdJob?.cancel()
+                        holdJob = null
+                        val consume = longClickTriggered
+                        longClickTriggered = false
+                        consume
+                    }
+                    else -> false
+                }
+            }
+            .onGloballyPositioned { coordinates ->
+                opensToRight = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
+            }
             .then(
                 if (drawerFocusRequester != null) {
                     Modifier.focusProperties { left = drawerFocusRequester }

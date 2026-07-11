@@ -19,10 +19,10 @@ android {
 
     defaultConfig {
         applicationId = "me.xdan.aperture"
-        minSdk = 26
+        minSdk = 27
         targetSdk = 37
         versionCode = 6
-        versionName = "v0.2.2-alpha"
+        versionName = "v0.3.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

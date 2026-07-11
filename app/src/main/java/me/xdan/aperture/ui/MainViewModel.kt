@@ -32,6 +32,22 @@ class MainViewModel @Inject constructor(
 
     val libraryPreparation = mediaRepository.preparationProgress
 
+    val themeId = userPreferencesRepository.themeId.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "purple"
+    )
+
+    val isTutorialRequired = userPreferencesRepository.isTutorialRequired.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false
+    )
+
+    val tutorialExampleMedia = mediaRepository.getAllMedia()
+        .map { it.firstOrNull() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         viewModelScope.launch {
             userPreferencesRepository.isOnboardingCompleted
@@ -53,9 +69,14 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun completeOnboarding() {
+    fun completeOnboarding(showTutorial: Boolean = false) {
         viewModelScope.launch {
+            userPreferencesRepository.setTutorialRequired(showTutorial)
             userPreferencesRepository.setOnboardingCompleted(true)
         }
+    }
+
+    fun completeTutorial() {
+        viewModelScope.launch { userPreferencesRepository.setTutorialRequired(false) }
     }
 }

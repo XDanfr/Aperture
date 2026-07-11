@@ -19,8 +19,12 @@ data class MediaEntity(
     val overview: String? = null,
     val metadataAttemptedAt: Long? = null,
     val type: String, // "MOVIE", "TV_SHOW", "EPISODE"
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
     val duration: Long? = null,
     val lastPlayedPosition: Long? = null,
     val isFavorite: Boolean = false,
+    val favoriteAddedAt: Long? = null,
+    val isHidden: Boolean = false,
     val dateAdded: Long = System.currentTimeMillis()
 )

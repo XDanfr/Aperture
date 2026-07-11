@@ -34,6 +34,21 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE media ADD COLUMN seasonNumber INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE media ADD COLUMN episodeNumber INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE media ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE media ADD COLUMN favoriteAddedAt INTEGER DEFAULT NULL")
+            db.execSQL("UPDATE media SET favoriteAddedAt = dateAdded WHERE isFavorite = 1")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -42,7 +57,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .fallbackToDestructiveMigration()
             .build()
     }

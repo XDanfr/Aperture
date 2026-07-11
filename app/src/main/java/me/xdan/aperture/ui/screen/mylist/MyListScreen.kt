@@ -13,6 +13,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -24,12 +32,14 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.data.local.entity.MediaEntity
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun MyListScreen(
     viewModel: MyListViewModel,
     onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit
@@ -70,14 +80,22 @@ fun MyListScreen(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(media, key = { it.id }) { item ->
-            MediaCard(
-                media = item,
-                onClick = { requester -> onMediaClick(item.id, requester) },
-                modifier = Modifier.fillMaxWidth(),
-                focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
-                drawerFocusRequester = drawerFocusRequester,
-                onFocused = onContentFocused
-            )
+            var visible by remember(item.id) { mutableStateOf(false) }
+            LaunchedEffect(item.id) { visible = true }
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
+            ) {
+                MediaCard(
+                    media = item,
+                    onClick = { requester -> onMediaClick(item.id, requester) },
+                    modifier = Modifier.fillMaxWidth(),
+                    focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = onContentFocused,
+                    onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
+                )
+            }
         }
     }
 }
