@@ -18,6 +18,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.*
+import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.screen.home.HomeScreen
 import me.xdan.aperture.ui.screen.search.SearchScreen
 import me.xdan.aperture.ui.screen.player.PlayerScreen
@@ -53,6 +54,8 @@ fun NavGraph(
     val lastFocusedRequesters = remember { mutableStateMapOf<String, FocusRequester>() }
     var homeRestoreFocusKey by remember { mutableStateOf<String?>(null) }
     var settingsRestoreFocusKey by remember { mutableStateOf<String?>(null) }
+    var playerOriginFocusKey by remember { mutableStateOf<String?>(null) }
+    var pendingPlayerFocusRestore by remember { mutableStateOf<String?>(null) }
     val homeDrawerRequester = remember { FocusRequester() }
     val searchDrawerRequester = remember { FocusRequester() }
     val moviesDrawerRequester = remember { FocusRequester() }
@@ -89,6 +92,32 @@ fun NavGraph(
     }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
     val libraryPreparation by mainViewModel.libraryPreparation.collectAsState()
+
+    LaunchedEffect(currentDestination, pendingPlayerFocusRestore) {
+        val focusKey = pendingPlayerFocusRestore ?: return@LaunchedEffect
+        if (currentFocusKey != focusKey || currentDestination is Destination.Player) {
+            return@LaunchedEffect
+        }
+
+        delay(160)
+        val rememberedRequester = lastFocusedRequesters[focusKey]
+        val fallbackRequester = when (focusKey) {
+            "home" -> homeContentEntryRequester
+            "search" -> searchContentEntryRequester
+            "settings" -> settingsContentEntryRequester
+            else -> null
+        }
+        val restoredRememberedFocus = rememberedRequester?.let { requester ->
+            runCatching { requester.requestFocus() }.getOrDefault(false)
+        } == true
+        if (!restoredRememberedFocus) {
+            fallbackRequester?.let { requester ->
+                runCatching { requester.requestFocus() }
+            }
+        }
+        pendingPlayerFocusRestore = null
+        playerOriginFocusKey = null
+    }
 
     if (isOnboardingCompleted == null) {
         // Loading state, show nothing or a splash screen
@@ -223,6 +252,10 @@ fun NavGraph(
                         settingsRestoreFocusKey = settingsRestoreFocusKey,
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
+                        onPlayerBack = {
+                            pendingPlayerFocusRestore = playerOriginFocusKey ?: "home"
+                            if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+                        },
                         onContentFocused = { requester ->
                             currentFocusKey?.let { lastFocusedRequesters[it] = requester }
                         },
@@ -242,6 +275,10 @@ fun NavGraph(
                     settingsRestoreFocusKey = settingsRestoreFocusKey,
                     onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
+                    onPlayerBack = {
+                        pendingPlayerFocusRestore = playerOriginFocusKey ?: "home"
+                        if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+                    },
                     onContentFocused = { requester ->
                         currentFocusKey?.let { lastFocusedRequesters[it] = requester }
                     },
@@ -257,6 +294,7 @@ fun NavGraph(
                 viewModel = viewModel(),
                 onPlay = {
                     selectedMediaId = null
+                    playerOriginFocusKey = currentFocusKey
                     onNavigate(Destination.Player(it))
                 },
                 onClose = { selectedMediaId = null },
@@ -281,6 +319,7 @@ private fun NavContent(
     settingsRestoreFocusKey: String?,
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
+    onPlayerBack: () -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -317,7 +356,7 @@ private fun NavContent(
                 is Destination.Player -> PlayerScreen(
                     mediaId = destination.mediaId,
                     viewModel = viewModel(),
-                    onBack = { backstack.removeAt(backstack.lastIndex) }
+                    onBack = onPlayerBack
                 )
                 else -> Box(modifier = Modifier.fillMaxSize()) {
                     Text("Coming Soon", modifier = Modifier.padding(32.dp))
