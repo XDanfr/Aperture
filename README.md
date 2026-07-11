@@ -42,18 +42,19 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 
 - [x] **Scrolling Stability**: Fixed view snapping back to the top when scrolling down
 - [x] **Popup Bounds**: Fixed scrolling outside the media details popup
-- [ ] **Sidebar Interference**: Fix left-navigation from the popup accidentally invoking the sidebar
-- [ ] **Player UI Invocation**: Fix the OSD fading out immediately before it can be reliably used
-- [ ] **Settings UI**: Fix buttons enlarging/cutting off and displaying behind the menu layers
-- [ ] **Onboarding Flash**: Eliminate the split-second flash of the onboarding screen on authorised launches
+- [X] **Sidebar Interference**: Fix left-navigation from the popup accidentally invoking the sidebar
+- [X] **Player UI Invocation**: Fix the OSD fading out immediately before it can be reliably used
+- [X] **Settings UI**: Fix buttons enlarging/cutting off and displaying behind the menu layers
+- [X] **Onboarding Flash**: Eliminate the split-second flash of the onboarding screen on authorised launches
 
 ### Planned Features
 
-- [ ] **Popup Animations**: Smooth entrance/exit transitions for the media details modal
+- [X] **Popup Animations**: Smooth entrance/exit transitions for the media details modal
 - [ ] **Progress Indicators**
 - [ ] **My List**
 - [ ] **Movies and TV Shows sorted separately**
 - [ ] **Dynamic Theming**: based on active media artwork, or via custom theme selection in settings.
+- [ ] **Update Checking**
 
 ## 🚀 Getting Started
 
