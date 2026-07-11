@@ -43,7 +43,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [X] **Popup Animations**: Smooth entrance/exit transitions for the media details modal
 - [X] **Progress Indicators**
 - [ ] **My List**
-- [ ] **Hold-for-actions Context Menu** ([#1])(https://github.com/XDanfr/Aperture/issues/1)
+- [ ] **Hold-for-actions Context Menu** (https://github.com/XDanfr/Aperture/issues/1)
 - [ ] **Movies and TV Shows sorted separately**
 - [ ] **TV Show Season and Episode grouping**
 - [ ] **Dynamic Theming**: based on active media artwork, or via custom theme selection in settings.
