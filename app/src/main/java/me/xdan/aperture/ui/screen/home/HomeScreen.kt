@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.MediaCard
@@ -39,6 +42,8 @@ fun HomeScreen(
     onMediaClick: (Long, FocusRequester) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
     val state by viewModel.homeState.collectAsState()
@@ -66,6 +71,8 @@ fun HomeScreen(
                     onMediaClick = onMediaClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
+                    restoreFocusKey = restoreFocusKey,
+                    onFocusKeyChanged = onFocusKeyChanged,
                     onContentFocused = onContentFocused
                 )
             }
@@ -80,9 +87,27 @@ private fun HomeContent(
     onMediaClick: (Long, FocusRequester) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val resolvedRestoreFocusKey = restoreFocusKey.takeIf { key ->
+        key == HOME_SPOTLIGHT_FOCUS_KEY || state.rows.any { row ->
+            row.items.any { media -> key == "row:${row.title}:${media.id}" }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val restoredRowTitle = resolvedRestoreFocusKey
+            ?.takeIf { it.startsWith("row:") }
+            ?.removePrefix("row:")
+            ?.substringBeforeLast(":")
+        val restoredRowIndex = state.rows.indexOfFirst { it.title == restoredRowTitle }
+        if (restoredRowIndex >= 0) {
+            listState.scrollToItem(restoredRowIndex + 1)
+        }
+    }
     
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -95,11 +120,22 @@ private fun HomeContent(
                 onMediaClick = onMediaClick,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
+                isContentEntry = resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
+                onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused
             )
         }
         items(state.rows) { row ->
-            HomeMediaRow(row, onMediaClick, state.progressMap, drawerFocusRequester, onContentFocused)
+            HomeMediaRow(
+                row = row,
+                onMediaClick = onMediaClick,
+                progressMap = state.progressMap,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                restoreFocusKey = resolvedRestoreFocusKey,
+                onFocusKeyChanged = onFocusKeyChanged,
+                onContentFocused = onContentFocused
+            )
         }
     }
 }
@@ -111,19 +147,45 @@ private fun FeaturedCarousel(
     onMediaClick: (Long, FocusRequester) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
+    isContentEntry: Boolean,
+    onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
     if (featured.isEmpty()) return
 
+    val carouselState = rememberCarouselState()
+    val spotlightRequesters = remember(featured.map { it.id }) {
+        List(featured.size) { FocusRequester() }
+    }
+    var focusActiveSpotlight by remember { mutableStateOf(false) }
+
+    LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex) {
+        if (focusActiveSpotlight) {
+            delay(16)
+            runCatching {
+                spotlightRequesters[carouselState.activeItemIndex].requestFocus()
+            }
+        }
+    }
+
     Carousel(
         itemCount = featured.size,
+        carouselState = carouselState,
         modifier = Modifier
             .fillMaxWidth()
             .height(400.dp)
             .padding(16.dp)
+            .then(
+                if (isContentEntry) Modifier.focusRequester(contentEntryFocusRequester)
+                else Modifier
+            )
+            .onFocusChanged { focusState ->
+                focusActiveSpotlight = focusState.isFocused
+            }
     ) { index ->
         val media = featured[index]
         var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
+        val watchNowFocusRequester = spotlightRequesters[index]
         Box(modifier = Modifier.fillMaxSize()) {
             if (media.backdropPath.isNullOrBlank()) {
                 ArtworkFallback(
@@ -165,17 +227,20 @@ private fun FeaturedCarousel(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { onMediaClick(media.id, contentEntryFocusRequester) },
+                    onClick = { onMediaClick(media.id, watchNowFocusRequester) },
                     modifier = Modifier
                         .then(
                             if (drawerFocusRequester != null) {
                                 Modifier.focusProperties { left = drawerFocusRequester }
                             } else Modifier
                         )
-                        .focusRequester(contentEntryFocusRequester)
+                        .focusRequester(watchNowFocusRequester)
                         .onFocusChanged {
                             isWatchNowFocused = it.isFocused
-                            if (it.isFocused) onContentFocused(contentEntryFocusRequester)
+                            if (it.isFocused) {
+                                onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+                                onContentFocused(watchNowFocusRequester)
+                            }
                         }
                 ) {
                     Text("Watch Now")
@@ -191,6 +256,9 @@ private fun HomeMediaRow(
     onMediaClick: (Long, FocusRequester) -> Unit,
     progressMap: Map<Long, Float> = emptyMap(),
     drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
     if (row.items.isEmpty()) return
@@ -209,16 +277,25 @@ private fun HomeMediaRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(row.items) { media ->
+            itemsIndexed(row.items) { _, media ->
+                val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
                     onClick = { requester -> onMediaClick(media.id, requester) },
                     modifier = Modifier.width(150.dp),
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == focusKey
+                    },
                     progress = progressMap[media.id] ?: 0f,
                     drawerFocusRequester = drawerFocusRequester,
-                    onFocused = onContentFocused
+                    onFocused = { requester ->
+                        onFocusKeyChanged(focusKey)
+                        onContentFocused(requester)
+                    }
                 )
             }
         }
     }
 }
+
+private const val HOME_SPOTLIGHT_FOCUS_KEY = "spotlight"

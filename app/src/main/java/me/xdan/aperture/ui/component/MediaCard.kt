@@ -33,13 +33,15 @@ fun MediaCard(
     media: MediaEntity,
     onClick: (FocusRequester) -> Unit,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
     aspectRatio: Float = 2f / 3f,
     progress: Float = 0f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {}
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
+    val internalFocusRequester = remember { FocusRequester() }
+    val cardFocusRequester = focusRequester ?: internalFocusRequester
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -54,7 +56,7 @@ fun MediaCard(
     )
 
     Surface(
-        onClick = { onClick(focusRequester) },
+        onClick = { onClick(cardFocusRequester) },
         interactionSource = interactionSource,
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1f, // Handled by modifier below
@@ -68,10 +70,10 @@ fun MediaCard(
                     Modifier
                 }
             )
-            .focusRequester(focusRequester)
+            .focusRequester(cardFocusRequester)
             .onFocusChanged {
                 isFocused = it.isFocused
-                if (it.isFocused) onFocused(focusRequester)
+                if (it.isFocused) onFocused(cardFocusRequester)
             }
             .scale(animatedScale)
             .aspectRatio(aspectRatio)
