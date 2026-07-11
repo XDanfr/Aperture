@@ -109,15 +109,22 @@ fun MediaCard(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
+                        .height(if (isFocused) 8.dp else 6.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(Color.Black.copy(alpha = 0.82f))
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progress)
+                            .fillMaxWidth(progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(
+                                if (isFocused) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            )
                     )
                 }
             }

@@ -10,11 +10,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: MediaRepository
+    private val repository: MediaRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
@@ -23,9 +25,15 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                repository.getAllMedia(),
-                repository.getAllProgress()
-            ) { mediaList, progressList ->
+                combine(
+                    repository.getAllMedia(),
+                    repository.getAllProgress()
+                ) { mediaList, progressList -> mediaList to progressList },
+                combine(
+                    userPreferencesRepository.hideFinishedFromSpotlight,
+                    userPreferencesRepository.finishedSpotlightExclusionDays
+                ) { hideFinished, exclusionDays -> hideFinished to exclusionDays }
+            ) { (mediaList, progressList), (hideFinished, exclusionDays) ->
                 if (mediaList.isEmpty()) {
                     HomeState.Empty
                 } else {
@@ -36,8 +44,23 @@ class HomeViewModel @Inject constructor(
                         p != null && p.position > 0 && p.position < (p.duration * 0.95)
                     }.sortedByDescending { progressMap[it.id]?.lastUpdated ?: 0L }
 
+                    val exclusionCutoff = System.currentTimeMillis() -
+                        exclusionDays.coerceIn(1, 365).toLong() * MILLIS_PER_DAY
+                    val spotlightCandidates = if (hideFinished) {
+                        mediaList.filterNot { media ->
+                            progressMap[media.id]?.let { progress ->
+                                progress.duration > 0 &&
+                                    progress.position >= progress.duration * COMPLETION_THRESHOLD &&
+                                    progress.lastUpdated >= exclusionCutoff
+                            } == true
+                        }
+                    } else {
+                        mediaList
+                    }
+                    val spotlightPool = spotlightCandidates.ifEmpty { mediaList }
+
                     HomeState.Success(
-                        featured = mediaList.take(5).shuffled(),
+                        featured = spotlightPool.shuffled().take(5),
                         rows = buildList {
                             if (continueWatching.isNotEmpty()) {
                                 add(HomeRow("Continue Watching", continueWatching))
@@ -68,6 +91,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 }
+
+private const val COMPLETION_THRESHOLD = 0.95
+private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L
 
 sealed interface HomeState {
     data object Loading : HomeState

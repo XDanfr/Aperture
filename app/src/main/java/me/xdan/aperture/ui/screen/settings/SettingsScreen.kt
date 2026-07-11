@@ -17,14 +17,17 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,7 +67,9 @@ fun SettingsScreen(
     onContentFocused: (FocusRequester) -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
+    val spotlightSettings by viewModel.spotlightSettings.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
+    var showSpotlightDaysPicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
@@ -75,11 +80,13 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_RESCAN_FOCUS_KEY -> 2
-            SETTINGS_LICENCES_FOCUS_KEY -> 4
-            SETTINGS_TMDB_FOCUS_KEY -> 5
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 6
-            SETTINGS_DONATE_FOCUS_KEY -> 7
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 1
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 2
+            SETTINGS_RESCAN_FOCUS_KEY -> 4
+            SETTINGS_LICENCES_FOCUS_KEY -> 6
+            SETTINGS_TMDB_FOCUS_KEY -> 7
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 8
+            SETTINGS_DONATE_FOCUS_KEY -> 9
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -104,6 +111,46 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
+                    title = "Hide finished media from Spotlight",
+                    subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
+                        "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
+                    } else {
+                        "Off · Completed titles can appear immediately"
+                    },
+                    icon = Icons.Rounded.VisibilityOff,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == null || restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = {
+                        viewModel.setHideFinishedFromSpotlight(
+                            !spotlightSettings.hideFinishedFromSpotlight
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Finished Spotlight exclusion period",
+                    subtitle = "${spotlightSettings.exclusionDays} days",
+                    icon = Icons.Rounded.DateRange,
+                    enabled = spotlightSettings.hideFinishedFromSpotlight,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showSpotlightDaysPicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
                     title = "Language",
                     subtitle = "English (system default) · More options coming soon",
                     icon = Icons.Rounded.Language,
@@ -123,9 +170,6 @@ fun SettingsScreen(
                     subtitle = "Update the library from storage",
                     icon = Icons.Rounded.Refresh,
                     drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == null || restoreFocusKey == SETTINGS_RESCAN_FOCUS_KEY
-                    },
                     onFocused = { requester ->
                         onFocusKeyChanged(SETTINGS_RESCAN_FOCUS_KEY)
                         onContentFocused(requester)
@@ -231,11 +275,23 @@ fun SettingsScreen(
     if (showLicenses) {
         LicencesDialog(onDismiss = { showLicenses = false })
     }
+    if (showSpotlightDaysPicker) {
+        SpotlightDaysDialog(
+            initialDays = spotlightSettings.exclusionDays,
+            onSave = {
+                viewModel.setFinishedSpotlightExclusionDays(it)
+                showSpotlightDaysPicker = false
+            },
+            onDismiss = { showSpotlightDaysPicker = false }
+        )
+    }
 }
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_RESCAN_FOCUS_KEY = "rescan"
 private const val SETTINGS_SUBTITLES_FOCUS_KEY = "subtitles"
+private const val SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY = "spotlight_toggle"
+private const val SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY = "spotlight_days"
 private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
 private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
@@ -349,6 +405,75 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
                             .focusRequester(closeFocusRequester)
                     ) {
                         Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SpotlightDaysDialog(
+    initialDays: Int,
+    onSave: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var days by remember(initialDays) { mutableStateOf(initialDays.coerceIn(1, 365)) }
+    val decreaseFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(80)
+        decreaseFocusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.78f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(520.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(38.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Finished Spotlight exclusion", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Choose how long completed titles stay out of Spotlight.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                    )
+                    Spacer(Modifier.height(30.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        Button(
+                            onClick = { days = (days - 1).coerceAtLeast(1) },
+                            modifier = Modifier.focusRequester(decreaseFocusRequester)
+                        ) { Text("−") }
+                        Text("$days days", style = MaterialTheme.typography.displaySmall)
+                        Button(onClick = { days = (days + 1).coerceAtMost(365) }) { Text("+") }
+                    }
+                    Spacer(Modifier.height(32.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                        Button(
+                            onClick = { onSave(days) }
+                        ) { Text("Save") }
                     }
                 }
             }
