@@ -3,7 +3,7 @@ package me.xdan.aperture.ui.screen.search
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -67,22 +67,25 @@ fun SearchScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(150.dp),
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(results) { media ->
-                MediaCard(
-                    media = media,
-                    onClick = { requester -> onMediaClick(media.id, requester) },
-                    modifier = Modifier.fillMaxWidth(),
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = onContentFocused,
-                    onLongClick = { requester, opensToRight -> onMediaLongClick(media, requester, false, opensToRight) }
-                )
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val columnCount = ((maxWidth - 16.dp) / 158.dp).toInt().coerceAtLeast(1)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columnCount),
+                contentPadding = PaddingValues(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(results, key = { _, media -> media.id }) { index, media ->
+                    MediaCard(
+                        media = media,
+                        onClick = { requester -> onMediaClick(media.id, requester) },
+                        modifier = Modifier.fillMaxWidth(),
+                        drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
+                        onFocused = onContentFocused,
+                        onLongClick = { requester, opensToRight -> onMediaLongClick(media, requester, false, opensToRight) }
+                    )
+                }
             }
         }
     }

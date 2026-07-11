@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,14 +49,14 @@ fun ShowsScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(seasonEpisodes, key = { it.id }) { episode ->
+                            itemsIndexed(seasonEpisodes, key = { _, episode -> episode.id }) { index, episode ->
                                 Column(Modifier.width(154.dp)) {
                                     MediaCard(
                                         media = episode,
                                         onClick = { onMediaClick(episode.id, it) },
                                         modifier = Modifier.fillMaxWidth(),
                                         focusRequester = contentEntryFocusRequester.takeIf { episode.id == firstEpisode.id },
-                                        drawerFocusRequester = drawerFocusRequester,
+                                        drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
                                         onFocused = onContentFocused,
                                         onLongClick = { requester, opensToRight -> onMediaLongClick(episode, requester, false, opensToRight) }
                                     )

@@ -11,7 +11,15 @@ object MediaScanner {
         val allFiles = mutableListOf<File>()
         
         // Targeted scan of common video directories
-        val targets = listOf("Movies", "Download", "DCIM", "Videos")
+        val targets = listOf(
+            "Movies",
+            "TV Shows",
+            "TV",
+            "Shows",
+            "Download",
+            "DCIM",
+            "Videos"
+        )
         targets.forEach { target ->
             val dir = File(root, target)
             if (dir.exists() && dir.isDirectory) {

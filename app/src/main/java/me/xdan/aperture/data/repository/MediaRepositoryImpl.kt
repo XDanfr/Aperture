@@ -124,7 +124,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     private suspend fun processFile(name: String, path: String, duration: Long) {
         val existing = mediaDao.getMediaByPath(path)
-        val cleanedInfo = FilenameParser.parse(name)
+        val cleanedInfo = FilenameParser.parse(name, path)
         if (existing == null) {
             val media = MediaEntity(
                 filePath = path,
@@ -145,7 +145,12 @@ class MediaRepositoryImpl @Inject constructor(
                     title = cleanedInfo.title,
                     type = "EPISODE",
                     seasonNumber = cleanedInfo.season,
-                    episodeNumber = cleanedInfo.episode
+                    episodeNumber = cleanedInfo.episode,
+                    tmdbId = null,
+                    posterPath = null,
+                    backdropPath = null,
+                    overview = null,
+                    metadataAttemptedAt = null
                 )
             )
         }
@@ -215,7 +220,11 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun searchMetadataCandidates(media: MediaEntity): List<TmdbResult> =
-        withContext(Dispatchers.IO) { searchWithRetry(media).results.take(20) }
+        withContext(Dispatchers.IO) {
+            searchWithRetry(media).results
+                .sortedByDescending { metadataMatchScore(media, it) }
+                .take(20)
+        }
 
     override suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult) {
         val media = mediaDao.getMediaById(mediaId) ?: return
@@ -241,7 +250,7 @@ class MediaRepositoryImpl @Inject constructor(
         onProgress(0.3f)
         val response = searchWithRetry(media)
         onProgress(0.75f)
-        val result = response.results.firstOrNull()
+        val result = response.results.maxByOrNull { metadataMatchScore(media, it) }
         val updatedMedia = if (result == null) {
             media.copy(metadataAttemptedAt = System.currentTimeMillis())
         } else {
@@ -279,8 +288,45 @@ class MediaRepositoryImpl @Inject constructor(
         tmdbApi.searchTvShow(media.title, media.year, BuildConfig.TMDB_API_KEY)
     }
 
+    private fun metadataMatchScore(media: MediaEntity, result: TmdbResult): Int {
+        val candidateTitle = result.title ?: result.name ?: return Int.MIN_VALUE
+        val query = normaliseTitle(media.title)
+        val candidate = normaliseTitle(candidateTitle)
+        val queryTokens = query.split(' ').filter { it.isNotBlank() }.toSet()
+        val candidateTokens = candidate.split(' ').filter { it.isNotBlank() }.toSet()
+        val overlap = queryTokens.intersect(candidateTokens).size
+        val union = queryTokens.union(candidateTokens).size.coerceAtLeast(1)
+        val queryNumbers = NUMBER_TOKEN_REGEX.findAll(query).map { it.value }.toSet()
+        val candidateNumbers = NUMBER_TOKEN_REGEX.findAll(candidate).map { it.value }.toSet()
+        val candidateYear = (result.releaseDate ?: result.firstAirDate)
+            ?.take(4)
+            ?.toIntOrNull()
+
+        var score = overlap * 100 / union
+        if (query == candidate) score += 1_000
+        if (candidate.startsWith(query) || query.startsWith(candidate)) score += 80
+        score += when {
+            queryNumbers == candidateNumbers -> 220
+            queryNumbers.isNotEmpty() || candidateNumbers.isNotEmpty() -> -300
+            else -> 0
+        }
+        if (media.year != null && candidateYear != null) {
+            score += if (media.year == candidateYear) 140 else -80
+        }
+        return score
+    }
+
+    private fun normaliseTitle(title: String): String = title
+        .lowercase()
+        .replace(NON_ALPHANUMERIC_REGEX, " ")
+        .replace(MULTIPLE_SPACES_REGEX, " ")
+        .trim()
+
     private companion object {
         const val MAX_METADATA_ATTEMPTS = 3
         const val METADATA_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1_000L
+        val NUMBER_TOKEN_REGEX = Regex("\\b\\d+\\b")
+        val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]+")
+        val MULTIPLE_SPACES_REGEX = Regex("\\s+")
     }
 }

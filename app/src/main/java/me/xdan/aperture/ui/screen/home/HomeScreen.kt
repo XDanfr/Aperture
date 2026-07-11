@@ -119,6 +119,10 @@ private fun HomeContent(
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
             refreshAlpha.snapTo(0.42f)
+            listState.animateScrollToItem(0)
+            onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+            delay(80)
+            runCatching { contentEntryFocusRequester.requestFocus() }
             refreshAlpha.animateTo(1f, tween(320))
         }
     }
@@ -304,7 +308,7 @@ private fun HomeMediaRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(row.items) { _, media ->
+            itemsIndexed(row.items) { index, media ->
                 val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
@@ -314,7 +318,7 @@ private fun HomeMediaRow(
                         restoreFocusKey == focusKey
                     },
                     progress = progressMap[media.id] ?: 0f,
-                    drawerFocusRequester = drawerFocusRequester,
+                    drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)

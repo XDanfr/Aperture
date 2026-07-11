@@ -222,6 +222,8 @@ fun NavGraph(
                                 selected = currentDestination is Destination.Home,
                                 onClick = {
                                     if (currentDestination is Destination.Home) {
+                                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                                        lastFocusedRequesters["home"] = homeContentEntryRequester
                                         homeViewModel.regenerateSuggestions()
                                     } else {
                                         navigateFromDrawer(Destination.Home)

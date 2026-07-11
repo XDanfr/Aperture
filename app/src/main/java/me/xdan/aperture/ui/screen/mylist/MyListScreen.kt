@@ -2,6 +2,7 @@ package me.xdan.aperture.ui.screen.mylist
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,31 +71,36 @@ fun MyListScreen(
         return
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(170.dp),
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 24.dp),
-        contentPadding = PaddingValues(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 32.dp, vertical = 24.dp)
     ) {
-        items(media, key = { it.id }) { item ->
-            var visible by remember(item.id) { mutableStateOf(false) }
-            LaunchedEffect(item.id) { visible = true }
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
-            ) {
-                MediaCard(
-                    media = item,
-                    onClick = { requester -> onMediaClick(item.id, requester) },
-                    modifier = Modifier.fillMaxWidth(),
-                    focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = onContentFocused,
-                    onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
-                )
+        val columnCount = ((maxWidth - 16.dp) / 182.dp).toInt().coerceAtLeast(1)
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columnCount),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            itemsIndexed(media, key = { _, item -> item.id }) { index, item ->
+                var visible by remember(item.id) { mutableStateOf(false) }
+                LaunchedEffect(item.id) { visible = true }
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
+                ) {
+                    MediaCard(
+                        media = item,
+                        onClick = { requester -> onMediaClick(item.id, requester) },
+                        modifier = Modifier.fillMaxWidth(),
+                        focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
+                        drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
+                        onFocused = onContentFocused,
+                        onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
+                    )
+                }
             }
         }
     }
