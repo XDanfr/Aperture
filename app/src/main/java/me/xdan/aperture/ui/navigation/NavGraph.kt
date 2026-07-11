@@ -315,6 +315,10 @@ fun NavGraph(
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
+                        onSpotlightChanged = {
+                            lastFocusedRequesters.remove("home")
+                            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                        },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
@@ -344,6 +348,10 @@ fun NavGraph(
                     onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
+                    onSpotlightChanged = {
+                        lastFocusedRequesters.remove("home")
+                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                    },
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
@@ -477,7 +485,8 @@ private fun NavContent(
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
-    onContentFocused: (String, FocusRequester) -> Unit
+    onContentFocused: (String, FocusRequester) -> Unit,
+    onSpotlightChanged: () -> Unit
 ) {
     NavDisplay(
         backStack = backstack
@@ -506,7 +515,8 @@ private fun NavContent(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = homeRestoreFocusKey,
                     onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onSpotlightChanged = onSpotlightChanged
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),

@@ -48,7 +48,8 @@ fun HomeScreen(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onSpotlightChanged: () -> Unit = {}
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -70,6 +71,9 @@ fun HomeScreen(
                 }
             }
             is HomeState.Success -> {
+                LaunchedEffect(s.featured.map { it.id }) {
+                    onSpotlightChanged()
+                }
                 HomeContent(
                     state = s,
                     onMediaClick = onMediaClick,
