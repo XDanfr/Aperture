@@ -8,5 +8,7 @@ data class PlaybackProgressEntity(
     @PrimaryKey val mediaId: Long,
     val position: Long,
     val duration: Long,
-    val lastUpdated: Long = System.currentTimeMillis()
+    val lastUpdated: Long = System.currentTimeMillis(),
+    val isCompleted: Boolean = false,
+    val completedAt: Long? = null
 )

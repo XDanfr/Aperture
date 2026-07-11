@@ -117,6 +117,8 @@ private fun HomeContent(
         item {
             FeaturedCarousel(
                 featured = state.featured,
+                progressMap = state.progressMap,
+                completedMediaIds = state.completedMediaIds,
                 onMediaClick = onMediaClick,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
@@ -144,6 +146,8 @@ private fun HomeContent(
 @Composable
 private fun FeaturedCarousel(
     featured: List<MediaEntity>,
+    progressMap: Map<Long, Float>,
+    completedMediaIds: Set<Long>,
     onMediaClick: (Long, FocusRequester) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -243,7 +247,14 @@ private fun FeaturedCarousel(
                             }
                         }
                 ) {
-                    Text("Watch Now")
+                    val progress = progressMap[media.id] ?: 0f
+                    Text(
+                        when {
+                            progress >= 0.05f && progress < 0.95f -> "Continue"
+                            media.id in completedMediaIds -> "Rewatch"
+                            else -> "Watch Now"
+                        }
+                    )
                 }
             }
         }

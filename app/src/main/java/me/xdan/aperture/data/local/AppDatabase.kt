@@ -9,7 +9,7 @@ import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 
 @Database(
     entities = [MediaEntity::class, PlaybackProgressEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

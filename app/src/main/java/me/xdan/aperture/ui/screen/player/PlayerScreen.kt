@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,8 +42,10 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 @Composable
 fun PlayerScreen(
     mediaId: Long,
+    startFromBeginning: Boolean = false,
     viewModel: PlayerViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onFinished: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
@@ -53,7 +56,7 @@ fun PlayerScreen(
     val quickMenuFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(mediaId) {
-        viewModel.loadMedia(mediaId)
+        viewModel.loadMedia(mediaId, startFromBeginning)
     }
 
     DisposableEffect(Unit) {
@@ -64,6 +67,21 @@ fun PlayerScreen(
 
     LaunchedEffect(Unit) {
         playerFocusRequester.requestFocus()
+    }
+
+    DisposableEffect(player) {
+        var hasReturned = false
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == androidx.media3.common.Player.STATE_ENDED && !hasReturned) {
+                    hasReturned = true
+                    viewModel.saveProgressNow(markCompleted = true)
+                    onFinished()
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
     }
 
     LaunchedEffect(isOsdVisible, isQuickMenuVisible) {
@@ -82,6 +100,7 @@ fun PlayerScreen(
             isOsdVisible -> viewModel.toggleOsd()
             else -> {
                 if (player.isPlaying) player.pause()
+                viewModel.saveProgressNow()
                 onBack()
             }
         }
@@ -150,6 +169,12 @@ fun PlayerScreen(
                 player = player,
                 controlsFocusRequester = controlsFocusRequester,
                 onInteraction = viewModel::showOsdBriefly,
+                onRestart = {
+                    player.seekTo(0)
+                    viewModel.saveProgressNow()
+                    player.play()
+                    viewModel.showOsdBriefly()
+                },
                 onQuickMenu = {
                     isQuickMenuVisible = true
                     viewModel.toggleOsd()
@@ -178,7 +203,7 @@ private fun QuickMenu(
     focusRequester: FocusRequester
 ) {
     val tracks = player.currentTracks
-
+    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -211,7 +236,7 @@ private fun QuickMenu(
                         .build()
                 }
             )
-
+            
             QuickMenuColumn(
                 title = "Subtitles",
                 icon = Icons.Rounded.Subtitles,
@@ -264,9 +289,9 @@ private fun RowScope.QuickMenuColumn(
             items(items) { item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
-
+                
                 Surface(
-                    onClick = {
+                    onClick = { 
                         if (item is TrackItem) onItemSelected(item.group, item.index)
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -311,6 +336,7 @@ private fun PlayerOsd(
     player: androidx.media3.common.Player,
     controlsFocusRequester: FocusRequester,
     onInteraction: () -> Unit,
+    onRestart: () -> Unit,
     onQuickMenu: () -> Unit
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
@@ -373,6 +399,12 @@ private fun PlayerOsd(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.Replay,
+                    contentDescription = "Restart",
+                    onClick = onRestart
+                )
+                Spacer(modifier = Modifier.width(24.dp))
                 PlayerControlIconButton(
                     icon = Icons.Rounded.FastRewind,
                     contentDescription = "Rewind",

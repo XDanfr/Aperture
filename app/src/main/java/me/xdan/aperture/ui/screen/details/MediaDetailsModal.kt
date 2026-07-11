@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.theme.GlassBackground
@@ -49,18 +51,29 @@ import me.xdan.aperture.ui.theme.GlassBackground
 fun MediaDetailsModal(
     mediaId: Long?,
     viewModel: MediaDetailsViewModel,
-    onPlay: (Long) -> Unit,
+    onPlay: (Long, Boolean) -> Unit,
     onClose: () -> Unit,
     restoreFocus: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
+    val playbackProgress by viewModel.progress.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
     var waitForLeftRelease by remember { mutableStateOf(false) }
+    var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<me.xdan.aperture.data.local.entity.MediaEntity?>(null) }
     val isVisible = mediaId != null && displayedMedia?.id == mediaId
+    val hasActiveProgress = playbackProgress?.let { progress ->
+        progress.duration > 0 &&
+            progress.position >= progress.duration * 0.05 &&
+            progress.position < progress.duration * 0.95
+    } == true
+    val hasBeenCompleted = playbackProgress?.let { progress ->
+        progress.isCompleted ||
+            (progress.duration > 0 && progress.position >= progress.duration * 0.95)
+    } == true
     val closeModal = {
-        restoreFocus()
+        restoreFocusAfterClose = true
         onClose()
     }
 
@@ -76,13 +89,22 @@ fun MediaDetailsModal(
 
     LaunchedEffect(isVisible) {
         if (isVisible) {
+            restoreFocusAfterClose = false
             ignoreNextPlayFocus = true
             waitForLeftRelease = false
             playButtonFocusRequester.requestFocus()
         }
     }
 
-    BackHandler(enabled = isVisible) {
+    LaunchedEffect(isVisible, restoreFocusAfterClose) {
+        if (!isVisible && restoreFocusAfterClose) {
+            delay(320)
+            restoreFocus()
+            restoreFocusAfterClose = false
+        }
+    }
+
+    BackHandler(enabled = mediaId != null) {
         closeModal()
     }
 
@@ -187,7 +209,7 @@ fun MediaDetailsModal(
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Button(
-                                onClick = { onPlay(m.id) },
+                                onClick = { onPlay(m.id, false) },
                                 modifier = Modifier
                                     .focusRequester(playButtonFocusRequester)
                                     .onFocusChanged { focusState ->
@@ -217,17 +239,36 @@ fun MediaDetailsModal(
                                         }
                                     }
                             ) {
-                                Icon(Icons.Rounded.PlayArrow, null)
+                                Icon(
+                                    if (hasBeenCompleted && !hasActiveProgress) {
+                                        Icons.Rounded.Replay
+                                    } else {
+                                        Icons.Rounded.PlayArrow
+                                    },
+                                    null
+                                )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play")
+                                Text(
+                                    when {
+                                        hasActiveProgress -> "Continue"
+                                        hasBeenCompleted -> "Rewatch"
+                                        else -> "Play"
+                                    }
+                                )
+                            }
+
+                            if (hasActiveProgress) {
+                                IconButton(onClick = { onPlay(m.id, true) }) {
+                                    Icon(Icons.Rounded.Replay, contentDescription = "Restart")
+                                }
                             }
                             
                             OutlinedButton(
-                                onClick = { /* TODO */ }
+                                onClick = { viewModel.toggleFavorite(m.id) }
                             ) {
                                 Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("My List")
+                                Text(if (m.isFavorite) "Remove from My List" else "My List")
                             }
                         }
                         }

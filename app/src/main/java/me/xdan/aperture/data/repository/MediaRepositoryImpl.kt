@@ -40,11 +40,16 @@ class MediaRepositoryImpl @Inject constructor(
 
     override fun getMediaByType(type: String): Flow<List<MediaEntity>> = mediaDao.getMediaByType(type)
 
+    override fun getFavoriteMedia(): Flow<List<MediaEntity>> = mediaDao.getFavoriteMedia()
+
     override suspend fun getMediaById(id: Long): MediaEntity? = mediaDao.getMediaById(id)
 
     override suspend fun insertMedia(media: MediaEntity): Long = mediaDao.insertMedia(media)
 
     override suspend fun updateMedia(media: MediaEntity) = mediaDao.updateMedia(media)
+
+    override suspend fun setFavorite(mediaId: Long, isFavorite: Boolean) =
+        mediaDao.setFavorite(mediaId, isFavorite)
 
     override suspend fun deleteMedia(media: MediaEntity) = mediaDao.deleteMedia(media)
 

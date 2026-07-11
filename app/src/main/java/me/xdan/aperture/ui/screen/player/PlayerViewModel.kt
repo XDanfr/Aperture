@@ -32,23 +32,46 @@ class PlayerViewModel @Inject constructor(
 
     private var osdTimerJob: Job? = null
     private var progressTrackerJob: Job? = null
+    private var activeMediaId: Long? = null
 
-    fun loadMedia(mediaId: Long) {
+    fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
         viewModelScope.launch {
             val mediaEntity = repository.getMediaById(mediaId)
             _media.value = mediaEntity
-
+            
             mediaEntity?.let { m ->
+                activeMediaId = m.id
                 val progress = repository.getProgress(m.id)
-
+                
                 // Construct file URI safely
                 val file = File(m.filePath)
                 val uri = Uri.fromFile(file)
-
+                
                 player.setMediaItem(MediaItem.fromUri(uri))
                 player.prepare()
-                progress?.let {
-                    player.seekTo(it.position)
+                val hasActiveProgress = progress?.let {
+                    it.duration > 0 &&
+                        it.position >= it.duration * 0.05 &&
+                        it.position < it.duration * 0.95
+                } == true
+                val isBelowResumeThreshold = progress?.let {
+                    it.duration > 0 && it.position < it.duration * 0.05
+                } == true
+                val shouldRestart = startFromBeginning ||
+                    isBelowResumeThreshold ||
+                    (progress?.isCompleted == true && !hasActiveProgress) ||
+                    progress?.let {
+                        it.duration > 0 && it.position >= it.duration * 0.95
+                    } == true
+                if (shouldRestart) {
+                    player.seekTo(0)
+                    progress?.let {
+                        repository.saveProgress(
+                            it.copy(position = 0L, lastUpdated = System.currentTimeMillis())
+                        )
+                    }
+                } else {
+                    progress?.let { player.seekTo(it.position) }
                 }
                 player.playWhenReady = true
                 startProgressTracker(m.id)
@@ -62,18 +85,51 @@ class PlayerViewModel @Inject constructor(
         progressTrackerJob = viewModelScope.launch {
             while (true) {
                 if (player.isPlaying) {
-                    repository.saveProgress(
-                        PlaybackProgressEntity(
-                            mediaId = mediaId,
-                            position = player.currentPosition,
-                            duration = player.duration,
-                            lastUpdated = System.currentTimeMillis()
-                        )
+                    saveProgressSnapshot(
+                        mediaId = mediaId,
+                        position = player.currentPosition,
+                        duration = player.duration,
+                        markCompleted = false
                     )
                 }
                 delay(5000) // Update every 5 seconds
             }
         }
+    }
+
+    fun saveProgressNow(markCompleted: Boolean = false) {
+        if (markCompleted) progressTrackerJob?.cancel()
+        val mediaId = activeMediaId ?: return
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val duration = player.duration
+        viewModelScope.launch {
+            saveProgressSnapshot(mediaId, position, duration, markCompleted)
+        }
+    }
+
+    private suspend fun saveProgressSnapshot(
+        mediaId: Long,
+        position: Long,
+        duration: Long,
+        markCompleted: Boolean
+    ) {
+        val existing = repository.getProgress(mediaId)
+        val safeDuration = duration.takeIf { it > 0 } ?: existing?.duration ?: 0L
+        val completedNow = markCompleted ||
+            (safeDuration > 0 && position >= safeDuration * 0.95)
+        repository.saveProgress(
+            PlaybackProgressEntity(
+                mediaId = mediaId,
+                position = position,
+                duration = safeDuration,
+                lastUpdated = System.currentTimeMillis(),
+                isCompleted = existing?.isCompleted == true || completedNow,
+                completedAt = when {
+                    completedNow -> System.currentTimeMillis()
+                    else -> existing?.completedAt
+                }
+            )
+        )
     }
 
     fun toggleOsd() {

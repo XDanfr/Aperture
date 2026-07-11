@@ -41,7 +41,10 @@ class HomeViewModel @Inject constructor(
                     
                     val continueWatching = mediaList.filter { media ->
                         val p = progressMap[media.id]
-                        p != null && p.position > 0 && p.position < (p.duration * 0.95)
+                        p != null &&
+                            p.duration > 0 &&
+                            p.position >= p.duration * RESUME_THRESHOLD &&
+                            p.position < p.duration * COMPLETION_THRESHOLD
                     }.sortedByDescending { progressMap[it.id]?.lastUpdated ?: 0L }
 
                     val exclusionCutoff = System.currentTimeMillis() -
@@ -49,18 +52,25 @@ class HomeViewModel @Inject constructor(
                     val spotlightCandidates = if (hideFinished) {
                         mediaList.filterNot { media ->
                             progressMap[media.id]?.let { progress ->
-                                progress.duration > 0 &&
-                                    progress.position >= progress.duration * COMPLETION_THRESHOLD &&
-                                    progress.lastUpdated >= exclusionCutoff
+                                progress.isCompleted &&
+                                    (progress.completedAt ?: progress.lastUpdated) >= exclusionCutoff
                             } == true
                         }
                     } else {
                         mediaList
                     }
                     val spotlightPool = spotlightCandidates.ifEmpty { mediaList }
+                    val lastWatched = continueWatching.firstOrNull()
+                    val remainingSpotlight = spotlightPool
+                        .filterNot { it.id == lastWatched?.id }
+                        .shuffled()
+                    val featured = buildList {
+                        if (lastWatched != null) add(lastWatched)
+                        addAll(remainingSpotlight.take((5 - size).coerceAtLeast(0)))
+                    }
 
                     HomeState.Success(
-                        featured = spotlightPool.shuffled().take(5),
+                        featured = featured,
                         rows = buildList {
                             if (continueWatching.isNotEmpty()) {
                                 add(HomeRow("Continue Watching", continueWatching))
@@ -71,7 +81,10 @@ class HomeViewModel @Inject constructor(
                         },
                         progressMap = progressList.associate { 
                             it.mediaId to (if (it.duration > 0) it.position.toFloat() / it.duration else 0f)
-                        }
+                        },
+                        completedMediaIds = progressList
+                            .filter { it.isCompleted }
+                            .mapTo(mutableSetOf()) { it.mediaId }
                     )
                 }
             }.collectLatest {
@@ -92,8 +105,9 @@ class HomeViewModel @Inject constructor(
     }
 }
 
-private const val COMPLETION_THRESHOLD = 0.95
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L
+private const val RESUME_THRESHOLD = 0.05
+private const val COMPLETION_THRESHOLD = 0.95
 
 sealed interface HomeState {
     data object Loading : HomeState
@@ -101,7 +115,8 @@ sealed interface HomeState {
     data class Success(
         val featured: List<MediaEntity>,
         val rows: List<HomeRow>,
-        val progressMap: Map<Long, Float> = emptyMap()
+        val progressMap: Map<Long, Float> = emptyMap(),
+        val completedMediaIds: Set<Long> = emptySet()
     ) : HomeState
 }
 

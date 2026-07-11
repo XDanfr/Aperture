@@ -15,6 +15,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE type = :type ORDER BY dateAdded DESC")
     fun getMediaByType(type: String): Flow<List<MediaEntity>>
 
+    @Query("SELECT * FROM media WHERE isFavorite = 1 ORDER BY dateAdded DESC")
+    fun getFavoriteMedia(): Flow<List<MediaEntity>>
+
     @Query("SELECT * FROM media WHERE id = :id")
     suspend fun getMediaById(id: Long): MediaEntity?
 
@@ -32,4 +35,7 @@ interface MediaDao {
 
     @Query("SELECT * FROM media WHERE title LIKE '%' || :query || '%'")
     fun searchMedia(query: String): Flow<List<MediaEntity>>
+
+    @Query("UPDATE media SET isFavorite = :isFavorite WHERE id = :mediaId")
+    suspend fun setFavorite(mediaId: Long, isFavorite: Boolean)
 }

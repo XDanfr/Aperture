@@ -10,9 +10,11 @@ interface MediaRepository {
 
     fun getAllMedia(): Flow<List<MediaEntity>>
     fun getMediaByType(type: String): Flow<List<MediaEntity>>
+    fun getFavoriteMedia(): Flow<List<MediaEntity>>
     suspend fun getMediaById(id: Long): MediaEntity?
     suspend fun insertMedia(media: MediaEntity): Long
     suspend fun updateMedia(media: MediaEntity)
+    suspend fun setFavorite(mediaId: Long, isFavorite: Boolean)
     suspend fun deleteMedia(media: MediaEntity)
     fun searchMedia(query: String): Flow<List<MediaEntity>>
     

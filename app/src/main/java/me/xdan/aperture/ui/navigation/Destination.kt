@@ -24,5 +24,8 @@ sealed interface Destination : NavKey {
     data object Settings : Destination
 
     @Serializable
-    data class Player(val mediaId: Long) : Destination
+    data class Player(
+        val mediaId: Long,
+        val startFromBeginning: Boolean = false
+    ) : Destination
 }

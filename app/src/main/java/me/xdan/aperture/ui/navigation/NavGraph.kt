@@ -29,6 +29,7 @@ import me.xdan.aperture.ui.screen.details.MediaDetailsModal
 import me.xdan.aperture.ui.screen.details.MediaDetailsViewModel
 import me.xdan.aperture.ui.screen.onboarding.OnboardingScreen
 import me.xdan.aperture.ui.screen.settings.SettingsScreen
+import me.xdan.aperture.ui.screen.mylist.MyListScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -65,6 +66,7 @@ fun NavGraph(
     val homeContentEntryRequester = remember { FocusRequester() }
     val searchContentEntryRequester = remember { FocusRequester() }
     val settingsContentEntryRequester = remember { FocusRequester() }
+    val myListContentEntryRequester = remember { FocusRequester() }
     val currentDrawerRequester = when (currentDestination) {
         is Destination.Home -> homeDrawerRequester
         is Destination.Search -> searchDrawerRequester
@@ -90,6 +92,15 @@ fun NavGraph(
         }
         onNavigate(destination)
     }
+    val returnFromPlayer: () -> Unit = {
+        val originFocusKey = playerOriginFocusKey ?: "home"
+        lastFocusedRequesters.remove(originFocusKey)
+        if (originFocusKey == "home") {
+            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+        }
+        pendingPlayerFocusRestore = originFocusKey
+        if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+    }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
     val libraryPreparation by mainViewModel.libraryPreparation.collectAsState()
 
@@ -104,6 +115,7 @@ fun NavGraph(
         val fallbackRequester = when (focusKey) {
             "home" -> homeContentEntryRequester
             "search" -> searchContentEntryRequester
+            "my_list" -> myListContentEntryRequester
             "settings" -> settingsContentEntryRequester
             else -> null
         }
@@ -216,7 +228,8 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(myListDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["my_list"] ?: FocusRequester.Default
+                                        right = lastFocusedRequesters["my_list"]
+                                            ?: myListContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
                             ) {
@@ -245,6 +258,7 @@ fun NavGraph(
                         contentEntryFocusRequester = when (currentDestination) {
                             is Destination.Home -> homeContentEntryRequester
                             is Destination.Search -> searchContentEntryRequester
+                            is Destination.MyList -> myListContentEntryRequester
                             is Destination.Settings -> settingsContentEntryRequester
                             else -> FocusRequester.Default
                         },
@@ -252,10 +266,7 @@ fun NavGraph(
                         settingsRestoreFocusKey = settingsRestoreFocusKey,
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
-                        onPlayerBack = {
-                            pendingPlayerFocusRestore = playerOriginFocusKey ?: "home"
-                            if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
-                        },
+                        onPlayerBack = returnFromPlayer,
                         onContentFocused = { requester ->
                             currentFocusKey?.let { lastFocusedRequesters[it] = requester }
                         },
@@ -275,10 +286,7 @@ fun NavGraph(
                     settingsRestoreFocusKey = settingsRestoreFocusKey,
                     onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
-                    onPlayerBack = {
-                        pendingPlayerFocusRestore = playerOriginFocusKey ?: "home"
-                        if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
-                    },
+                    onPlayerBack = returnFromPlayer,
                     onContentFocused = { requester ->
                         currentFocusKey?.let { lastFocusedRequesters[it] = requester }
                     },
@@ -292,21 +300,37 @@ fun NavGraph(
             MediaDetailsModal(
                 mediaId = selectedMediaId,
                 viewModel = viewModel(),
-                onPlay = {
+                onPlay = { mediaId, startFromBeginning ->
                     selectedMediaId = null
                     playerOriginFocusKey = currentFocusKey
-                    onNavigate(Destination.Player(it))
+                    onNavigate(Destination.Player(mediaId, startFromBeginning))
                 },
                 onClose = { selectedMediaId = null },
                 restoreFocus = {
-                    currentFocusKey?.let { lastFocusedRequesters[it] }?.let { requester ->
-                        runCatching { requester.requestFocus() }
+                    val focusKey = currentFocusKey
+                    val rememberedRequester = focusKey?.let { lastFocusedRequesters[it] }
+                    val fallbackRequester = when (focusKey) {
+                        "home" -> homeContentEntryRequester
+                        "search" -> searchContentEntryRequester
+                        "my_list" -> myListContentEntryRequester
+                        "settings" -> settingsContentEntryRequester
+                        else -> null
+                    }
+                    val restored = rememberedRequester?.let { requester ->
+                        runCatching { requester.requestFocus() }.getOrDefault(false)
+                    } == true
+                    if (!restored) {
+                        fallbackRequester?.let { requester ->
+                            runCatching { requester.requestFocus() }
+                        }
                     }
                 }
             )
         }
     }
 }
+
+private const val HOME_DEFAULT_FOCUS_KEY = "spotlight"
 
 @Composable
 private fun NavContent(
@@ -343,9 +367,13 @@ private fun NavContent(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     onContentFocused = onContentFocused
                 )
-                is Destination.MyList -> Box(modifier = Modifier.fillMaxSize()) {
-                    Text("My List - Coming Soon", modifier = Modifier.padding(32.dp))
-                }
+                is Destination.MyList -> MyListScreen(
+                    viewModel = viewModel(),
+                    onMediaClick = onMediaClick,
+                    drawerFocusRequester = drawerFocusRequester,
+                    contentEntryFocusRequester = contentEntryFocusRequester,
+                    onContentFocused = onContentFocused
+                )
                 is Destination.Settings -> SettingsScreen(
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
@@ -355,8 +383,10 @@ private fun NavContent(
                 )
                 is Destination.Player -> PlayerScreen(
                     mediaId = destination.mediaId,
+                    startFromBeginning = destination.startFromBeginning,
                     viewModel = viewModel(),
-                    onBack = onPlayerBack
+                    onBack = onPlayerBack,
+                    onFinished = onPlayerBack
                 )
                 else -> Box(modifier = Modifier.fillMaxSize()) {
                     Text("Coming Soon", modifier = Modifier.padding(32.dp))
