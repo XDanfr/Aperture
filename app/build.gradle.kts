@@ -16,18 +16,20 @@ val localProps = Properties().also { props ->
 android {
     namespace = "me.xdan.aperture"
     compileSdk = 37
-
+    
     defaultConfig {
         applicationId = "me.xdan.aperture"
         minSdk = 27
         targetSdk = 37
-        versionCode = 7
-        versionName = "v0.3.1-alpha"
+        versionCode = 8
+        versionName = "v0.4.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
+        
         val tmdbApiKey = localProps.getProperty("TMDB_API_KEY") ?: ""
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+        val openSubtitlesApiKey = localProps.getProperty("OPENSUBTITLES_API_KEY") ?: ""
+        buildConfigField("String", "OPENSUBTITLES_API_KEY", "\"$openSubtitlesApiKey\"")
     }
 
     buildTypes {
@@ -76,6 +78,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui.compose)
+    implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
     implementation(libs.coil.compose)
     implementation(libs.converter.moshi)

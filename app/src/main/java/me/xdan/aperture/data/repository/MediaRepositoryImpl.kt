@@ -26,6 +26,7 @@ import me.xdan.aperture.data.remote.dto.TmdbResult
 import retrofit2.HttpException
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 class MediaRepositoryImpl @Inject constructor(
@@ -36,6 +37,7 @@ class MediaRepositoryImpl @Inject constructor(
 ) : MediaRepository {
 
     private val scanMutex = Mutex()
+    private val showMatchCache = ConcurrentHashMap<String, TmdbResult>()
     private val _preparationProgress = MutableStateFlow(LibraryPreparationProgress())
     override val preparationProgress: StateFlow<LibraryPreparationProgress> = _preparationProgress
 
@@ -48,6 +50,9 @@ class MediaRepositoryImpl @Inject constructor(
     override fun getHiddenMedia(): Flow<List<MediaEntity>> = mediaDao.getHiddenMedia()
 
     override suspend fun getMediaById(id: Long): MediaEntity? = mediaDao.getMediaById(id)
+
+    override suspend fun getEpisodesForShow(showTitle: String): List<MediaEntity> =
+        mediaDao.getEpisodesForShow(showTitle)
 
     override suspend fun insertMedia(media: MediaEntity): Long = mediaDao.insertMedia(media)
 
@@ -170,10 +175,14 @@ class MediaRepositoryImpl @Inject constructor(
         mediaItems.forEachIndexed { index, media ->
             updateCurrentItem(media.title, 0.1f)
 
-            val shouldRefreshMissingMatch = media.tmdbId == null && (
-                media.metadataAttemptedAt == null ||
-                    System.currentTimeMillis() - media.metadataAttemptedAt > METADATA_RETRY_INTERVAL_MS
-                )
+            val shouldRefreshMissingMatch = (
+                media.tmdbId == null ||
+                    (media.type == "EPISODE" && media.episodeTitle == null)
+                ) && (
+                    media.metadataAttemptedAt == null ||
+                        media.type == "EPISODE" ||
+                        System.currentTimeMillis() - media.metadataAttemptedAt > METADATA_RETRY_INTERVAL_MS
+                    )
 
             val updated = if (shouldRefreshMissingMatch) {
                 runCatching {
@@ -221,9 +230,13 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun searchMetadataCandidates(media: MediaEntity): List<TmdbResult> =
+    override suspend fun searchMetadataCandidates(media: MediaEntity, query: String?): List<TmdbResult> =
         withContext(Dispatchers.IO) {
-            val lookupMedia = mediaForMetadataLookup(media)
+            val lookupMedia = if (query.isNullOrBlank()) {
+                mediaForMetadataLookup(media)
+            } else {
+                media.copy(title = query.trim(), year = null)
+            }
             searchWithRetry(lookupMedia).results
                 .sortedByDescending { metadataMatchScore(lookupMedia, it) }
                 .take(20)
@@ -231,9 +244,10 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult) {
         val media = mediaDao.getMediaById(mediaId) ?: return
-        val updated = media.copy(
+        val showTitle = candidate.title ?: candidate.name ?: media.title
+        var updated = media.copy(
             tmdbId = candidate.id,
-            title = candidate.title ?: candidate.name ?: media.title,
+            title = showTitle,
             posterPath = candidate.posterPath,
             backdropPath = candidate.backdropPath,
             overview = candidate.overview,
@@ -241,6 +255,28 @@ class MediaRepositoryImpl @Inject constructor(
                 ?.take(4)?.toIntOrNull() ?: media.year,
             metadataAttemptedAt = System.currentTimeMillis()
         )
+        if (media.type == "EPISODE") {
+            updated = attachEpisodeMetadata(updated)
+            // A manual show correction should correct every episode parsed under the old show title.
+            mediaDao.getEpisodesForShow(media.title)
+                .filterNot { it.id == media.id }
+                .forEach { sibling ->
+                    mediaDao.updateMedia(
+                        attachEpisodeMetadata(
+                            sibling.copy(
+                                title = showTitle,
+                                tmdbId = candidate.id,
+                                posterPath = candidate.posterPath,
+                                backdropPath = candidate.backdropPath,
+                                overview = candidate.overview,
+                                year = (candidate.firstAirDate ?: candidate.releaseDate)
+                                    ?.take(4)?.toIntOrNull() ?: sibling.year,
+                                metadataAttemptedAt = System.currentTimeMillis()
+                            )
+                        )
+                    )
+                }
+        }
         mediaDao.updateMedia(updated)
     }
 
@@ -250,12 +286,26 @@ class MediaRepositoryImpl @Inject constructor(
     ): MediaEntity {
         check(BuildConfig.TMDB_API_KEY.isNotBlank()) { "TMDB API key is not configured" }
 
+        if (media.type == "EPISODE" && media.tmdbId != null) {
+            onProgress(0.45f)
+            val updated = attachEpisodeMetadata(media).copy(
+                metadataAttemptedAt = System.currentTimeMillis()
+            )
+            mediaDao.updateMedia(updated)
+            onProgress(0.95f)
+            return updated
+        }
+
         onProgress(0.3f)
         val lookupMedia = mediaForMetadataLookup(media)
-        val response = searchWithRetry(lookupMedia)
+        val showCacheKey = normaliseTitle(lookupMedia.title).takeIf { media.type == "EPISODE" }
+        val result = showCacheKey?.let(showMatchCache::get) ?: run {
+            val response = searchWithRetry(lookupMedia)
+            response.results.maxByOrNull { metadataMatchScore(lookupMedia, it) }
+                ?.also { match -> showCacheKey?.let { showMatchCache[it] = match } }
+        }
         onProgress(0.75f)
-        val result = response.results.maxByOrNull { metadataMatchScore(lookupMedia, it) }
-        val updatedMedia = if (result == null) {
+        var updatedMedia = if (result == null) {
             media.copy(metadataAttemptedAt = System.currentTimeMillis())
         } else {
             media.copy(
@@ -264,8 +314,13 @@ class MediaRepositoryImpl @Inject constructor(
                 backdropPath = result.backdropPath,
                 overview = result.overview,
                 title = result.title ?: result.name ?: media.title,
+                year = (result.releaseDate ?: result.firstAirDate)
+                    ?.take(4)?.toIntOrNull() ?: media.year,
                 metadataAttemptedAt = System.currentTimeMillis()
             )
+        }
+        if (result != null && updatedMedia.type == "EPISODE") {
+            updatedMedia = attachEpisodeMetadata(updatedMedia)
         }
         mediaDao.updateMedia(updatedMedia)
         onProgress(0.95f)
@@ -309,6 +364,20 @@ class MediaRepositoryImpl @Inject constructor(
         tmdbApi.searchMovie(media.title, media.year, BuildConfig.TMDB_API_KEY)
     } else {
         tmdbApi.searchTvShow(media.title, media.year, BuildConfig.TMDB_API_KEY)
+    }
+
+    private suspend fun attachEpisodeMetadata(media: MediaEntity): MediaEntity {
+        val seriesId = media.tmdbId ?: return media
+        val season = media.seasonNumber ?: return media
+        val episode = media.episodeNumber ?: return media
+        val result = runCatching {
+            tmdbApi.getTvEpisode(seriesId, season, episode, BuildConfig.TMDB_API_KEY)
+        }.getOrNull() ?: return media
+        return media.copy(
+            episodeTitle = result.name,
+            episodeOverview = result.overview,
+            stillPath = result.stillPath
+        )
     }
 
     private fun metadataMatchScore(media: MediaEntity, result: TmdbResult): Int {

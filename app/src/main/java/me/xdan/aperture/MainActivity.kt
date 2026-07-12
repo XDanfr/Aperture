@@ -33,12 +33,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
             val themeId by mainViewModel.themeId.collectAsState()
+            val dynamicAccentArgb by mainViewModel.dynamicAccentArgb.collectAsState()
             var appVisible by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 delay(80)
                 appVisible = true
             }
-            ApertureTheme(themeId = themeId) {
+            ApertureTheme(
+                themeId = themeId,
+                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
+            ) {
                 AnimatedVisibility(
                     visible = appVisible,
                     enter = fadeIn(tween(420)) + scaleIn(tween(420), initialScale = 0.985f)

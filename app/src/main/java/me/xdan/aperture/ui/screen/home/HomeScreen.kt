@@ -48,7 +48,8 @@ fun HomeScreen(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit = {}
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -78,7 +79,8 @@ fun HomeScreen(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = restoreFocusKey,
                     onFocusKeyChanged = onFocusKeyChanged,
-                    onContentFocused = onContentFocused
+                    onContentFocused = onContentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
             }
         }
@@ -95,7 +97,8 @@ private fun HomeContent(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     val listState = rememberLazyListState()
     val refreshAlpha = remember { Animatable(1f) }
@@ -137,12 +140,14 @@ private fun HomeContent(
                 featured = state.featured,
                 progressMap = state.progressMap,
                 completedMediaIds = state.completedMediaIds,
+                continueMediaIds = state.continueMediaIds,
                 onMediaClick = onMediaClick,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
                 isContentEntry = resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
                 onFocusKeyChanged = onFocusKeyChanged,
-                onContentFocused = onContentFocused
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged
             )
         }
         items(state.rows) { row ->
@@ -155,7 +160,8 @@ private fun HomeContent(
                 contentEntryFocusRequester = contentEntryFocusRequester,
                 restoreFocusKey = resolvedRestoreFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
-                onContentFocused = onContentFocused
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged
             )
         }
     }
@@ -167,12 +173,14 @@ private fun FeaturedCarousel(
     featured: List<MediaEntity>,
     progressMap: Map<Long, Float>,
     completedMediaIds: Set<Long>,
+    continueMediaIds: Set<Long>,
     onMediaClick: (Long, FocusRequester) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     isContentEntry: Boolean,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     if (featured.isEmpty()) return
 
@@ -181,6 +189,10 @@ private fun FeaturedCarousel(
         List(featured.size) { FocusRequester() }
     }
     var focusActiveSpotlight by remember { mutableStateOf(false) }
+
+    LaunchedEffect(carouselState.activeItemIndex, featured) {
+        featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+    }
 
     LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex) {
         if (focusActiveSpotlight) {
@@ -275,6 +287,7 @@ private fun FeaturedCarousel(
                     val progress = progressMap[media.id] ?: 0f
                     Text(
                         when {
+                            media.id in continueMediaIds -> "Continue"
                             progress >= 0.05f && progress < 0.95f -> "Continue"
                             media.id in completedMediaIds -> "Rewatch"
                             else -> "Watch Now"
@@ -296,7 +309,8 @@ private fun HomeMediaRow(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     if (row.items.isEmpty()) return
 
@@ -330,6 +344,7 @@ private fun HomeMediaRow(
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)
+                        onActiveMediaChanged(media.id)
                     },
                     onLongClick = { requester, opensToRight ->
                         onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)

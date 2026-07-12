@@ -322,11 +322,13 @@ fun NavGraph(
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
+                        onActiveMediaChanged = mainViewModel::setActiveMedia,
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
                         onMediaClick = { focusKey, mediaId, requester ->
                             lastFocusedRequesters[focusKey] = requester
+                            mainViewModel.setActiveMedia(mediaId)
                             selectedMediaId = mediaId
                         },
                         onMediaLongClick = { focusKey, media, requester, fromContinue, opensToRight ->
@@ -351,11 +353,13 @@ fun NavGraph(
                     onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
+                    onActiveMediaChanged = mainViewModel::setActiveMedia,
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
                     onMediaClick = { focusKey, mediaId, requester ->
                         lastFocusedRequesters[focusKey] = requester
+                        mainViewModel.setActiveMedia(mediaId)
                         selectedMediaId = mediaId
                     },
                     onMediaLongClick = { _, media, requester, fromContinue, opensToRight ->
@@ -379,6 +383,7 @@ fun NavGraph(
                     onInfo = {
                         contextFocusRequester = null
                         contextMediaId = null
+                        mainViewModel.setActiveMedia(mediaId)
                         selectedMediaId = mediaId
                     },
                     onPlayFromBeginning = {
@@ -484,6 +489,7 @@ private fun NavContent(
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -513,7 +519,8 @@ private fun NavContent(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = homeRestoreFocusKey,
                     onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),

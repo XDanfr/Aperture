@@ -54,6 +54,22 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         "purple"
     )
+    val showPresentationMode = userPreferencesRepository.showPresentationMode.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "grouped"
+    )
+    val subtitleAppearance = combine(
+        userPreferencesRepository.subtitleTextScale,
+        userPreferencesRepository.subtitleColour,
+        userPreferencesRepository.subtitleBackgroundOpacity
+    ) { scale, colour, backgroundOpacity ->
+        SubtitleAppearanceSettings(scale, colour, backgroundOpacity)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        SubtitleAppearanceSettings()
+    )
     val updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val hiddenMedia = repository.getHiddenMedia().stateIn(
         viewModelScope,
@@ -86,6 +102,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setTheme(themeId: String) {
         viewModelScope.launch { userPreferencesRepository.setThemeId(themeId) }
+    }
+
+    fun setShowPresentationMode(mode: String) {
+        viewModelScope.launch { userPreferencesRepository.setShowPresentationMode(mode) }
+    }
+
+    fun setSubtitleAppearance(settings: SubtitleAppearanceSettings) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSubtitleTextScale(settings.textScale)
+            userPreferencesRepository.setSubtitleColour(settings.colour)
+            userPreferencesRepository.setSubtitleBackgroundOpacity(settings.backgroundOpacity)
+        }
     }
 
     fun unhide(mediaId: Long) {
@@ -209,6 +237,12 @@ class SettingsViewModel @Inject constructor(
         }?.let { it > 0 } ?: false
     }
 }
+
+data class SubtitleAppearanceSettings(
+    val textScale: Float = 1f,
+    val colour: String = "white",
+    val backgroundOpacity: Float = 0.55f
+)
 
 sealed interface UpdateCheckState {
     data object Idle : UpdateCheckState

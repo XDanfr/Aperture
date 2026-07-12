@@ -9,6 +9,7 @@ data class ApertureThemeOption(val id: String, val label: String, val preview: C
 
 val ApertureThemeOptions = listOf(
     ApertureThemeOption("purple", "Aperture Purple", Color(0xFFD0BCFF)),
+    ApertureThemeOption("dynamic", "Artwork Dynamic", Color(0xFFB7C8FF)),
     ApertureThemeOption("classic", "Material TV", Color(0xFFFFFFFF)),
     ApertureThemeOption("green", "Emerald", Color(0xFF7DDA9A)),
     ApertureThemeOption("red", "Cinema Red", Color(0xFFFFB4AB)),
@@ -44,18 +45,20 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun ApertureTheme(
     themeId: String = "purple",
+    dynamicAccent: Color? = null,
     content: @Composable () -> Unit
 ) {
     val option = ApertureThemeOptions.firstOrNull { it.id == themeId } ?: ApertureThemeOptions.first()
+    val accent = if (themeId == "dynamic") dynamicAccent ?: option.preview else option.preview
     val scheme = if (themeId == "purple") DarkColorScheme else darkColorScheme(
-        primary = option.preview,
+        primary = accent,
         onPrimary = Color(0xFF151218),
-        primaryContainer = option.preview.copy(alpha = 0.30f),
-        onPrimaryContainer = option.preview,
-        secondary = option.preview.copy(alpha = 0.82f),
+        primaryContainer = accent.copy(alpha = 0.30f),
+        onPrimaryContainer = accent,
+        secondary = accent.copy(alpha = 0.82f),
         onSecondary = Color(0xFF151218),
-        secondaryContainer = option.preview.copy(alpha = 0.20f),
-        onSecondaryContainer = option.preview,
+        secondaryContainer = accent.copy(alpha = 0.20f),
+        onSecondaryContainer = accent,
         background = Color(0xFF111014),
         onBackground = Color(0xFFF1ECF2),
         surface = Color(0xFF111014),

@@ -49,6 +49,19 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE media ADD COLUMN episodeTitle TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE media ADD COLUMN episodeOverview TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE media ADD COLUMN stillPath TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE playback_progress ADD COLUMN keepInContinueWatching INTEGER NOT NULL DEFAULT 0")
+            db.execSQL(
+                "UPDATE playback_progress SET keepInContinueWatching = 1 " +
+                    "WHERE duration > 0 AND position >= duration * 0.05 AND position < duration * 0.95"
+            )
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -57,7 +70,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .fallbackToDestructiveMigration()
             .build()
     }

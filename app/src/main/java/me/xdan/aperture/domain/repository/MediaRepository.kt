@@ -14,6 +14,7 @@ interface MediaRepository {
     fun getFavoriteMedia(): Flow<List<MediaEntity>>
     fun getHiddenMedia(): Flow<List<MediaEntity>>
     suspend fun getMediaById(id: Long): MediaEntity?
+    suspend fun getEpisodesForShow(showTitle: String): List<MediaEntity>
     suspend fun insertMedia(media: MediaEntity): Long
     suspend fun updateMedia(media: MediaEntity)
     suspend fun setFavorite(mediaId: Long, isFavorite: Boolean)
@@ -28,6 +29,6 @@ interface MediaRepository {
     
     suspend fun scanLocalFiles()
     suspend fun syncMetadata(media: MediaEntity)
-    suspend fun searchMetadataCandidates(media: MediaEntity): List<TmdbResult>
+    suspend fun searchMetadataCandidates(media: MediaEntity, query: String? = null): List<TmdbResult>
     suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult)
 }

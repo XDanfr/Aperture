@@ -17,7 +17,10 @@ import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
@@ -63,6 +66,7 @@ fun MediaDetailsModal(
 ) {
     val media by viewModel.media.collectAsState()
     val playbackProgress by viewModel.progress.collectAsState()
+    val episodes by viewModel.episodes.collectAsState()
     val assetCandidates by viewModel.assetCandidates.collectAsState()
     val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
@@ -71,7 +75,7 @@ fun MediaDetailsModal(
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<me.xdan.aperture.data.local.entity.MediaEntity?>(null) }
     var showAssetPicker by remember { mutableStateOf(false) }
-    val isVisible = mediaId != null && displayedMedia?.id == mediaId
+    val isVisible = mediaId != null && displayedMedia != null
     val hasActiveProgress = playbackProgress?.let { progress ->
         progress.duration > 0 &&
             progress.position >= progress.duration * 0.05 &&
@@ -87,11 +91,12 @@ fun MediaDetailsModal(
     }
 
     LaunchedEffect(mediaId) {
+        displayedMedia = null
         mediaId?.let(viewModel::loadMedia)
     }
 
     LaunchedEffect(media, mediaId) {
-        if (mediaId != null && media?.id == mediaId) {
+        if (mediaId != null && (media?.id == mediaId || episodes.any { it.id == media?.id })) {
             displayedMedia = media
         }
     }
@@ -207,10 +212,19 @@ fun MediaDetailsModal(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Text(
-                            text = m.overview ?: "No synopsis available.",
+                            text = m.episodeOverview ?: m.overview ?: "No synopsis available.",
                             style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 6
+                            maxLines = if (episodes.isEmpty()) 6 else 3
                         )
+
+                        if (episodes.isNotEmpty()) {
+                            Spacer(Modifier.height(14.dp))
+                            EpisodeSelector(
+                                episodes = episodes,
+                                selectedEpisodeId = m.id,
+                                onSelectEpisode = viewModel::selectEpisode
+                            )
+                        }
                         
                         Spacer(modifier = Modifier.weight(1f))
                         
@@ -301,8 +315,93 @@ fun MediaDetailsModal(
                     viewModel.selectAssetCandidate(it)
                     showAssetPicker = false
                 },
+                onQueryChange = viewModel::findAssetCandidates,
                 onDismiss = { showAssetPicker = false }
             )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeSelector(
+    episodes: List<me.xdan.aperture.data.local.entity.MediaEntity>,
+    selectedEpisodeId: Long,
+    onSelectEpisode: (Long) -> Unit
+) {
+    val seasons = remember(episodes) {
+        episodes.mapNotNull { it.seasonNumber }.distinct().sorted()
+    }
+    val selectedEpisode = episodes.firstOrNull { it.id == selectedEpisodeId }
+    var selectedSeason by remember(episodes) {
+        mutableStateOf(selectedEpisode?.seasonNumber ?: seasons.firstOrNull() ?: 0)
+    }
+    LaunchedEffect(selectedEpisode?.seasonNumber) {
+        selectedEpisode?.seasonNumber?.let { selectedSeason = it }
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Text("Episodes", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            lazyItems(seasons, key = { it }) { season ->
+                Surface(
+                    onClick = { selectedSeason = season },
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (season == selectedSeason) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text("Season $season", modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 170.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            lazyItems(
+                episodes.filter { (it.seasonNumber ?: 0) == selectedSeason },
+                key = { it.id }
+            ) { episode ->
+                Surface(
+                    onClick = { onSelectEpisode(episode.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (episode.id == selectedEpisodeId) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!episode.stillPath.isNullOrBlank()) {
+                            AsyncImage(
+                                model = TmdbApi.IMAGE_BASE_URL + "w300" + episode.stillPath,
+                                contentDescription = null,
+                                modifier = Modifier.width(92.dp).height(52.dp).clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Column {
+                            Text(
+                                "Episode ${episode.episodeNumber ?: "?"}",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                episode.episodeTitle ?: episode.filePath.substringAfterLast('/').substringBeforeLast('.'),
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -312,8 +411,15 @@ private fun AssetPickerDialog(
     candidates: List<me.xdan.aperture.data.remote.dto.TmdbResult>,
     loading: Boolean,
     onSelect: (me.xdan.aperture.data.remote.dto.TmdbResult) -> Unit,
+    onQueryChange: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var query by remember { mutableStateOf("") }
+    LaunchedEffect(query) {
+        if (query.isBlank()) return@LaunchedEffect
+        delay(400)
+        onQueryChange(query)
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             modifier = Modifier.fillMaxSize().padding(52.dp),
@@ -322,7 +428,15 @@ private fun AssetPickerDialog(
         ) {
             Column(Modifier.padding(28.dp)) {
                 Text("Choose artwork and metadata", style = MaterialTheme.typography.headlineMedium)
-                Text("Select the correct TMDB match for this file.")
+                Text("Correct the title, then select the matching TMDB result.")
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { androidx.compose.material3.Text("Search title") }
+                )
                 Spacer(Modifier.height(20.dp))
                 when {
                     loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -337,22 +451,37 @@ private fun AssetPickerDialog(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(candidates, key = { it.id }) { candidate ->
+                        gridItems(candidates, key = { it.id }) { candidate ->
                             Surface(
                                 onClick = { onSelect(candidate) },
                                 modifier = Modifier.aspectRatio(2f / 3f),
                                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp))
                             ) {
-                                if (candidate.posterPath.isNullOrBlank()) {
-                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                        Text(candidate.title ?: candidate.name ?: "Unknown", modifier = Modifier.padding(10.dp))
+                                Box(Modifier.fillMaxSize()) {
+                                    if (candidate.posterPath.isNullOrBlank()) {
+                                        ArtworkFallback(
+                                            title = candidate.title ?: candidate.name ?: "Unknown",
+                                            isFocused = false,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        AsyncImage(
+                                            model = TmdbApi.IMAGE_BASE_URL + "w342" + candidate.posterPath,
+                                            contentDescription = candidate.title ?: candidate.name,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
                                     }
-                                } else {
-                                    AsyncImage(
-                                        model = TmdbApi.IMAGE_BASE_URL + "w342" + candidate.posterPath,
-                                        contentDescription = candidate.title ?: candidate.name,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                    Text(
+                                        candidate.title ?: candidate.name ?: "Unknown",
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .background(Color.Black.copy(alpha = 0.78f))
+                                            .padding(8.dp),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 2
                                     )
                                 }
                             }

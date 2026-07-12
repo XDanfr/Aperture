@@ -3,6 +3,8 @@ package me.xdan.aperture.data.remote.api
 import me.xdan.aperture.data.remote.dto.TmdbSearchResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
+import retrofit2.http.Path
+import me.xdan.aperture.data.remote.dto.TmdbEpisodeResult
 
 interface TmdbApi {
     @GET("search/movie")
@@ -18,6 +20,14 @@ interface TmdbApi {
         @Query("first_air_date_year") year: Int? = null,
         @Query("api_key") apiKey: String
     ): TmdbSearchResponse
+
+    @GET("tv/{seriesId}/season/{seasonNumber}/episode/{episodeNumber}")
+    suspend fun getTvEpisode(
+        @Path("seriesId") seriesId: Int,
+        @Path("seasonNumber") seasonNumber: Int,
+        @Path("episodeNumber") episodeNumber: Int,
+        @Query("api_key") apiKey: String
+    ): TmdbEpisodeResult
     
     companion object {
         const val BASE_URL = "https://api.themoviedb.org/3/"
