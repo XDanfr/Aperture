@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,13 +43,14 @@ import me.xdan.aperture.ui.theme.HeroGradientStart
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit = {}
 ) {
     val state by viewModel.homeState.collectAsState()
 
@@ -78,7 +80,8 @@ fun HomeScreen(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = restoreFocusKey,
                     onFocusKeyChanged = onFocusKeyChanged,
-                    onContentFocused = onContentFocused
+                    onContentFocused = onContentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
             }
         }
@@ -89,13 +92,14 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     state: HomeState.Success,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     val listState = rememberLazyListState()
     val refreshAlpha = remember { Animatable(1f) }
@@ -104,17 +108,38 @@ private fun HomeContent(
             row.items.any { media -> key == "row:${row.title}:${media.id}" }
         }
     }
+    // The entry requester must stay attached to the item Home was entered on.
+    // Moving it to every newly focused card mutates the focus tree mid-scroll and
+    // makes the containing LazyColumn perform small vertical corrections.
+    val entryFocusKey = remember(state.suggestionGeneration) { resolvedRestoreFocusKey }
 
     LaunchedEffect(Unit) {
-        val restoredRowTitle = resolvedRestoreFocusKey
+        val restoredRowTitle = entryFocusKey
             ?.takeIf { it.startsWith("row:") }
             ?.removePrefix("row:")
             ?.substringBeforeLast(":")
         val restoredRowIndex = state.rows.indexOfFirst { it.title == restoredRowTitle }
         if (restoredRowIndex >= 0) {
             listState.scrollToItem(restoredRowIndex + 1)
+        } else {
+            listState.scrollToItem(0, 0)
+            delay(100)
+            repeat(3) {
+                if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+                delay(80)
+            }
         }
     }
+
+    val isAtSpotlight by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
+        }
+    }
+    val allowUnfocusedSpotlightUpdates = isAtSpotlight &&
+        (entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
 
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
@@ -137,15 +162,18 @@ private fun HomeContent(
                 featured = state.featured,
                 progressMap = state.progressMap,
                 completedMediaIds = state.completedMediaIds,
+                continueMediaIds = state.continueMediaIds,
                 onMediaClick = onMediaClick,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
-                isContentEntry = resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
+                isContentEntry = entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
                 onFocusKeyChanged = onFocusKeyChanged,
-                onContentFocused = onContentFocused
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged,
+                allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates
             )
         }
-        items(state.rows) { row ->
+        items(state.rows, key = { it.title }) { row ->
             HomeMediaRow(
                 row = row,
                 onMediaClick = onMediaClick,
@@ -153,7 +181,7 @@ private fun HomeContent(
                 progressMap = state.progressMap,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
-                restoreFocusKey = resolvedRestoreFocusKey,
+                restoreFocusKey = entryFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused
             )
@@ -167,12 +195,15 @@ private fun FeaturedCarousel(
     featured: List<MediaEntity>,
     progressMap: Map<Long, Float>,
     completedMediaIds: Set<Long>,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    continueMediaIds: Set<Long>,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     isContentEntry: Boolean,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
+    allowUnfocusedArtworkUpdates: Boolean
 ) {
     if (featured.isEmpty()) return
 
@@ -181,6 +212,17 @@ private fun FeaturedCarousel(
         List(featured.size) { FocusRequester() }
     }
     var focusActiveSpotlight by remember { mutableStateOf(false) }
+
+    LaunchedEffect(
+        carouselState.activeItemIndex,
+        featured,
+        focusActiveSpotlight,
+        allowUnfocusedArtworkUpdates
+    ) {
+        if (focusActiveSpotlight || allowUnfocusedArtworkUpdates) {
+            featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+        }
+    }
 
     LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex) {
         if (focusActiveSpotlight) {
@@ -256,7 +298,13 @@ private fun FeaturedCarousel(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { onMediaClick(media.id, watchNowFocusRequester) },
+                    onClick = {
+                        onMediaClick(
+                            media.id,
+                            watchNowFocusRequester,
+                            media.type == "EPISODE" && media.id in continueMediaIds
+                        )
+                    },
                     modifier = Modifier
                         .then(
                             if (drawerFocusRequester != null) {
@@ -275,6 +323,7 @@ private fun FeaturedCarousel(
                     val progress = progressMap[media.id] ?: 0f
                     Text(
                         when {
+                            media.id in continueMediaIds -> "Continue"
                             progress >= 0.05f && progress < 0.95f -> "Continue"
                             media.id in completedMediaIds -> "Rewatch"
                             else -> "Watch Now"
@@ -289,7 +338,7 @@ private fun FeaturedCarousel(
 @Composable
 private fun HomeMediaRow(
     row: HomeRow,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     progressMap: Map<Long, Float> = emptyMap(),
     drawerFocusRequester: FocusRequester?,
@@ -311,17 +360,28 @@ private fun HomeMediaRow(
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
         LazyRow(
-            modifier = Modifier.height(250.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier.height(270.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            itemsIndexed(row.items) { index, media ->
+            itemsIndexed(row.items, key = { _, media -> media.id }) { index, media ->
                 val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
-                    onClick = { requester -> onMediaClick(media.id, requester) },
+                    onClick = { requester ->
+                        onMediaClick(
+                            media.id,
+                            requester,
+                            media.type == "EPISODE" && row.title == "Continue Watching"
+                        )
+                    },
                     modifier = Modifier.width(150.dp),
+                    // This row is nested inside Home's vertical LazyColumn. Scaling
+                    // its focus target makes Compose's bring-into-view logic chase
+                    // animated bounds and produces the vertical "wobble". The TV
+                    // focus border remains, while press feedback still scales down.
+                    focusScale = 1f,
                     focusRequester = contentEntryFocusRequester.takeIf {
                         restoreFocusKey == focusKey
                     },
@@ -330,6 +390,9 @@ private fun HomeMediaRow(
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)
+                        // Dynamic artwork theming belongs to Spotlight. Rebuilding
+                        // the app-wide colour scheme for every horizontal card move
+                        // adds a second, asynchronous source of layout churn here.
                     },
                     onLongClick = { requester, opensToRight ->
                         onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)

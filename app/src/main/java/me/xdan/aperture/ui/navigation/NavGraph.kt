@@ -10,7 +10,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -23,10 +22,7 @@ import me.xdan.aperture.ui.screen.home.HomeScreen
 import me.xdan.aperture.ui.screen.search.SearchScreen
 import me.xdan.aperture.ui.screen.player.PlayerScreen
 import me.xdan.aperture.ui.screen.home.HomeViewModel
-import me.xdan.aperture.ui.screen.search.SearchViewModel
-import me.xdan.aperture.ui.screen.player.PlayerViewModel
 import me.xdan.aperture.ui.screen.details.MediaDetailsModal
-import me.xdan.aperture.ui.screen.details.MediaDetailsViewModel
 import me.xdan.aperture.ui.screen.onboarding.OnboardingScreen
 import me.xdan.aperture.ui.screen.settings.SettingsScreen
 import me.xdan.aperture.ui.screen.mylist.MyListScreen
@@ -53,6 +49,7 @@ fun NavGraph(
     val currentFocusKey = currentDestination.focusKey()
     
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
+    var selectedEpisodeOnly by remember { mutableStateOf(false) }
     var contextMediaId by remember { mutableStateOf<Long?>(null) }
     var contextFromContinue by remember { mutableStateOf(false) }
     var contextOpensToRight by remember { mutableStateOf(true) }
@@ -236,11 +233,8 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(homeDrawerRequester)
                                     .focusProperties {
-                                        right = if (homeRestoreFocusKey?.startsWith("row:") == true) {
-                                            lastFocusedRequesters["home"] ?: homeContentEntryRequester
-                                        } else {
-                                            homeContentEntryRequester
-                                        }
+                                        right = lastFocusedRequesters["home"]
+                                            ?: homeContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
                             ) {
@@ -297,7 +291,16 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Settings,
-                                onClick = { navigateFromDrawer(Destination.Settings) },
+                                onClick = {
+                                    // Preserve position when simply returning from the drawer.
+                                    // A real destination change gets a fresh Settings composition,
+                                    // starting at Theme instead.
+                                    if (currentDestination !is Destination.Settings) {
+                                        lastFocusedRequesters.remove("settings")
+                                        settingsRestoreFocusKey = null
+                                        navigateFromDrawer(Destination.Settings)
+                                    }
+                                },
                                 modifier = Modifier
                                     .focusRequester(settingsDrawerRequester)
                                     .focusProperties {
@@ -314,19 +317,24 @@ fun NavGraph(
                     NavContent(
                         homeViewModel = homeViewModel,
                         backstack = backstack,
-                        onNavigate = onNavigate,
                         drawerRequesters = drawerRequesters,
                         contentEntryRequesters = contentEntryRequesters,
                         homeRestoreFocusKey = homeRestoreFocusKey,
                         settingsRestoreFocusKey = settingsRestoreFocusKey,
-                        onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
+                        // Card-to-card focus is already held by lastFocusedRequesters.
+                        // Updating navigation state for every DPAD move causes Home's
+                        // parent LazyColumn to recompose and visibly wobble.
+                        onHomeFocusKeyChanged = {},
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
+                        onActiveMediaChanged = mainViewModel::setActiveMedia,
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
-                        onMediaClick = { focusKey, mediaId, requester ->
+                        onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
+                            mainViewModel.setActiveMedia(mediaId)
+                            selectedEpisodeOnly = episodeOnly
                             selectedMediaId = mediaId
                         },
                         onMediaLongClick = { focusKey, media, requester, fromContinue, opensToRight ->
@@ -343,19 +351,21 @@ fun NavGraph(
                 NavContent(
                     homeViewModel = homeViewModel,
                     backstack = backstack,
-                    onNavigate = onNavigate,
                     drawerRequesters = emptyMap(),
                     contentEntryRequesters = contentEntryRequesters,
                     homeRestoreFocusKey = homeRestoreFocusKey,
                     settingsRestoreFocusKey = settingsRestoreFocusKey,
-                    onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
+                    onHomeFocusKeyChanged = {},
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
+                    onActiveMediaChanged = mainViewModel::setActiveMedia,
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
-                    onMediaClick = { focusKey, mediaId, requester ->
+                    onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                         lastFocusedRequesters[focusKey] = requester
+                        mainViewModel.setActiveMedia(mediaId)
+                        selectedEpisodeOnly = episodeOnly
                         selectedMediaId = mediaId
                     },
                     onMediaLongClick = { _, media, requester, fromContinue, opensToRight ->
@@ -379,6 +389,8 @@ fun NavGraph(
                     onInfo = {
                         contextFocusRequester = null
                         contextMediaId = null
+                        mainViewModel.setActiveMedia(mediaId)
+                        selectedEpisodeOnly = contextFromContinue && mediaActionState.media?.type == "EPISODE"
                         selectedMediaId = mediaId
                     },
                     onPlayFromBeginning = {
@@ -412,6 +424,7 @@ fun NavGraph(
 
             MediaDetailsModal(
                 mediaId = selectedMediaId,
+                episodeOnly = selectedEpisodeOnly,
                 viewModel = viewModel(),
                 onPlay = { mediaId, startFromBeginning ->
                     selectedMediaId = null
@@ -474,8 +487,7 @@ private fun Destination.focusKey(): String? = when (this) {
 private fun NavContent(
     homeViewModel: HomeViewModel,
     backstack: NavBackStack<Destination>,
-    onNavigate: (Destination) -> Unit,
-    onMediaClick: (String, Long, FocusRequester) -> Unit,
+    onMediaClick: (String, Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (String, me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerRequesters: Map<String, FocusRequester>,
     contentEntryRequesters: Map<String, FocusRequester>,
@@ -484,6 +496,7 @@ private fun NavContent(
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -495,8 +508,12 @@ private fun NavContent(
             val contentEntryFocusRequester = focusKey?.let(contentEntryRequesters::get)
                 ?: FocusRequester.Default
             val mediaClick: (Long, FocusRequester) -> Unit = { mediaId, requester ->
-                focusKey?.let { onMediaClick(it, mediaId, requester) }
+                focusKey?.let { onMediaClick(it, mediaId, requester, false) }
             }
+            val episodeAwareMediaClick: (Long, FocusRequester, Boolean) -> Unit =
+                { mediaId, requester, episodeOnly ->
+                    focusKey?.let { onMediaClick(it, mediaId, requester, episodeOnly) }
+                }
             val mediaLongClick: (me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean) -> Unit =
                 { media, requester, fromContinue, opensToRight ->
                     focusKey?.let { onMediaLongClick(it, media, requester, fromContinue, opensToRight) }
@@ -507,13 +524,14 @@ private fun NavContent(
             when (destination) {
                 is Destination.Home -> HomeScreen(
                     viewModel = homeViewModel,
-                    onMediaClick = mediaClick,
+                    onMediaClick = episodeAwareMediaClick,
                     onMediaLongClick = mediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = homeRestoreFocusKey,
                     onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),
@@ -541,7 +559,7 @@ private fun NavContent(
                 )
                 is Destination.Shows -> ShowsScreen(
                     viewModel = viewModel(),
-                    onMediaClick = mediaClick,
+                    onMediaClick = episodeAwareMediaClick,
                     onMediaLongClick = mediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,

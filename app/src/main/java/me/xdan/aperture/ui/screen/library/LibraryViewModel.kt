@@ -7,11 +7,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import me.xdan.aperture.data.local.entity.MediaEntity
 import javax.inject.Inject
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    repository: MediaRepository
+    repository: MediaRepository,
+    preferences: UserPreferencesRepository
 ) : ViewModel() {
     val movies = repository.getMediaByType("MOVIE")
         .map { items -> items.sortedBy { it.title.lowercase() } }
@@ -28,4 +31,23 @@ class LibraryViewModel @Inject constructor(
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val showPresentationMode = preferences.showPresentationMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "grouped")
+}
+
+data class ShowGroup(
+    val title: String,
+    val episodes: List<MediaEntity>
+) {
+    val representative: MediaEntity
+        // A show card must open at the first available episode, not whichever
+        // episode happened to receive poster art first.
+        get() = episodes.minWithOrNull(
+            compareBy<MediaEntity>(
+                { it.seasonNumber ?: Int.MAX_VALUE },
+                { it.episodeNumber ?: Int.MAX_VALUE },
+                { it.id }
+            )
+        ) ?: episodes.first()
 }

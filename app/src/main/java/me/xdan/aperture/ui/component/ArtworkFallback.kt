@@ -28,18 +28,18 @@ fun ArtworkFallback(
 ) {
     val containerColor = animateColorAsState(
         targetValue = if (isFocused) {
-            MaterialTheme.colorScheme.primary
+            Color(0xFFF0EAF2)
         } else {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+            Color(0xFF27242B)
         },
         animationSpec = tween(180),
         label = "fallbackArtworkContainer"
     ).value
     val animatedTitleColor = animateColorAsState(
         targetValue = titleColor ?: if (isFocused) {
-            MaterialTheme.colorScheme.onPrimary
+            Color(0xFF1D1B20)
         } else {
-            MaterialTheme.colorScheme.onPrimaryContainer
+            Color(0xFFF0EAF2)
         },
         animationSpec = tween(180),
         label = "fallbackArtworkTitle"
@@ -51,7 +51,7 @@ fun ArtworkFallback(
             .background(containerColor)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.72f),
+                color = if (isFocused) Color.White else Color(0xFF77727B),
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(16.dp),

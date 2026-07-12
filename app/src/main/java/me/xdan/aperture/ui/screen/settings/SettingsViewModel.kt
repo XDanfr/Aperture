@@ -4,12 +4,12 @@ import android.content.Context
 import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
+import coil.annotation.ExperimentalCoilApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -54,6 +54,22 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         "purple"
     )
+    val showPresentationMode = userPreferencesRepository.showPresentationMode.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "grouped"
+    )
+    val subtitleAppearance = combine(
+        userPreferencesRepository.subtitleTextScale,
+        userPreferencesRepository.subtitleColour,
+        userPreferencesRepository.subtitleBackgroundOpacity
+    ) { scale, colour, backgroundOpacity ->
+        SubtitleAppearanceSettings(scale, colour, backgroundOpacity)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        SubtitleAppearanceSettings()
+    )
     val updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
     val hiddenMedia = repository.getHiddenMedia().stateIn(
         viewModelScope,
@@ -67,6 +83,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    @OptIn(ExperimentalCoilApi::class)
     fun clearCache() {
         context.imageLoader.memoryCache?.clear()
         context.imageLoader.diskCache?.clear()
@@ -86,6 +103,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setTheme(themeId: String) {
         viewModelScope.launch { userPreferencesRepository.setThemeId(themeId) }
+    }
+
+    fun setShowPresentationMode(mode: String) {
+        viewModelScope.launch { userPreferencesRepository.setShowPresentationMode(mode) }
+    }
+
+    fun setSubtitleAppearance(settings: SubtitleAppearanceSettings) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSubtitleTextScale(settings.textScale)
+            userPreferencesRepository.setSubtitleColour(settings.colour)
+            userPreferencesRepository.setSubtitleBackgroundOpacity(settings.backgroundOpacity)
+        }
     }
 
     fun unhide(mediaId: Long) {
@@ -132,7 +161,7 @@ class SettingsViewModel @Inject constructor(
             openUri(update.releaseUrl)
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             updateState.value = UpdateCheckState.PermissionRequired(update)
             val intent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -209,6 +238,12 @@ class SettingsViewModel @Inject constructor(
         }?.let { it > 0 } ?: false
     }
 }
+
+data class SubtitleAppearanceSettings(
+    val textScale: Float = 1f,
+    val colour: String = "white",
+    val backgroundOpacity: Float = 0.55f
+)
 
 sealed interface UpdateCheckState {
     data object Idle : UpdateCheckState

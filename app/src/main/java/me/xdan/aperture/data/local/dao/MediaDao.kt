@@ -24,6 +24,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE id = :id")
     suspend fun getMediaById(id: Long): MediaEntity?
 
+    @Query("SELECT * FROM media WHERE type = 'EPISODE' AND title = :showTitle AND isHidden = 0 ORDER BY seasonNumber ASC, episodeNumber ASC, filePath ASC")
+    suspend fun getEpisodesForShow(showTitle: String): List<MediaEntity>
+
     @Query("SELECT * FROM media WHERE filePath = :filePath")
     suspend fun getMediaByPath(filePath: String): MediaEntity?
 

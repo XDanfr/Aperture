@@ -10,5 +10,6 @@ data class PlaybackProgressEntity(
     val duration: Long,
     val lastUpdated: Long = System.currentTimeMillis(),
     val isCompleted: Boolean = false,
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    val keepInContinueWatching: Boolean = false
 )

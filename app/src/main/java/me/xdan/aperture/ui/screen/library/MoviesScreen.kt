@@ -8,6 +8,14 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.*
@@ -45,18 +53,50 @@ fun MoviesScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 itemsIndexed(movies, key = { _, item -> item.id }) { index, item ->
-                    MediaCard(
+                    AnimatedMovieCard(
                         media = item,
-                        onClick = { onMediaClick(item.id, it) },
-                        modifier = Modifier.fillMaxWidth(),
-                        focusRequester = contentEntryFocusRequester.takeIf { item.id == movies.first().id },
-                        drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
-                        onFocused = onContentFocused,
-                        onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
+                        isFirst = item.id == movies.first().id,
+                        isLeftmost = index % columnCount == 0,
+                        onMediaClick = onMediaClick,
+                        onMediaLongClick = onMediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = onContentFocused
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AnimatedMovieCard(
+    media: MediaEntity,
+    isFirst: Boolean,
+    isLeftmost: Boolean,
+    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    onContentFocused: (FocusRequester) -> Unit
+) {
+    var visible by remember(media.id) { mutableStateOf(false) }
+    LaunchedEffect(media.id) { visible = true }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
+    ) {
+        MediaCard(
+            media = media,
+            onClick = { onMediaClick(media.id, it) },
+            modifier = Modifier.fillMaxWidth(),
+            focusRequester = contentEntryFocusRequester.takeIf { isFirst },
+            drawerFocusRequester = drawerFocusRequester.takeIf { isLeftmost },
+            onFocused = onContentFocused,
+            onLongClick = { requester, opensToRight ->
+                onMediaLongClick(media, requester, false, opensToRight)
+            }
+        )
     }
 }
 

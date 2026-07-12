@@ -47,11 +47,26 @@ fun MediaCard(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     aspectRatio: Float = 2f / 3f,
+    preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
+    focusScale: Float = 1.05f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
 ) {
+    val artworkPath = if (preferEpisodeStill && media.type == "EPISODE") {
+        media.stillPath
+    } else {
+        media.posterPath
+    }
+    val fallbackTitle = if (preferEpisodeStill && media.type == "EPISODE") {
+        media.episodeTitle ?: buildString {
+            media.seasonNumber?.let { append("S$it") }
+            media.episodeNumber?.let { append("E$it") }
+        }.ifBlank { media.title }
+    } else {
+        media.title
+    }
     var isFocused by remember { mutableStateOf(false) }
     val internalFocusRequester = remember { FocusRequester() }
     val cardFocusRequester = focusRequester ?: internalFocusRequester
@@ -63,12 +78,15 @@ fun MediaCard(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    var opensToRight by remember { mutableStateOf(true) }
+    // This value is only read when the long-press action fires. Keeping it as
+    // Compose state caused every newly positioned/off-screen card to recompose
+    // on its first layout pass, which made nested Home rows visibly wobble.
+    val opensToRight = remember { booleanArrayOf(true) }
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
             isPressed -> 0.95f
-            isFocused -> 1.05f
+            isFocused -> focusScale
             else -> 1f
         },
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
@@ -94,7 +112,7 @@ fun MediaCard(
                             holdJob = scope.launch {
                                 delay(550)
                                 longClickTriggered = true
-                                onLongClick(cardFocusRequester, opensToRight)
+                                onLongClick(cardFocusRequester, opensToRight[0])
                             }
                         }
                         longClickTriggered
@@ -110,7 +128,7 @@ fun MediaCard(
                 }
             }
             .onGloballyPositioned { coordinates ->
-                opensToRight = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
+                opensToRight[0] = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
             }
             .then(
                 if (drawerFocusRequester != null) {
@@ -136,18 +154,18 @@ fun MediaCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (media.posterPath.isNullOrBlank()) {
+            if (artworkPath.isNullOrBlank()) {
                 ArtworkFallback(
-                    title = media.title,
+                    title = fallbackTitle,
                     isFocused = isFocused
                 )
             } else {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + media.posterPath)
+                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + artworkPath)
                         .crossfade(false)
                         .build(),
-                    contentDescription = media.title,
+                    contentDescription = fallbackTitle,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )

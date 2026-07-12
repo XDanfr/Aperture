@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+
 package me.xdan.aperture.ui.screen.player
 
 import android.view.KeyEvent
@@ -30,15 +32,18 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.SubtitleView
 import androidx.tv.material3.*
 import me.xdan.aperture.data.local.entity.MediaEntity
 
-@OptIn(ExperimentalTvMaterial3Api::class, UnstableApi::class)
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     mediaId: Long,
@@ -49,6 +54,8 @@ fun PlayerScreen(
 ) {
     val media by viewModel.media.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
+    val subtitleStyle by viewModel.subtitleStyle.collectAsState()
+    val onlineSubtitles by viewModel.onlineSubtitles.collectAsState()
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     val player = viewModel.player
     val playerFocusRequester = remember { FocusRequester() }
@@ -158,6 +165,8 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        SubtitleOverlay(player = player, style = subtitleStyle)
+
         // OSD
         AnimatedVisibility(
             visible = isOsdVisible && !isQuickMenuVisible,
@@ -191,7 +200,10 @@ fun PlayerScreen(
         ) {
             QuickMenu(
                 player = player,
-                focusRequester = quickMenuFocusRequester
+                focusRequester = quickMenuFocusRequester,
+                onlineSubtitleState = onlineSubtitles,
+                onSearchOnline = viewModel::searchOpenSubtitles,
+                onDownloadOnline = viewModel::downloadOpenSubtitle
             )
         }
     }
@@ -200,9 +212,19 @@ fun PlayerScreen(
 @Composable
 private fun QuickMenu(
     player: androidx.media3.common.Player,
-    focusRequester: FocusRequester
+    focusRequester: FocusRequester,
+    onlineSubtitleState: OnlineSubtitleState,
+    onSearchOnline: () -> Unit,
+    onDownloadOnline: (OnlineSubtitleOption) -> Unit
 ) {
-    val tracks = player.currentTracks
+    var tracks by remember(player) { mutableStateOf(player.currentTracks) }
+    DisposableEffect(player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
     
     Surface(
         modifier = Modifier
@@ -227,6 +249,7 @@ private fun QuickMenu(
                 onItemSelected = { trackGroup, index ->
                     player.trackSelectionParameters = player.trackSelectionParameters
                         .buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
                         .setOverrideForType(
                             TrackSelectionOverride(
                                 trackGroup.mediaTrackGroup,
@@ -244,6 +267,7 @@ private fun QuickMenu(
                 onItemSelected = { trackGroup, index ->
                     player.trackSelectionParameters = player.trackSelectionParameters
                         .buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                         .setOverrideForType(
                             TrackSelectionOverride(
                                 trackGroup.mediaTrackGroup,
@@ -251,14 +275,20 @@ private fun QuickMenu(
                             )
                         )
                         .build()
-                }
+                },
+                onDisable = {
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                        .build()
+                },
+                disableLabel = "Off"
             )
 
-            QuickMenuColumn(
-                title = "OpenSubtitles",
-                icon = Icons.Rounded.Download,
-                items = listOf("Search Online"),
-                onItemSelected = { _, _ -> /* TODO */ }
+            OnlineSubtitlesColumn(
+                state = onlineSubtitleState,
+                onSearch = onSearchOnline,
+                onDownload = onDownloadOnline
             )
         }
     }
@@ -276,7 +306,9 @@ private fun RowScope.QuickMenuColumn(
     title: String,
     icon: ImageVector,
     items: List<Any>,
-    onItemSelected: (Tracks.Group, Int) -> Unit
+    onItemSelected: (Tracks.Group, Int) -> Unit,
+    onDisable: (() -> Unit)? = null,
+    disableLabel: String? = null
 ) {
     Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -286,6 +318,15 @@ private fun RowScope.QuickMenuColumn(
         }
         Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onDisable != null && disableLabel != null) {
+                item {
+                    Surface(
+                        onClick = onDisable,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
+                    ) { Text(disableLabel, modifier = Modifier.padding(8.dp)) }
+                }
+            }
             items(items) { item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
@@ -311,6 +352,100 @@ private fun RowScope.QuickMenuColumn(
     }
 }
 
+@Composable
+private fun RowScope.OnlineSubtitlesColumn(
+    state: OnlineSubtitleState,
+    onSearch: () -> Unit,
+    onDownload: (OnlineSubtitleOption) -> Unit
+) {
+    Column(modifier = Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Text("OpenSubtitles", style = MaterialTheme.typography.titleMedium)
+        }
+        Spacer(Modifier.height(16.dp))
+        when (state) {
+            OnlineSubtitleState.Idle -> Surface(
+                onClick = onSearch,
+                modifier = Modifier.fillMaxWidth(),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
+            ) { Text("Search online", modifier = Modifier.padding(8.dp)) }
+            OnlineSubtitleState.Loading -> Text("Searching…")
+            is OnlineSubtitleState.Downloading -> Text("Downloading ${state.label}…")
+            is OnlineSubtitleState.Attached -> {
+                Text("Attached ${state.label}")
+                Spacer(Modifier.height(8.dp))
+                Surface(onClick = onSearch, modifier = Modifier.fillMaxWidth()) {
+                    Text("Search again", modifier = Modifier.padding(8.dp))
+                }
+            }
+            is OnlineSubtitleState.Error -> {
+                Text(state.message, style = MaterialTheme.typography.bodySmall, maxLines = 4)
+                Spacer(Modifier.height(8.dp))
+                Surface(onClick = onSearch, modifier = Modifier.fillMaxWidth()) {
+                    Text("Try again", modifier = Modifier.padding(8.dp))
+                }
+            }
+            is OnlineSubtitleState.Results -> LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                if (state.options.isEmpty()) item { Text("No subtitles found.") }
+                items(state.options, key = { it.fileId }) { option ->
+                    Surface(
+                        onClick = { onDownload(option) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp))
+                    ) {
+                        Text(option.label, modifier = Modifier.padding(8.dp), maxLines = 2)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleOverlay(
+    player: androidx.media3.common.Player,
+    style: PlayerSubtitleStyle
+) {
+    var cues by remember(player) { mutableStateOf(CueGroup.EMPTY_TIME_ZERO) }
+    DisposableEffect(player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onCues(cueGroup: CueGroup) { cues = cueGroup }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+    val textColour = when (style.colour) {
+        "yellow" -> android.graphics.Color.YELLOW
+        "cyan" -> android.graphics.Color.CYAN
+        else -> android.graphics.Color.WHITE
+    }
+    val backgroundColour = android.graphics.Color.argb(
+        (style.backgroundOpacity.coerceIn(0f, 0.9f) * 255).toInt(), 12, 12, 14
+    )
+    AndroidView(
+        factory = { context ->
+            SubtitleView(context).apply { setApplyEmbeddedStyles(true) }
+        },
+        update = { view ->
+            view.setCues(cues.cues)
+            view.setFractionalTextSize(0.0533f * style.textScale)
+            view.setStyle(
+                CaptionStyleCompat(
+                    textColour,
+                    backgroundColour,
+                    android.graphics.Color.TRANSPARENT,
+                    CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+                    android.graphics.Color.BLACK,
+                    android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+                )
+            )
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
 private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
     val items = mutableListOf<TrackItem>()
     tracks.groups.forEach { group ->
@@ -318,7 +453,13 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
             for (i in 0 until group.length) {
                 items.add(
                     TrackItem(
-                        name = group.getTrackFormat(i).language ?: "Unknown (${i+1})",
+                        name = group.getTrackFormat(i).let { format ->
+                            format.label ?: format.language?.uppercase() ?: when (type) {
+                                C.TRACK_TYPE_AUDIO -> "Audio ${i + 1}"
+                                C.TRACK_TYPE_TEXT -> "Subtitle ${i + 1}"
+                                else -> "Track ${i + 1}"
+                            }
+                        },
                         isSelected = group.isTrackSelected(i),
                         group = group,
                         index = i

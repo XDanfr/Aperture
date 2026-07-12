@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.ViewModule
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -81,11 +82,15 @@ fun SettingsScreen(
     val selectedThemeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val hiddenMedia by viewModel.hiddenMedia.collectAsState()
+    val showPresentationMode by viewModel.showPresentationMode.collectAsState()
+    val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var showHiddenMedia by remember { mutableStateOf(false) }
     var showSpotlightDaysPicker by remember { mutableStateOf(false) }
+    var showShowLayoutPicker by remember { mutableStateOf(false) }
+    var showSubtitleAppearance by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
@@ -97,14 +102,16 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
             SETTINGS_THEME_FOCUS_KEY -> 1
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 2
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 3
-            SETTINGS_RESCAN_FOCUS_KEY -> 5
-            SETTINGS_UPDATE_FOCUS_KEY -> 7
-            SETTINGS_LICENCES_FOCUS_KEY -> 8
-            SETTINGS_TMDB_FOCUS_KEY -> 9
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 10
-            SETTINGS_DONATE_FOCUS_KEY -> 11
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 2
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 3
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 4
+            SETTINGS_RESCAN_FOCUS_KEY -> 7
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 8
+            SETTINGS_LICENCES_FOCUS_KEY -> 9
+            SETTINGS_UPDATE_FOCUS_KEY -> 10
+            SETTINGS_TMDB_FOCUS_KEY -> 11
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
+            SETTINGS_DONATE_FOCUS_KEY -> 13
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -147,6 +154,24 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
+                    title = "TV show layout",
+                    subtitle = if (showPresentationMode == "grouped") {
+                        "One card per show with a season and episode selector"
+                    } else {
+                        "Show every episode in season rows"
+                    },
+                    icon = Icons.Rounded.ViewModule,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SHOW_LAYOUT_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showShowLayoutPicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
                     title = "Hide finished media from Spotlight",
                     subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
                         "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
@@ -156,7 +181,7 @@ fun SettingsScreen(
                     icon = Icons.Rounded.VisibilityOff,
                     drawerFocusRequester = drawerFocusRequester,
                     focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == null || restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
+                        restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
                     },
                     onFocused = { requester ->
                         onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)
@@ -231,15 +256,14 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     title = "Subtitle Appearance",
-                    subtitle = "Size, colour and opacity · Coming soon",
+                    subtitle = "${(subtitleAppearance.textScale * 100).toInt()}% size · ${subtitleAppearance.colour.replaceFirstChar { it.uppercase() }} · ${(subtitleAppearance.backgroundOpacity * 100).toInt()}% background",
                     icon = Icons.Rounded.Subtitles,
-                    enabled = false,
                     drawerFocusRequester = drawerFocusRequester,
                     onFocused = { requester ->
                         onFocusKeyChanged(SETTINGS_SUBTITLES_FOCUS_KEY)
                         onContentFocused(requester)
                     },
-                    onClick = {}
+                    onClick = { showSubtitleAppearance = true }
                 )
             }
 
@@ -382,10 +406,31 @@ fun SettingsScreen(
             onDismiss = { showSpotlightDaysPicker = false }
         )
     }
+    if (showShowLayoutPicker) {
+        ShowLayoutDialog(
+            selectedMode = showPresentationMode,
+            onSelect = {
+                viewModel.setShowPresentationMode(it)
+                showShowLayoutPicker = false
+            },
+            onDismiss = { showShowLayoutPicker = false }
+        )
+    }
+    if (showSubtitleAppearance) {
+        SubtitleAppearanceDialog(
+            initial = subtitleAppearance,
+            onSave = {
+                viewModel.setSubtitleAppearance(it)
+                showSubtitleAppearance = false
+            },
+            onDismiss = { showSubtitleAppearance = false }
+        )
+    }
 }
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
+private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"
 private const val SETTINGS_HIDDEN_FOCUS_KEY = "hidden"
 private const val SETTINGS_RESCAN_FOCUS_KEY = "rescan"
@@ -396,6 +441,110 @@ private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
 private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
 private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
+
+@Composable
+private fun ShowLayoutDialog(
+    selectedMode: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.width(560.dp).padding(32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("TV show layout", style = MaterialTheme.typography.headlineSmall)
+                Text("You can switch layouts without rescanning your library.")
+                listOf(
+                    "grouped" to ("Grouped shows" to "One poster per show; choose a season and episode in its popup."),
+                    "episodes" to ("Episode rows" to "The current layout, with every season and episode shown on the page.")
+                ).forEachIndexed { index, (mode, copy) ->
+                    Surface(
+                        onClick = { onSelect(mode) },
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (index == 0) Modifier.focusRequester(firstRequester) else Modifier
+                        ),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (mode == selectedMode) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(copy.first, style = MaterialTheme.typography.titleMedium)
+                            Text(copy.second, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleAppearanceDialog(
+    initial: SubtitleAppearanceSettings,
+    onSave: (SubtitleAppearanceSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var settings by remember(initial) { mutableStateOf(initial) }
+    val firstRequester = remember { FocusRequester() }
+    val colours = listOf("white", "yellow", "cyan")
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(modifier = Modifier.width(620.dp), shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.padding(34.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                Text("Subtitle Appearance", style = MaterialTheme.typography.headlineSmall)
+                Text("Aperture uses a readable system sans-serif typeface with a translucent dark background.")
+                PreferenceStepper(
+                    title = "Text size",
+                    value = "${(settings.textScale * 100).toInt()}%",
+                    onDecrease = { settings = settings.copy(textScale = (settings.textScale - 0.1f).coerceAtLeast(0.7f)) },
+                    onIncrease = { settings = settings.copy(textScale = (settings.textScale + 0.1f).coerceAtMost(1.6f)) },
+                    focusRequester = firstRequester
+                )
+                PreferenceStepper(
+                    title = "Background opacity",
+                    value = "${(settings.backgroundOpacity * 100).toInt()}%",
+                    onDecrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity - 0.1f).coerceAtLeast(0f)) },
+                    onIncrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity + 0.1f).coerceAtMost(0.9f)) }
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Text colour", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = {
+                        val next = (colours.indexOf(settings.colour).coerceAtLeast(0) + 1) % colours.size
+                        settings = settings.copy(colour = colours[next])
+                    }) { Text(settings.colour.replaceFirstChar { it.uppercase() }) }
+                }
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { onSave(settings) }) { Text("Save") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreferenceStepper(
+    title: String,
+    value: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Button(
+            onClick = onDecrease,
+            modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+        ) { Text("−") }
+        Text(value, modifier = Modifier.width(90.dp), style = MaterialTheme.typography.titleMedium)
+        Button(onClick = onIncrease) { Text("+") }
+    }
+}
 
 @Composable
 private fun HiddenMediaDialog(

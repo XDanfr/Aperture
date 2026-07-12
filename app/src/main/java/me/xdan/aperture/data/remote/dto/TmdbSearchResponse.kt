@@ -20,3 +20,12 @@ data class TmdbResult(
     @Json(name = "first_air_date") val firstAirDate: String?,
     @Json(name = "vote_average") val voteAverage: Double?
 )
+
+@JsonClass(generateAdapter = true)
+data class TmdbEpisodeResult(
+    @Json(name = "id") val id: Int,
+    @Json(name = "name") val name: String?,
+    @Json(name = "overview") val overview: String?,
+    @Json(name = "still_path") val stillPath: String?,
+    @Json(name = "air_date") val airDate: String?
+)

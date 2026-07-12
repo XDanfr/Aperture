@@ -33,12 +33,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
             val themeId by mainViewModel.themeId.collectAsState()
+            val dynamicAccentArgb by mainViewModel.dynamicAccentArgb.collectAsState()
             var appVisible by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 delay(80)
                 appVisible = true
             }
-            ApertureTheme(themeId = themeId) {
+            ApertureTheme(
+                themeId = themeId,
+                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
+            ) {
                 AnimatedVisibility(
                     visible = appVisible,
                     enter = fadeIn(tween(420)) + scaleIn(tween(420), initialScale = 0.985f)
@@ -49,6 +53,7 @@ class MainActivity : ComponentActivity() {
                         containerColor = androidx.tv.material3.MaterialTheme.colorScheme.background
                     )
                 ) {
+                    @Suppress("UNCHECKED_CAST")
                     val backstack = rememberNavBackStack(Destination.Home) as NavBackStack<Destination>
 
                     LaunchedEffect(Unit) {
@@ -78,12 +83,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         lastInteractionTime = System.currentTimeMillis()
         if (isAmbientActive) {
             isAmbientActive = false
             return true
         }
-        return super.dispatchKeyEvent(event)
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        lastInteractionTime = System.currentTimeMillis()
+        return super.onKeyUp(keyCode, event)
     }
 }
