@@ -27,10 +27,8 @@ object PlayerModule {
             .build()
 
         val renderersFactory = DefaultRenderersFactory(context)
-            // If a device exposes both the Atmos/JOC decoder and a compatible
-            // plain E-AC-3 decoder, recover through the latter when the former
-            // cannot initialise.
-            .setEnableDecoderFallback(true)
+            // Temporarily disabled while ffmpeg is being added
+            .setEnableDecoderFallback(false)
 
         return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(audioAttributes, true)
