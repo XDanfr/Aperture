@@ -295,17 +295,20 @@ fun NavGraph(
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Settings,
                                 onClick = {
-                                    // Settings deliberately starts at its first control whenever it
-                                    // is entered.  Remembering a control here made the drawer point
-                                    // at stale requesters after the list had been recomposed.
-                                    lastFocusedRequesters.remove("settings")
-                                    settingsRestoreFocusKey = null
-                                    navigateFromDrawer(Destination.Settings)
+                                    // Preserve position when simply returning from the drawer.
+                                    // A real destination change gets a fresh Settings composition,
+                                    // starting at Theme instead.
+                                    if (currentDestination !is Destination.Settings) {
+                                        lastFocusedRequesters.remove("settings")
+                                        settingsRestoreFocusKey = null
+                                        navigateFromDrawer(Destination.Settings)
+                                    }
                                 },
                                 modifier = Modifier
                                     .focusRequester(settingsDrawerRequester)
                                     .focusProperties {
-                                        right = settingsContentEntryRequester
+                                        right = lastFocusedRequesters["settings"]
+                                            ?: settingsContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
                             ) {

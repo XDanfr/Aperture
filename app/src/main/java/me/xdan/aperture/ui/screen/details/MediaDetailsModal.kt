@@ -287,7 +287,15 @@ fun MediaDetailsModal(
                                         }
                                     }
                                     .onKeyEvent { keyEvent ->
-                                        if (keyEvent.key != Key.DirectionLeft) {
+                                        if (showEpisodeSelector && keyEvent.key == Key.DirectionUp) {
+                                            if (keyEvent.type == KeyEventType.KeyDown) {
+                                                // Nested lazy lists are not always considered by TV
+                                                // directional search. Move to the current season's
+                                                // first/selected episode directly instead.
+                                                episodeSelectorFocusRequester.requestFocus()
+                                            }
+                                            true
+                                        } else if (keyEvent.key != Key.DirectionLeft) {
                                             false
                                         } else if (waitForLeftRelease) {
                                             if (keyEvent.type == KeyEventType.KeyUp) {
