@@ -28,7 +28,7 @@ object PlayerModule {
 
         val renderersFactory = DefaultRenderersFactory(context)
             // Temporarily disabled while ffmpeg is being added
-            .setEnableDecoderFallback(false)
+            .setEnableDecoderFallback(true)
 
         return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(audioAttributes, true)
