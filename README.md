@@ -32,7 +32,7 @@ If you'd like to build to test early features, read **Getting Started**, and swi
 
 <p align="center">
   <img src="screenshots/Movies.png" width="49%" alt="Aperture Movies library" />
-  <img src="screenshots/TV%20Shows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
+  <img src="screenshots/TVShows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
 </p>
 
 <p align="center">
