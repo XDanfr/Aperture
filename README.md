@@ -13,10 +13,6 @@
   <a href="https://github.com/XDanfr/Aperture/releases/latest">Download the latest alpha</a>
 </p>
 
-# This is a testing branch for upcoming update 0.4.
-If you're looking to download Aperture, use the link above. Everything here is experimental and sure to break while being finished.
-If you'd like to build to test early features, read **Getting Started**, and switch the branch to v0.4.
-
 ---
 
 ## What you'll need
