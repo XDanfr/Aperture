@@ -53,14 +53,15 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [X] **Hold-for-actions Context Menu** (https://github.com/XDanfr/Aperture/issues/1)
 - [X] **Movies and TV Shows sorted separately**
 - [X] **TV Show Season and Episode grouping**
-- [ ] **Dynamic Theming**: based on active media artwork
+- [X] **Dynamic Theming**: based on active media artwork
 - [X] **Custom Themes**
 - [ ] **Optionally selecting Assets manually**
 - [X] **Update Checking**
-- [ ] **Press Back to Sidebar Navigation**: Right or OK on the selected destination should return to the previous content position.
+- [ ] **Press Back to Sidebar Navigation**:
 - [X] **Proper Show and Episode Detection**: Support for more file names and types. Always improving.
 - [ ] **Better Movie Detection**: Improve TMDb matching for sequels, years and similarly named films.
-- [ ] **Manual Title Correction**
+- [X] **Manual Title Correction**: This also updates assets accordingly.
+- [ ] **Rounded Spotlight**
 
 ## 🚀 Getting Started
 
