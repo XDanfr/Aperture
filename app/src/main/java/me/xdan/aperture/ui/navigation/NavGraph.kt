@@ -117,6 +117,22 @@ fun NavGraph(
             lastFocusedRequesters.remove("home")
             homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
         }
+        if (destination is Destination.Movies) {
+            // A requester remembered from a previous Movies composition may
+            // point to an off-screen or disposed grid card after visiting a
+            // different tab. A genuine tab switch re-enters at the first card;
+            // simply opening and closing the drawer still preserves position.
+            lastFocusedRequesters.remove("movies")
+        }
+        if (destination is Destination.Search) {
+            lastFocusedRequesters.remove("search")
+        }
+        if (destination is Destination.Shows) {
+            lastFocusedRequesters.remove("shows")
+        }
+        if (destination is Destination.MyList) {
+            lastFocusedRequesters.remove("my_list")
+        }
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
         if (destination !is Destination.Home) backstack.add(destination)
     }
