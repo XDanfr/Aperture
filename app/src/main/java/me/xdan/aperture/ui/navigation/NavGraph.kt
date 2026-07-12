@@ -91,6 +91,12 @@ fun NavGraph(
             "settings" to settingsContentEntryRequester
         )
     }
+    // Every drawer item returns to the content page that opened the drawer.
+    // Its label is a destination, but the drawer itself is an overlay on the
+    // current destination, so Right must not jump into the hovered label.
+    val drawerReturnFocusRequester = currentFocusKey?.let { key ->
+        lastFocusedRequesters[key] ?: contentEntryRequesters[key]
+    }
     val navigateFromDrawer: (Destination) -> Unit = drawerNavigate@ { destination ->
         if (destination.focusKey() == currentFocusKey) return@drawerNavigate
         if (
@@ -233,8 +239,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(homeDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["home"]
-                                            ?: homeContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: homeContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
                             ) {
@@ -246,7 +251,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(searchDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["search"] ?: searchContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: searchContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
                             ) {
@@ -258,7 +263,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(moviesDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["movies"] ?: moviesContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: moviesContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
                             ) {
@@ -270,7 +275,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(showsDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["shows"] ?: showsContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: showsContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
                             ) {
@@ -282,8 +287,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(myListDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["my_list"]
-                                            ?: myListContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: myListContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
                             ) {
@@ -304,8 +308,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(settingsDrawerRequester)
                                     .focusProperties {
-                                        right = lastFocusedRequesters["settings"]
-                                            ?: settingsContentEntryRequester
+                                        right = drawerReturnFocusRequester ?: settingsContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
                             ) {

@@ -38,20 +38,20 @@ class MediaDetailsViewModel @Inject constructor(
             } else emptyList()
             _episodes.value = showEpisodes
 
-            val activeEpisode = if (preferActiveEpisode) {
-                showEpisodes.mapNotNull { episode ->
-                    val progress = repository.getProgress(episode.id) ?: return@mapNotNull null
-                    val isResumable = !progress.isCompleted && progress.duration > 0 &&
-                        progress.position >= progress.duration * 0.05 &&
-                        progress.position < progress.duration * 0.95
-                    if (isResumable || (!progress.isCompleted && progress.keepInContinueWatching)) {
-                        Triple(episode, progress, progress.lastUpdated)
-                    } else null
-                }.maxByOrNull { it.third }
-            } else null
-
-            _media.value = activeEpisode?.first ?: selected
-            _progress.value = activeEpisode?.second ?: repository.getProgress(mediaId)
+            // A grouped show card represents its deterministic first episode.
+            // Do not scan every episode here: stale progress on a later file
+            // must not make the popup open on (for example) S02E05. Continue
+            // Watching already chooses the next/current episode separately.
+            val selectedProgress = selected?.let { repository.getProgress(it.id) }
+            val resumableSelected = selectedProgress?.takeIf { progress ->
+                preferActiveEpisode && !progress.isCompleted &&
+                    (progress.keepInContinueWatching ||
+                        (progress.duration > 0 &&
+                            progress.position >= progress.duration * 0.05 &&
+                            progress.position < progress.duration * 0.95))
+            }
+            _media.value = selected
+            _progress.value = resumableSelected ?: selectedProgress
         }
     }
 

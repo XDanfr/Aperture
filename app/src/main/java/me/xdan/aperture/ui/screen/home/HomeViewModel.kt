@@ -63,7 +63,15 @@ private fun buildHomeState(
     val episodeGroups = mediaList.filter { it.type == "EPISODE" }
         .groupBy { it.title }
     val showCards = episodeGroups.values.mapNotNull { episodes ->
-        episodes.firstOrNull { !it.posterPath.isNullOrBlank() } ?: episodes.firstOrNull()
+        // getAllMedia is newest-first, so its group order is not episode order.
+        // A grouped show card always represents the earliest available episode.
+        episodes.minWithOrNull(
+            compareBy<MediaEntity>(
+                { it.seasonNumber ?: Int.MAX_VALUE },
+                { it.episodeNumber ?: Int.MAX_VALUE },
+                { it.filePath }
+            )
+        )
     }.sortedBy { it.title.lowercase() }
     val libraryCards = (movies + showCards).distinctBy { it.id }
 

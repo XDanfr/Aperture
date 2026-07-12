@@ -20,8 +20,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.navigation.Destination
@@ -30,7 +30,6 @@ private data class TutorialStep(
     val title: String,
     val body: String,
     val destination: Destination,
-    val showExampleDetails: Boolean = false,
     val placement: TutorialPlacement = TutorialPlacement.BottomEnd,
     val pointer: ImageVector = Icons.Rounded.ArrowUpward
 )
@@ -51,7 +50,7 @@ fun AppTutorial(
             add(TutorialStep("Movies, A–Z", "Movies contains your complete film library in alphabetical order.", Destination.Movies))
             add(TutorialStep("Shows and episodes", "TV Shows keeps everything A–Z, grouped into shows, seasons and episodes.", Destination.Shows))
             if (exampleTitle != null) {
-                add(TutorialStep("Build My List", "Open a title like $exampleTitle and choose Add to My List. Your newest additions appear first.", Destination.Home, true, TutorialPlacement.BottomStart, Icons.Rounded.ArrowForward))
+                add(TutorialStep("Build My List", "Open a title like $exampleTitle and choose Add to My List. Your newest additions appear first.", Destination.Home, TutorialPlacement.BottomStart, Icons.Rounded.ArrowForward))
             }
             add(TutorialStep("Make it yours", "Settings lives on the sidebar. Here lie themes, library tools, update checking and more.", Destination.Home, placement = TutorialPlacement.CenterEnd, pointer = Icons.Rounded.ArrowBack))
         }
@@ -62,14 +61,21 @@ fun AppTutorial(
 
     LaunchedEffect(index) {
         onNavigate(step.destination)
-        onShowExample(step.showExampleDetails)
+        // Media details uses its own Dialog window, which cannot reliably sit
+        // behind this tutorial on every Android TV implementation. Keep this
+        // step instructional rather than opening a blocked, competing popup.
+        onShowExample(false)
         delay(140)
         runCatching { nextRequester.requestFocus() }
     }
 
-    Popup(
-        alignment = Alignment.TopStart,
-        properties = PopupProperties(focusable = true, dismissOnBackPress = false, dismissOnClickOutside = false)
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
     ) {
         Box(
             Modifier.fillMaxSize(),

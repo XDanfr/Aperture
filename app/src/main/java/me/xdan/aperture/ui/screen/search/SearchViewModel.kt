@@ -30,7 +30,13 @@ class SearchViewModel @Inject constructor(
             .groupBy { it.title }
             .values
             .mapNotNull { episodes ->
-                episodes.firstOrNull { !it.posterPath.isNullOrBlank() } ?: episodes.firstOrNull()
+                episodes.minWithOrNull(
+                    compareBy(
+                        { it.seasonNumber ?: Int.MAX_VALUE },
+                        { it.episodeNumber ?: Int.MAX_VALUE },
+                        { it.filePath }
+                    )
+                )
             }
         (movies + shows).sortedBy { it.title.lowercase() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

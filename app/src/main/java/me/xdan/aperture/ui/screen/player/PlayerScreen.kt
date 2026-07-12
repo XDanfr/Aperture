@@ -10,6 +10,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Audiotrack
@@ -230,9 +231,7 @@ private fun QuickMenu(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.46f)
-            .padding(horizontal = 32.dp, vertical = 20.dp)
-            .focusRequester(focusRequester)
-            .focusable(),
+            .padding(horizontal = 32.dp, vertical = 20.dp),
         colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
         shape = RoundedCornerShape(32.dp)
     ) {
@@ -267,6 +266,7 @@ private fun QuickMenu(
             QuickMenuColumn(
                 title = "Subtitles",
                 icon = Icons.Rounded.Subtitles,
+                firstItemFocusRequester = focusRequester,
                 items = getTrackItems(tracks, C.TRACK_TYPE_TEXT)
                     .filter { it.isSupported },
                 emptyLabel = "No compatible subtitle tracks",
@@ -315,6 +315,7 @@ private fun RowScope.QuickMenuColumn(
     title: String,
     icon: ImageVector,
     items: List<Any>,
+    firstItemFocusRequester: FocusRequester? = null,
     onItemSelected: (Tracks.Group, Int) -> Unit,
     emptyLabel: String = "No tracks found",
     onDisable: (() -> Unit)? = null,
@@ -347,7 +348,7 @@ private fun RowScope.QuickMenuColumn(
                     ) { Text(disableLabel, modifier = Modifier.padding(8.dp)) }
                 }
             }
-            items(items) { item ->
+            itemsIndexed(items) { index, item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
                 
@@ -355,7 +356,13 @@ private fun RowScope.QuickMenuColumn(
                     onClick = { 
                         if (item is TrackItem) onItemSelected(item.group, item.index)
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (index == 0 && firstItemFocusRequester != null) {
+                                Modifier.focusRequester(firstItemFocusRequester)
+                            } else Modifier
+                        ),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
@@ -425,7 +432,11 @@ private fun SubtitleOverlay(
     )
     AndroidView(
         factory = { context ->
-            SubtitleView(context).apply { setApplyEmbeddedStyles(true) }
+            SubtitleView(context).apply {
+                // Use Aperture's subtitle appearance settings instead of
+                // letting embedded cue styling replace the configured colors.
+                setApplyEmbeddedStyles(false)
+            }
         },
         update = { view ->
             view.setCues(cues.cues)
@@ -433,8 +444,8 @@ private fun SubtitleOverlay(
             view.setStyle(
                 CaptionStyleCompat(
                     textColour,
-                    backgroundColour,
                     android.graphics.Color.TRANSPARENT,
+                    backgroundColour,
                     CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
                     android.graphics.Color.BLACK,
                     android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
