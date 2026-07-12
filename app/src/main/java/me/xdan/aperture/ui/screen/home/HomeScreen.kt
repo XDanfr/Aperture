@@ -108,9 +108,13 @@ private fun HomeContent(
             row.items.any { media -> key == "row:${row.title}:${media.id}" }
         }
     }
+    // The entry requester must stay attached to the item Home was entered on.
+    // Moving it to every newly focused card mutates the focus tree mid-scroll and
+    // makes the containing LazyColumn perform small vertical corrections.
+    val entryFocusKey = remember(state.suggestionGeneration) { resolvedRestoreFocusKey }
 
     LaunchedEffect(Unit) {
-        val restoredRowTitle = resolvedRestoreFocusKey
+        val restoredRowTitle = entryFocusKey
             ?.takeIf { it.startsWith("row:") }
             ?.removePrefix("row:")
             ?.substringBeforeLast(":")
@@ -135,7 +139,7 @@ private fun HomeContent(
         }
     }
     val allowUnfocusedSpotlightUpdates = isAtSpotlight &&
-        (resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
+        (entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
 
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
@@ -162,7 +166,7 @@ private fun HomeContent(
                 onMediaClick = onMediaClick,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
-                isContentEntry = resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
+                isContentEntry = entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused,
                 onActiveMediaChanged = onActiveMediaChanged,
@@ -177,7 +181,7 @@ private fun HomeContent(
                 progressMap = state.progressMap,
                 drawerFocusRequester = drawerFocusRequester,
                 contentEntryFocusRequester = contentEntryFocusRequester,
-                restoreFocusKey = resolvedRestoreFocusKey,
+                restoreFocusKey = entryFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused,
                 onActiveMediaChanged = onActiveMediaChanged

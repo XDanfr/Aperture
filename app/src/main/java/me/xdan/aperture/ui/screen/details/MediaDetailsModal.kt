@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.ImageSearch
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -71,12 +72,14 @@ fun MediaDetailsModal(
     val assetCandidates by viewModel.assetCandidates.collectAsState()
     val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
-    val episodeSelectorFocusRequester = remember { FocusRequester() }
+    val episodeButtonFocusRequester = remember { FocusRequester() }
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
     var waitForLeftRelease by remember { mutableStateOf(false) }
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<me.xdan.aperture.data.local.entity.MediaEntity?>(null) }
     var showAssetPicker by remember { mutableStateOf(false) }
+    var showEpisodePicker by remember { mutableStateOf(false) }
+    var restoreEpisodeButtonAfterPicker by remember { mutableStateOf(false) }
     val isVisible = mediaId != null && displayedMedia != null
     val hasActiveProgress = playbackProgress?.let { progress ->
         progress.duration > 0 &&
@@ -123,6 +126,14 @@ fun MediaDetailsModal(
             delay(380)
             restoreFocus()
             restoreFocusAfterClose = false
+        }
+    }
+
+    LaunchedEffect(showEpisodePicker, isVisible) {
+        if (!showEpisodePicker && isVisible && restoreEpisodeButtonAfterPicker) {
+            delay(100)
+            runCatching { episodeButtonFocusRequester.requestFocus() }
+            restoreEpisodeButtonAfterPicker = false
         }
     }
 
@@ -250,18 +261,38 @@ fun MediaDetailsModal(
                             overflow = TextOverflow.Ellipsis
                         )
 
-                        if (showEpisodeSelector) {
-                            Spacer(Modifier.height(10.dp))
-                            EpisodeSelector(
-                                episodes = episodes,
-                                selectedEpisodeId = m.id,
-                                entryFocusRequester = episodeSelectorFocusRequester,
-                                playButtonFocusRequester = playButtonFocusRequester,
-                                onSelectEpisode = viewModel::selectEpisode
-                            )
-                        }
-                        
                         Spacer(modifier = Modifier.weight(1f))
+
+                        if (showEpisodeSelector) {
+                            OutlinedButton(
+                                onClick = {
+                                    restoreEpisodeButtonAfterPicker = true
+                                    showEpisodePicker = true
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(episodeButtonFocusRequester)
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        buildString {
+                                            m.seasonNumber?.let { append("Season $it") }
+                                            if (isNotEmpty() && m.episodeNumber != null) append(" · ")
+                                            m.episodeNumber?.let { append("Episode $it") }
+                                        }.ifBlank { "Choose episode" },
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Text(
+                                        m.episodeTitle ?: "Choose episode",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = "Choose episode")
+                            }
+                            Spacer(Modifier.height(10.dp))
+                        }
                         
                         Row(
                             modifier = Modifier.heightIn(min = 52.dp),
@@ -274,7 +305,7 @@ fun MediaDetailsModal(
                                     .focusRequester(playButtonFocusRequester)
                                     .focusProperties {
                                         if (showEpisodeSelector) {
-                                            up = episodeSelectorFocusRequester
+                                            up = episodeButtonFocusRequester
                                         }
                                     }
                                     .onFocusChanged { focusState ->
@@ -289,10 +320,7 @@ fun MediaDetailsModal(
                                     .onKeyEvent { keyEvent ->
                                         if (showEpisodeSelector && keyEvent.key == Key.DirectionUp) {
                                             if (keyEvent.type == KeyEventType.KeyDown) {
-                                                // Nested lazy lists are not always considered by TV
-                                                // directional search. Move to the current season's
-                                                // first/selected episode directly instead.
-                                                episodeSelectorFocusRequester.requestFocus()
+                                                episodeButtonFocusRequester.requestFocus()
                                             }
                                             true
                                         } else if (keyEvent.key != Key.DirectionLeft) {
@@ -369,18 +397,28 @@ fun MediaDetailsModal(
                 onDismiss = { showAssetPicker = false }
             )
         }
+        if (showEpisodePicker && displayedMedia != null) {
+            EpisodePickerDialog(
+                episodes = episodes,
+                selectedEpisodeId = displayedMedia!!.id,
+                onSelectEpisode = { episodeId ->
+                    viewModel.selectEpisode(episodeId)
+                    showEpisodePicker = false
+                },
+                onDismiss = { showEpisodePicker = false }
+            )
+        }
             }
         }
     }
 }
 
 @Composable
-private fun EpisodeSelector(
+private fun EpisodePickerDialog(
     episodes: List<me.xdan.aperture.data.local.entity.MediaEntity>,
     selectedEpisodeId: Long,
-    entryFocusRequester: FocusRequester,
-    playButtonFocusRequester: FocusRequester,
-    onSelectEpisode: (Long) -> Unit
+    onSelectEpisode: (Long) -> Unit,
+    onDismiss: () -> Unit
 ) {
     val seasons = remember(episodes) {
         episodes.mapNotNull { it.seasonNumber }.distinct().sorted()
@@ -392,82 +430,114 @@ private fun EpisodeSelector(
     LaunchedEffect(selectedEpisode?.seasonNumber) {
         selectedEpisode?.seasonNumber?.let { selectedSeason = it }
     }
-    Column(Modifier.fillMaxWidth()) {
-        Text("Episodes", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            lazyItems(seasons, key = { it }) { season ->
-                Surface(
-                    onClick = { selectedSeason = season },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (season == selectedSeason) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text("Season $season", modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
-                }
-            }
+    val episodeFocusRequester = remember { FocusRequester() }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val seasonEpisodes = episodes.filter { (it.seasonNumber ?: 0) == selectedSeason }
+    val selectedIndex = seasonEpisodes.indexOfFirst { it.id == selectedEpisodeId }.coerceAtLeast(0)
+
+    LaunchedEffect(selectedSeason, seasonEpisodes.map { it.id }) {
+        if (seasonEpisodes.isNotEmpty()) {
+            listState.scrollToItem(selectedIndex)
+            delay(80)
+            runCatching { episodeFocusRequester.requestFocus() }
         }
-        Spacer(Modifier.height(8.dp))
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .width(780.dp)
+                .height(650.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            val seasonEpisodes = episodes.filter { (it.seasonNumber ?: 0) == selectedSeason }
-            val entryEpisodeId = seasonEpisodes.firstOrNull { it.id == selectedEpisodeId }?.id
-                ?: seasonEpisodes.firstOrNull()?.id
-            lazyItems(
-                seasonEpisodes,
-                key = { it.id }
-            ) { episode ->
-                Surface(
-                    onClick = { onSelectEpisode(episode.id) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // Explicitly connect the button row to the currently selected
-                        // episode. Nested lazy lists otherwise hand DPAD Up to the
-                        // background dialog on some TV devices.
-                        .focusRequester(
-                            entryFocusRequester.takeIf { episode.id == entryEpisodeId }
-                                ?: FocusRequester.Default
-                        )
-                        .focusProperties {
-                            if (episode == seasonEpisodes.lastOrNull()) {
-                                down = playButtonFocusRequester
-                            }
-                        },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (episode.id == selectedEpisodeId) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (!episode.stillPath.isNullOrBlank()) {
-                            AsyncImage(
-                                model = TmdbApi.IMAGE_BASE_URL + "w300" + episode.stillPath,
-                                contentDescription = null,
-                                modifier = Modifier.width(92.dp).height(52.dp).clip(RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Crop
+            Column(Modifier.padding(28.dp)) {
+                Text("Choose an episode", style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(16.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    lazyItems(seasons, key = { it }) { season ->
+                        Surface(
+                            onClick = { selectedSeason = season },
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+                            colors = ClickableSurfaceDefaults.colors(
+                                containerColor = if (season == selectedSeason) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else MaterialTheme.colorScheme.surfaceVariant
                             )
-                            Spacer(Modifier.width(10.dp))
+                        ) {
+                            Text(
+                                "Season $season",
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                            )
                         }
-                        Column {
-                            Text(
-                                "Episode ${episode.episodeNumber ?: "?"}",
-                                style = MaterialTheme.typography.labelMedium
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    lazyItems(seasonEpisodes, key = { it.id }) { episode ->
+                        val isEntryEpisode = episode.id == seasonEpisodes.getOrNull(selectedIndex)?.id
+                        Surface(
+                            onClick = {
+                                onSelectEpisode(episode.id)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isEntryEpisode) Modifier.focusRequester(episodeFocusRequester)
+                                    else Modifier
+                                ),
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
+                            colors = ClickableSurfaceDefaults.colors(
+                                containerColor = if (episode.id == selectedEpisodeId) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else MaterialTheme.colorScheme.surfaceVariant
                             )
-                            Text(
-                                episode.episodeTitle ?: episode.filePath.substringAfterLast('/').substringBeforeLast('.'),
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1
-                            )
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (!episode.stillPath.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = TmdbApi.IMAGE_BASE_URL + "w300" + episode.stillPath,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .width(132.dp)
+                                            .height(74.dp)
+                                            .clip(RoundedCornerShape(10.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(14.dp))
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "Episode ${episode.episodeNumber ?: "?"}",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Text(
+                                        episode.episodeTitle
+                                            ?: episode.filePath.substringAfterLast('/').substringBeforeLast('.'),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        episode.episodeOverview ?: "No synopsis available.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }
