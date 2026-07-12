@@ -37,7 +37,7 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/Search.png" width="49%" alt="Aperture media search" />
+  <img src="screenshots/Searchv0.4.png" width="49%" alt="Aperture media search" />
   <img src="screenshots/MetaReplace.png" width="49%" alt="Aperture manual artwork and metadata selection" />
 </p>
 
