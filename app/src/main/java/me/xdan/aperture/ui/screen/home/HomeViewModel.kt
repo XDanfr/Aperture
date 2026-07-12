@@ -123,8 +123,15 @@ private fun buildHomeState(
             add(HomeRow("Movies", movies.shuffled(Random(suggestionSeed xor MOVIES_SEED_SALT))))
             add(HomeRow("TV Shows", showCards.shuffled(Random(suggestionSeed xor SHOWS_SEED_SALT))))
         },
-        progressMap = progressList.associate {
-            it.mediaId to (if (it.duration > 0) it.position.toFloat() / it.duration else 0f)
+        progressMap = progressList.associate { progress ->
+            val fraction = if (progress.duration > 0) {
+                progress.position.toFloat() / progress.duration
+            } else 0f
+            progress.mediaId to if (
+                !progress.isCompleted &&
+                fraction >= RESUME_THRESHOLD.toFloat() &&
+                fraction < COMPLETION_THRESHOLD.toFloat()
+            ) fraction else 0f
         },
         completedMediaIds = progressList.filter { it.isCompleted }.mapTo(mutableSetOf()) { it.mediaId },
         continueMediaIds = continueWatching.mapTo(mutableSetOf()) { it.id },
