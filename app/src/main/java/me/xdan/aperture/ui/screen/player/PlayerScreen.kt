@@ -57,11 +57,15 @@ fun PlayerScreen(
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val onlineSubtitles by viewModel.onlineSubtitles.collectAsState()
+    val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
+    val playbackFailure by viewModel.playbackFailure.collectAsState()
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     val player = viewModel.player
     val playerFocusRequester = remember { FocusRequester() }
     val controlsFocusRequester = remember { FocusRequester() }
     val quickMenuFocusRequester = remember { FocusRequester() }
+    val noticeFocusRequester = remember { FocusRequester() }
+    val noticeVisible = compatibilityWarning != null || playbackFailure != null
 
     LaunchedEffect(mediaId) {
         viewModel.loadMedia(mediaId, startFromBeginning)
@@ -92,8 +96,10 @@ fun PlayerScreen(
         onDispose { player.removeListener(listener) }
     }
 
-    LaunchedEffect(isOsdVisible, isQuickMenuVisible) {
-        if (isOsdVisible && !isQuickMenuVisible) {
+    LaunchedEffect(isOsdVisible, isQuickMenuVisible, noticeVisible) {
+        if (noticeVisible) {
+            noticeFocusRequester.requestFocus()
+        } else if (isOsdVisible && !isQuickMenuVisible) {
             controlsFocusRequester.requestFocus()
         } else if (isQuickMenuVisible) {
             quickMenuFocusRequester.requestFocus()
@@ -104,6 +110,14 @@ fun PlayerScreen(
 
     BackHandler {
         when {
+            compatibilityWarning != null -> {
+                viewModel.dismissCompatibilityWarning()
+                onBack()
+            }
+            playbackFailure != null -> {
+                viewModel.dismissPlaybackFailure()
+                onBack()
+            }
             isQuickMenuVisible -> {
                 isQuickMenuVisible = false
                 viewModel.hideOsd()
@@ -122,7 +136,9 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { keyEvent ->
-                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                if (noticeVisible) {
+                    false
+                } else if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                     if (isOsdVisible && !isQuickMenuVisible &&
                         keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK
                     ) {
@@ -209,6 +225,92 @@ fun PlayerScreen(
                 onSearchOnline = viewModel::searchOpenSubtitles,
                 onDownloadOnline = viewModel::downloadOpenSubtitle
             )
+        }
+
+        compatibilityWarning?.let { warning ->
+            PlaybackNotice(
+                title = warning.title,
+                message = warning.message,
+                safeLabel = "Go Back",
+                proceedLabel = warning.proceedLabel,
+                safeFocusRequester = noticeFocusRequester,
+                onSafe = {
+                    viewModel.dismissCompatibilityWarning()
+                    onBack()
+                },
+                onProceed = viewModel::playDespiteWarning
+            )
+        }
+
+        if (compatibilityWarning == null) {
+            playbackFailure?.let { failure ->
+                PlaybackNotice(
+                    title = failure.title,
+                    message = failure.message,
+                    safeLabel = "Go Back",
+                    proceedLabel = "Retry",
+                    safeFocusRequester = noticeFocusRequester,
+                    onSafe = {
+                        viewModel.dismissPlaybackFailure()
+                        onBack()
+                    },
+                    onProceed = viewModel::retryPlayback
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackNotice(
+    title: String,
+    message: String,
+    safeLabel: String,
+    proceedLabel: String,
+    safeFocusRequester: FocusRequester,
+    onSafe: () -> Unit,
+    onProceed: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.82f))
+            .padding(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.widthIn(max = 680.dp),
+            colors = SurfaceDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+            ),
+            shape = RoundedCornerShape(32.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Text(title, style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onSafe,
+                        modifier = Modifier.focusRequester(safeFocusRequester)
+                    ) {
+                        Text(safeLabel)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedButton(onClick = onProceed) {
+                        Text(proceedLabel)
+                    }
+                }
+            }
         }
     }
 }

@@ -3,11 +3,15 @@
 package me.xdan.aperture.ui.screen.player
 
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -50,6 +54,10 @@ class PlayerViewModel @Inject constructor(
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
     val onlineSubtitles: StateFlow<OnlineSubtitleState> = _onlineSubtitles
+    private val _compatibilityWarning = MutableStateFlow<PlaybackCompatibilityWarning?>(null)
+    val compatibilityWarning: StateFlow<PlaybackCompatibilityWarning?> = _compatibilityWarning
+    private val _playbackFailure = MutableStateFlow<PlaybackFailure?>(null)
+    val playbackFailure: StateFlow<PlaybackFailure?> = _playbackFailure
 
     val subtitleStyle = combine(
         preferences.subtitleTextScale,
@@ -67,47 +75,134 @@ class PlayerViewModel @Inject constructor(
     private var progressTrackerJob: Job? = null
     private var activeMediaId: Long? = null
     private val downloadedSubtitleFiles = mutableListOf<File>()
+    private var pendingPlayback: PendingPlayback? = null
+
+    private val playerListener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            progressTrackerJob?.cancel()
+            osdTimerJob?.cancel()
+            _isOsdVisible.value = false
+
+            val compatibility = pendingPlayback?.compatibility
+            _playbackFailure.value = when {
+                compatibility?.hasDolbyVision == true -> PlaybackFailure(
+                    title = "This video could not be decoded",
+                    message = "The device failed to play this Dolby Vision video. Try a non-Dolby Vision version, such as standard HEVC or H.264."
+                )
+                error.errorCodeName.contains("DECODING") -> PlaybackFailure(
+                    title = "This video could not be decoded",
+                    message = "The device failed to decode this video. It may use a format or profile that this device does not support."
+                )
+                else -> PlaybackFailure(
+                    title = "Playback failed",
+                    message = "Aperture could not play this video on this device."
+                )
+            }
+        }
+    }
+
+    init {
+        player.addListener(playerListener)
+    }
 
     fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
         viewModelScope.launch {
             val mediaEntity = repository.getMediaById(mediaId)
             _media.value = mediaEntity
+            _compatibilityWarning.value = null
+            _playbackFailure.value = null
+
             mediaEntity?.let { media ->
-                activeMediaId = media.id
-                downloadedSubtitleFiles.clear()
-                _onlineSubtitles.value = OnlineSubtitleState.Idle
-                val progress = repository.getProgress(media.id)
-                // Track overrides belong to the previous MediaItem. In
-                // particular, forcing an unsupported audio track can otherwise
-                // leave this singleton player stuck at 00:00 for every file
-                // opened afterwards.
-                player.trackSelectionParameters = player.trackSelectionParameters
-                    .buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                    .build()
-                player.setMediaItem(buildMediaItem(media))
-                player.prepare()
-                val hasActiveProgress = progress?.let {
-                    it.duration > 0 && it.position >= it.duration * 0.05 && it.position < it.duration * 0.95
-                } == true
-                val isBelowResumeThreshold = progress?.let {
-                    it.duration > 0 && it.position < it.duration * 0.05
-                } == true
-                val shouldRestart = startFromBeginning || isBelowResumeThreshold ||
-                    (progress?.isCompleted == true && !hasActiveProgress) ||
-                    progress?.let { it.duration > 0 && it.position >= it.duration * 0.95 } == true
-                if (shouldRestart) {
-                    player.seekTo(0)
-                    progress?.let {
-                        repository.saveProgress(it.copy(position = 0L, lastUpdated = System.currentTimeMillis()))
-                    }
-                } else progress?.let { player.seekTo(it.position) }
-                player.playWhenReady = true
-                startProgressTracker(media.id)
-                resetOsdTimer()
+                val compatibility = withContext(Dispatchers.IO) {
+                    inspectPlaybackCompatibility(media.filePath)
+                }
+                val pending = PendingPlayback(media, startFromBeginning, compatibility)
+                pendingPlayback = pending
+
+                if (compatibility != null) {
+                    player.stop()
+                    _compatibilityWarning.value = compatibility
+                    return@launch
+                }
+
+                startPlayback(pending)
             }
         }
+    }
+
+    fun playDespiteWarning() {
+        val pending = pendingPlayback ?: return
+        _compatibilityWarning.value = null
+        viewModelScope.launch { startPlayback(pending) }
+    }
+
+    fun dismissCompatibilityWarning() {
+        _compatibilityWarning.value = null
+        pendingPlayback = null
+        player.stop()
+    }
+
+    fun retryPlayback() {
+        val pending = pendingPlayback ?: return
+        _playbackFailure.value = null
+        viewModelScope.launch { startPlayback(pending) }
+    }
+
+    fun dismissPlaybackFailure() {
+        _playbackFailure.value = null
+        player.stop()
+    }
+
+    private suspend fun startPlayback(pending: PendingPlayback) {
+        val media = pending.media
+        _compatibilityWarning.value = null
+        _playbackFailure.value = null
+        activeMediaId = media.id
+        downloadedSubtitleFiles.clear()
+        _onlineSubtitles.value = OnlineSubtitleState.Idle
+        val progress = repository.getProgress(media.id)
+
+        player.stop()
+        player.clearMediaItems()
+
+        // Track overrides belong to the previous MediaItem. In particular,
+        // forcing an unsupported audio track can otherwise leave this singleton
+        // player stuck at 00:00 for every file opened afterwards.
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .build()
+
+        player.setMediaItem(buildMediaItem(media))
+        player.prepare()
+
+        val hasActiveProgress = progress?.let {
+            it.duration > 0 &&
+                it.position >= it.duration * 0.05 &&
+                it.position < it.duration * 0.95
+        } == true
+        val isBelowResumeThreshold = progress?.let {
+            it.duration > 0 && it.position < it.duration * 0.05
+        } == true
+        val shouldRestart = pending.startFromBeginning || isBelowResumeThreshold ||
+            (progress?.isCompleted == true && !hasActiveProgress) ||
+            progress?.let { it.duration > 0 && it.position >= it.duration * 0.95 } == true
+
+        if (shouldRestart) {
+            player.seekTo(0)
+            progress?.let {
+                repository.saveProgress(
+                    it.copy(position = 0L, lastUpdated = System.currentTimeMillis())
+                )
+            }
+        } else {
+            progress?.let { player.seekTo(it.position) }
+        }
+
+        player.playWhenReady = true
+        startProgressTracker(media.id)
+        resetOsdTimer()
     }
 
     private fun buildMediaItem(media: MediaEntity): MediaItem {
@@ -126,6 +221,36 @@ class PlayerViewModel @Inject constructor(
             .setUri(Uri.fromFile(videoFile))
             .setSubtitleConfigurations(subtitles)
             .build()
+    }
+
+    private fun inspectPlaybackCompatibility(filePath: String): PlaybackCompatibilityWarning? {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(filePath)
+            var hasDolbyVision = false
+            var hasEac3 = false
+
+            repeat(extractor.trackCount) { index ->
+                val mime = extractor.getTrackFormat(index)
+                    .getString(MediaFormat.KEY_MIME)
+                    ?.lowercase()
+                    ?: return@repeat
+
+                when (mime) {
+                    "video/dolby-vision" -> hasDolbyVision = true
+                    "audio/eac3", "audio/eac3-joc" -> hasEac3 = true
+                }
+            }
+
+            PlaybackCompatibilityWarning(
+                hasDolbyVision = hasDolbyVision,
+                hasEac3 = hasEac3
+            ).takeIf { it.hasDolbyVision || it.hasEac3 }
+        } catch (_: Exception) {
+            null
+        } finally {
+            extractor.release()
+        }
     }
 
     private fun findSiblingSubtitles(videoFile: File): List<File> {
@@ -252,10 +377,49 @@ class PlayerViewModel @Inject constructor(
     fun seekBackward() { player.seekTo((player.currentPosition - 10000).coerceAtLeast(0)); showOsdBriefly() }
 
     override fun onCleared() {
+        player.removeListener(playerListener)
+        player.stop()
+        progressTrackerJob?.cancel()
+        osdTimerJob?.cancel()
         super.onCleared()
-        player.stop(); progressTrackerJob?.cancel(); osdTimerJob?.cancel()
     }
 }
+
+data class PlaybackCompatibilityWarning(
+    val hasDolbyVision: Boolean,
+    val hasEac3: Boolean
+) {
+    val title: String
+        get() = if (hasDolbyVision && !hasEac3) {
+            "Dolby Vision may not be supported"
+        } else {
+            "Playback may be unstable"
+        }
+
+    val message: String
+        get() = when {
+            hasDolbyVision && hasEac3 ->
+                "This video uses Dolby Vision video and E-AC-3 audio, which this device may not decode correctly. Playback could fail, flicker, stutter, or have missing audio."
+            hasDolbyVision ->
+                "This video uses Dolby Vision, which this device may not decode correctly. Playback could fail, flicker, or stutter."
+            else ->
+                "This video uses E-AC-3 audio, which this device may not decode correctly. Continuing could cause flickering, stuttering, or missing audio."
+        }
+
+    val proceedLabel: String
+        get() = if (hasDolbyVision) "Try Anyway" else "Watch Anyway"
+}
+
+data class PlaybackFailure(
+    val title: String,
+    val message: String
+)
+
+private data class PendingPlayback(
+    val media: MediaEntity,
+    val startFromBeginning: Boolean,
+    val compatibility: PlaybackCompatibilityWarning?
+)
 
 data class PlayerSubtitleStyle(
     val textScale: Float = 1f,
