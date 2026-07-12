@@ -104,8 +104,11 @@ fun PlayerScreen(
 
     BackHandler {
         when {
-            isQuickMenuVisible -> isQuickMenuVisible = false
-            isOsdVisible -> viewModel.toggleOsd()
+            isQuickMenuVisible -> {
+                isQuickMenuVisible = false
+                viewModel.hideOsd()
+            }
+            isOsdVisible -> viewModel.hideOsd()
             else -> {
                 if (player.isPlaying) player.pause()
                 viewModel.saveProgressNow()
