@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,7 +43,7 @@ import me.xdan.aperture.ui.theme.HeroGradientStart
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -91,7 +92,7 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     state: HomeState.Success,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -116,8 +117,25 @@ private fun HomeContent(
         val restoredRowIndex = state.rows.indexOfFirst { it.title == restoredRowTitle }
         if (restoredRowIndex >= 0) {
             listState.scrollToItem(restoredRowIndex + 1)
+        } else {
+            listState.scrollToItem(0, 0)
+            delay(100)
+            repeat(3) {
+                if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+                delay(80)
+            }
         }
     }
+
+    val isAtSpotlight by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
+        }
+    }
+    val allowUnfocusedSpotlightUpdates = isAtSpotlight &&
+        (resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
 
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
@@ -147,7 +165,8 @@ private fun HomeContent(
                 isContentEntry = resolvedRestoreFocusKey == null || resolvedRestoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused,
-                onActiveMediaChanged = onActiveMediaChanged
+                onActiveMediaChanged = onActiveMediaChanged,
+                allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates
             )
         }
         items(state.rows) { row ->
@@ -174,13 +193,14 @@ private fun FeaturedCarousel(
     progressMap: Map<Long, Float>,
     completedMediaIds: Set<Long>,
     continueMediaIds: Set<Long>,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     isContentEntry: Boolean,
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onActiveMediaChanged: (Long) -> Unit,
+    allowUnfocusedArtworkUpdates: Boolean
 ) {
     if (featured.isEmpty()) return
 
@@ -190,8 +210,15 @@ private fun FeaturedCarousel(
     }
     var focusActiveSpotlight by remember { mutableStateOf(false) }
 
-    LaunchedEffect(carouselState.activeItemIndex, featured) {
-        featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+    LaunchedEffect(
+        carouselState.activeItemIndex,
+        featured,
+        focusActiveSpotlight,
+        allowUnfocusedArtworkUpdates
+    ) {
+        if (focusActiveSpotlight || allowUnfocusedArtworkUpdates) {
+            featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+        }
     }
 
     LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex) {
@@ -268,7 +295,13 @@ private fun FeaturedCarousel(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { onMediaClick(media.id, watchNowFocusRequester) },
+                    onClick = {
+                        onMediaClick(
+                            media.id,
+                            watchNowFocusRequester,
+                            media.type == "EPISODE" && media.id in continueMediaIds
+                        )
+                    },
                     modifier = Modifier
                         .then(
                             if (drawerFocusRequester != null) {
@@ -302,7 +335,7 @@ private fun FeaturedCarousel(
 @Composable
 private fun HomeMediaRow(
     row: HomeRow,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     progressMap: Map<Long, Float> = emptyMap(),
     drawerFocusRequester: FocusRequester?,
@@ -325,8 +358,8 @@ private fun HomeMediaRow(
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
         LazyRow(
-            modifier = Modifier.height(250.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier.height(270.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -334,7 +367,13 @@ private fun HomeMediaRow(
                 val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
-                    onClick = { requester -> onMediaClick(media.id, requester) },
+                    onClick = { requester ->
+                        onMediaClick(
+                            media.id,
+                            requester,
+                            media.type == "EPISODE" && row.title == "Continue Watching"
+                        )
+                    },
                     modifier = Modifier.width(150.dp),
                     focusRequester = contentEntryFocusRequester.takeIf {
                         restoreFocusKey == focusKey

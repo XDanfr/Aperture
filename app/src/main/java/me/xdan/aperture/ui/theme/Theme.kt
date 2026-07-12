@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 
 data class ApertureThemeOption(val id: String, val label: String, val preview: Color)
 
@@ -50,15 +52,20 @@ fun ApertureTheme(
 ) {
     val option = ApertureThemeOptions.firstOrNull { it.id == themeId } ?: ApertureThemeOptions.first()
     val accent = if (themeId == "dynamic") dynamicAccent ?: option.preview else option.preview
+    val animatedAccent = animateColorAsState(
+        targetValue = accent,
+        animationSpec = tween(durationMillis = 520),
+        label = "apertureThemeAccent"
+    ).value
     val scheme = if (themeId == "purple") DarkColorScheme else darkColorScheme(
-        primary = accent,
+        primary = animatedAccent,
         onPrimary = Color(0xFF151218),
-        primaryContainer = accent.copy(alpha = 0.30f),
-        onPrimaryContainer = accent,
-        secondary = accent.copy(alpha = 0.82f),
+        primaryContainer = animatedAccent.copy(alpha = 0.30f),
+        onPrimaryContainer = animatedAccent,
+        secondary = animatedAccent.copy(alpha = 0.82f),
         onSecondary = Color(0xFF151218),
-        secondaryContainer = accent.copy(alpha = 0.20f),
-        onSecondaryContainer = accent,
+        secondaryContainer = animatedAccent.copy(alpha = 0.20f),
+        onSecondaryContainer = animatedAccent,
         background = Color(0xFF111014),
         onBackground = Color(0xFFF1ECF2),
         surface = Color(0xFF111014),

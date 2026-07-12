@@ -23,7 +23,7 @@ import me.xdan.aperture.ui.component.MediaCard
 @Composable
 fun ShowsScreen(
     viewModel: LibraryViewModel,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -65,7 +65,7 @@ fun ShowsScreen(
 @Composable
 private fun GroupedShowsGrid(
     groups: List<ShowGroup>,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -88,7 +88,7 @@ private fun GroupedShowsGrid(
                     AnimatedLibraryCard(media.id) {
                         MediaCard(
                             media = media,
-                            onClick = { onMediaClick(media.id, it) },
+                            onClick = { onMediaClick(media.id, it, false) },
                             modifier = Modifier.fillMaxWidth(),
                             focusRequester = contentEntryFocusRequester.takeIf { index == 0 },
                             drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
@@ -107,7 +107,7 @@ private fun GroupedShowsGrid(
 @Composable
 private fun EpisodeRows(
     groups: List<ShowGroup>,
-    onMediaClick: (Long, FocusRequester) -> Unit,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
@@ -133,11 +133,13 @@ private fun EpisodeRows(
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 itemsIndexed(seasonEpisodes, key = { _, episode -> episode.id }) { index, episode ->
                                     AnimatedLibraryCard(episode.id) {
-                                        Column(Modifier.width(154.dp)) {
+                                        Column(Modifier.width(220.dp)) {
                                             MediaCard(
                                                 media = episode,
-                                                onClick = { onMediaClick(episode.id, it) },
+                                                onClick = { onMediaClick(episode.id, it, true) },
                                                 modifier = Modifier.fillMaxWidth(),
+                                                aspectRatio = 16f / 9f,
+                                                preferEpisodeStill = true,
                                                 focusRequester = contentEntryFocusRequester.takeIf {
                                                     episode.id == firstEpisode.id
                                                 },

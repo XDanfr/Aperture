@@ -1,4 +1,4 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 
 package me.xdan.aperture.ui.screen.player
 
@@ -37,14 +37,13 @@ import androidx.media3.common.C
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.tv.material3.*
 import me.xdan.aperture.data.local.entity.MediaEntity
 
-@OptIn(ExperimentalTvMaterial3Api::class, UnstableApi::class)
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     mediaId: Long,

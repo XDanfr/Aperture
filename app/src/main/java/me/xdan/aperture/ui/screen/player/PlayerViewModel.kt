@@ -1,4 +1,4 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 
 package me.xdan.aperture.ui.screen.player
 
@@ -38,7 +38,7 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     val player: ExoPlayer,
     private val repository: MediaRepository,
-    private val preferences: UserPreferencesRepository,
+    preferences: UserPreferencesRepository,
     private val openSubtitlesApi: OpenSubtitlesApi,
     private val okHttpClient: OkHttpClient,
     @ApplicationContext private val context: Context

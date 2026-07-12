@@ -82,7 +82,7 @@ private fun AnimatedMovieCard(
 ) {
     var visible by remember(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { visible = true }
-    androidx.compose.animation.AnimatedVisibility(
+    AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
     ) {

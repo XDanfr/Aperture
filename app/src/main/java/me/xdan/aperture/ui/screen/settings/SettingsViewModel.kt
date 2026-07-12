@@ -4,12 +4,12 @@ import android.content.Context
 import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
+import coil.annotation.ExperimentalCoilApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -83,6 +83,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    @OptIn(ExperimentalCoilApi::class)
     fun clearCache() {
         context.imageLoader.memoryCache?.clear()
         context.imageLoader.diskCache?.clear()
@@ -160,7 +161,7 @@ class SettingsViewModel @Inject constructor(
             openUri(update.releaseUrl)
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             updateState.value = UpdateCheckState.PermissionRequired(update)
             val intent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,

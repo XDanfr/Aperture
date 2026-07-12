@@ -1,6 +1,5 @@
 package me.xdan.aperture.ui.screen.details
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -46,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
@@ -59,6 +59,7 @@ import me.xdan.aperture.ui.theme.GlassBackground
 @Composable
 fun MediaDetailsModal(
     mediaId: Long?,
+    episodeOnly: Boolean = false,
     viewModel: MediaDetailsViewModel,
     onPlay: (Long, Boolean) -> Unit,
     onClose: () -> Unit,
@@ -91,8 +92,13 @@ fun MediaDetailsModal(
     }
 
     LaunchedEffect(mediaId) {
-        displayedMedia = null
-        mediaId?.let(viewModel::loadMedia)
+        if (mediaId != null) {
+            displayedMedia = null
+            viewModel.loadMedia(mediaId)
+        } else if (displayedMedia != null) {
+            delay(320)
+            displayedMedia = null
+        }
     }
 
     LaunchedEffect(media, mediaId) {
@@ -106,25 +112,29 @@ fun MediaDetailsModal(
             restoreFocusAfterClose = false
             ignoreNextPlayFocus = true
             waitForLeftRelease = false
+            delay(48)
             playButtonFocusRequester.requestFocus()
         }
     }
 
     LaunchedEffect(isVisible, restoreFocusAfterClose) {
         if (!isVisible && restoreFocusAfterClose) {
-            delay(320)
+            delay(380)
             restoreFocus()
             restoreFocusAfterClose = false
         }
     }
 
-    BackHandler(enabled = mediaId != null) {
-        closeModal()
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    if (mediaId != null || displayedMedia != null) {
+        Dialog(
+            onDismissRequest = { if (mediaId != null) closeModal() },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnClickOutside = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn(animationSpec = tween(durationMillis = 200)),
@@ -155,6 +165,27 @@ fun MediaDetailsModal(
                     .fillMaxSize()
             ) {
                 displayedMedia?.let { m ->
+                    val showEpisodeSelector = episodes.isNotEmpty() && !episodeOnly
+                    val artworkPath = if (episodeOnly && !m.stillPath.isNullOrBlank()) {
+                        m.stillPath
+                    } else {
+                        m.backdropPath
+                    }
+                    val heading = if (episodeOnly) {
+                        m.episodeTitle ?: "Episode ${m.episodeNumber ?: "?"}"
+                    } else {
+                        m.title
+                    }
+                    val subheading = if (episodeOnly) {
+                        buildString {
+                            append(m.title)
+                            m.seasonNumber?.let { append(" · Season $it") }
+                            m.episodeNumber?.let { append(" Episode $it") }
+                        }
+                    } else {
+                        m.year?.toString().orEmpty()
+                    }
+                    val artworkHeight = if (showEpisodeSelector) 120.dp else 160.dp
                     Surface(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -171,54 +202,55 @@ fun MediaDetailsModal(
                                 .fillMaxSize()
                                 .padding(32.dp)
                         ) {
-                            if (m.backdropPath.isNullOrBlank()) {
+                            if (artworkPath.isNullOrBlank()) {
                                 ArtworkFallback(
-                                    title = m.title,
+                                    title = heading,
                                     isFocused = false,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(200.dp)
+                                        .height(artworkHeight)
                                         .clip(RoundedCornerShape(12.dp))
                                 )
                             } else {
                                 AsyncImage(
                                     model = ImageRequest.Builder(LocalContext.current)
-                                        .data(TmdbApi.IMAGE_BASE_URL + "w780" + m.backdropPath)
+                                        .data(TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath)
                                         .crossfade(false)
                                         .build(),
                                     contentDescription = null,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(200.dp)
+                                        .height(artworkHeight)
                                         .clip(RoundedCornerShape(12.dp)),
                                     contentScale = ContentScale.Crop
                                 )
                             }
                         
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         
                         Text(
-                            text = m.title,
+                            text = heading,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold
                         )
                         
                         Text(
-                            text = if (m.year != null) "${m.year}" else "",
+                            text = subheading,
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.Gray
                         )
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
                             text = m.episodeOverview ?: m.overview ?: "No synopsis available.",
                             style = MaterialTheme.typography.bodyMedium,
-                            maxLines = if (episodes.isEmpty()) 6 else 3
+                            maxLines = if (showEpisodeSelector) 2 else 4,
+                            overflow = TextOverflow.Ellipsis
                         )
 
-                        if (episodes.isNotEmpty()) {
-                            Spacer(Modifier.height(14.dp))
+                        if (showEpisodeSelector) {
+                            Spacer(Modifier.height(10.dp))
                             EpisodeSelector(
                                 episodes = episodes,
                                 selectedEpisodeId = m.id,
@@ -229,7 +261,9 @@ fun MediaDetailsModal(
                         Spacer(modifier = Modifier.weight(1f))
                         
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            modifier = Modifier.heightIn(min = 52.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Button(
                                 onClick = { onPlay(m.id, false) },
@@ -319,6 +353,8 @@ fun MediaDetailsModal(
                 onDismiss = { showAssetPicker = false }
             )
         }
+            }
+        }
     }
 }
 
@@ -358,7 +394,7 @@ private fun EpisodeSelector(
         }
         Spacer(Modifier.height(8.dp))
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 170.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(max = 96.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             lazyItems(

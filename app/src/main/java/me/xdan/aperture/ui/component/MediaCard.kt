@@ -47,11 +47,25 @@ fun MediaCard(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     aspectRatio: Float = 2f / 3f,
+    preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
 ) {
+    val artworkPath = if (preferEpisodeStill && media.type == "EPISODE") {
+        media.stillPath
+    } else {
+        media.posterPath
+    }
+    val fallbackTitle = if (preferEpisodeStill && media.type == "EPISODE") {
+        media.episodeTitle ?: buildString {
+            media.seasonNumber?.let { append("S$it") }
+            media.episodeNumber?.let { append("E$it") }
+        }.ifBlank { media.title }
+    } else {
+        media.title
+    }
     var isFocused by remember { mutableStateOf(false) }
     val internalFocusRequester = remember { FocusRequester() }
     val cardFocusRequester = focusRequester ?: internalFocusRequester
@@ -136,18 +150,18 @@ fun MediaCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (media.posterPath.isNullOrBlank()) {
+            if (artworkPath.isNullOrBlank()) {
                 ArtworkFallback(
-                    title = media.title,
+                    title = fallbackTitle,
                     isFocused = isFocused
                 )
             } else {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + media.posterPath)
+                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + artworkPath)
                         .crossfade(false)
                         .build(),
-                    contentDescription = media.title,
+                    contentDescription = fallbackTitle,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )

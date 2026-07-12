@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
                         containerColor = androidx.tv.material3.MaterialTheme.colorScheme.background
                     )
                 ) {
+                    @Suppress("UNCHECKED_CAST")
                     val backstack = rememberNavBackStack(Destination.Home) as NavBackStack<Destination>
 
                     LaunchedEffect(Unit) {
@@ -82,12 +83,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         lastInteractionTime = System.currentTimeMillis()
         if (isAmbientActive) {
             isAmbientActive = false
             return true
         }
-        return super.dispatchKeyEvent(event)
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        lastInteractionTime = System.currentTimeMillis()
+        return super.onKeyUp(keyCode, event)
     }
 }
