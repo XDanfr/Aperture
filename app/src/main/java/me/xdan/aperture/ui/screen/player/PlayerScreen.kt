@@ -245,36 +245,44 @@ private fun QuickMenu(
             QuickMenuColumn(
                 title = "Audio",
                 icon = Icons.Rounded.Audiotrack,
-                items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO),
+                items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO)
+                    .filter { it.isSupported },
+                emptyLabel = "No compatible audio tracks",
                 onItemSelected = { trackGroup, index ->
-                    player.trackSelectionParameters = player.trackSelectionParameters
-                        .buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                        .setOverrideForType(
-                            TrackSelectionOverride(
-                                trackGroup.mediaTrackGroup,
-                                index
+                    if (trackGroup.isTrackSupported(index)) {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                            .setOverrideForType(
+                                TrackSelectionOverride(
+                                    trackGroup.mediaTrackGroup,
+                                    index
+                                )
                             )
-                        )
-                        .build()
+                            .build()
+                    }
                 }
             )
             
             QuickMenuColumn(
                 title = "Subtitles",
                 icon = Icons.Rounded.Subtitles,
-                items = getTrackItems(tracks, C.TRACK_TYPE_TEXT),
+                items = getTrackItems(tracks, C.TRACK_TYPE_TEXT)
+                    .filter { it.isSupported },
+                emptyLabel = "No compatible subtitle tracks",
                 onItemSelected = { trackGroup, index ->
-                    player.trackSelectionParameters = player.trackSelectionParameters
-                        .buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        .setOverrideForType(
-                            TrackSelectionOverride(
-                                trackGroup.mediaTrackGroup,
-                                index
+                    if (trackGroup.isTrackSupported(index)) {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setOverrideForType(
+                                TrackSelectionOverride(
+                                    trackGroup.mediaTrackGroup,
+                                    index
+                                )
                             )
-                        )
-                        .build()
+                            .build()
+                    }
                 },
                 onDisable = {
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
@@ -297,6 +305,7 @@ private fun QuickMenu(
 data class TrackItem(
     val name: String,
     val isSelected: Boolean,
+    val isSupported: Boolean,
     val group: Tracks.Group,
     val index: Int
 )
@@ -307,6 +316,7 @@ private fun RowScope.QuickMenuColumn(
     icon: ImageVector,
     items: List<Any>,
     onItemSelected: (Tracks.Group, Int) -> Unit,
+    emptyLabel: String = "No tracks found",
     onDisable: (() -> Unit)? = null,
     disableLabel: String? = null
 ) {
@@ -318,6 +328,16 @@ private fun RowScope.QuickMenuColumn(
         }
         Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (items.isEmpty()) {
+                item {
+                    Text(
+                        emptyLabel,
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
             if (onDisable != null && disableLabel != null) {
                 item {
                     Surface(
@@ -365,40 +385,19 @@ private fun RowScope.OnlineSubtitlesColumn(
             Text("OpenSubtitles", style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(16.dp))
-        when (state) {
-            OnlineSubtitleState.Idle -> Surface(
-                onClick = onSearch,
-                modifier = Modifier.fillMaxWidth(),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
-            ) { Text("Search online", modifier = Modifier.padding(8.dp)) }
-            OnlineSubtitleState.Loading -> Text("Searching…")
-            is OnlineSubtitleState.Downloading -> Text("Downloading ${state.label}…")
-            is OnlineSubtitleState.Attached -> {
-                Text("Attached ${state.label}")
-                Spacer(Modifier.height(8.dp))
-                Surface(onClick = onSearch, modifier = Modifier.fillMaxWidth()) {
-                    Text("Search again", modifier = Modifier.padding(8.dp))
-                }
-            }
-            is OnlineSubtitleState.Error -> {
-                Text(state.message, style = MaterialTheme.typography.bodySmall, maxLines = 4)
-                Spacer(Modifier.height(8.dp))
-                Surface(onClick = onSearch, modifier = Modifier.fillMaxWidth()) {
-                    Text("Try again", modifier = Modifier.padding(8.dp))
-                }
-            }
-            is OnlineSubtitleState.Results -> LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                if (state.options.isEmpty()) item { Text("No subtitles found.") }
-                items(state.options, key = { it.fileId }) { option ->
-                    Surface(
-                        onClick = { onDownload(option) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp))
-                    ) {
-                        Text(option.label, modifier = Modifier.padding(8.dp), maxLines = 2)
-                    }
-                }
-            }
+        Text(
+            "Coming soon",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            onClick = {},
+            enabled = false,
+            modifier = Modifier.fillMaxWidth(),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
+        ) {
+            Text("Search online", modifier = Modifier.padding(8.dp))
         }
     }
 }
@@ -461,6 +460,7 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
                             }
                         },
                         isSelected = group.isTrackSelected(i),
+                        isSupported = group.isTrackSupported(i),
                         group = group,
                         index = i
                     )

@@ -3,6 +3,7 @@ package me.xdan.aperture.di
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.Module
 import dagger.Provides
@@ -23,7 +24,13 @@ object PlayerModule {
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        return ExoPlayer.Builder(context)
+        val renderersFactory = DefaultRenderersFactory(context)
+            // If a device exposes both the Atmos/JOC decoder and a compatible
+            // plain E-AC-3 decoder, recover through the latter when the former
+            // cannot initialise.
+            .setEnableDecoderFallback(true)
+
+        return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()

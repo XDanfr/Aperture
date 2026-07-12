@@ -77,6 +77,15 @@ class PlayerViewModel @Inject constructor(
                 downloadedSubtitleFiles.clear()
                 _onlineSubtitles.value = OnlineSubtitleState.Idle
                 val progress = repository.getProgress(media.id)
+                // Track overrides belong to the previous MediaItem. In
+                // particular, forcing an unsupported audio track can otherwise
+                // leave this singleton player stuck at 00:00 for every file
+                // opened afterwards.
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                    .build()
                 player.setMediaItem(buildMediaItem(media))
                 player.prepare()
                 val hasActiveProgress = progress?.let {

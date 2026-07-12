@@ -30,14 +30,28 @@ class MediaDetailsViewModel @Inject constructor(
     val isLoadingAssets: StateFlow<Boolean> = _isLoadingAssets
     private var assetSearchJob: Job? = null
 
-    fun loadMedia(mediaId: Long) {
+    fun loadMedia(mediaId: Long, preferActiveEpisode: Boolean = true) {
         viewModelScope.launch {
             val selected = repository.getMediaById(mediaId)
-            _media.value = selected
-            _progress.value = repository.getProgress(mediaId)
-            _episodes.value = if (selected?.type == "EPISODE") {
+            val showEpisodes = if (selected?.type == "EPISODE") {
                 repository.getEpisodesForShow(selected.title)
             } else emptyList()
+            _episodes.value = showEpisodes
+
+            val activeEpisode = if (preferActiveEpisode) {
+                showEpisodes.mapNotNull { episode ->
+                    val progress = repository.getProgress(episode.id) ?: return@mapNotNull null
+                    val isResumable = !progress.isCompleted && progress.duration > 0 &&
+                        progress.position >= progress.duration * 0.05 &&
+                        progress.position < progress.duration * 0.95
+                    if (isResumable || (!progress.isCompleted && progress.keepInContinueWatching)) {
+                        Triple(episode, progress, progress.lastUpdated)
+                    } else null
+                }.maxByOrNull { it.third }
+            } else null
+
+            _media.value = activeEpisode?.first ?: selected
+            _progress.value = activeEpisode?.second ?: repository.getProgress(mediaId)
         }
     }
 

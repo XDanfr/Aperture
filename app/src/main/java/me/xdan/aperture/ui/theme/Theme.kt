@@ -11,7 +11,7 @@ data class ApertureThemeOption(val id: String, val label: String, val preview: C
 
 val ApertureThemeOptions = listOf(
     ApertureThemeOption("purple", "Aperture Purple", Color(0xFFD0BCFF)),
-    ApertureThemeOption("dynamic", "Artwork Dynamic [PRE-ALPHA]", Color(0xFFB7C8FF)),
+    ApertureThemeOption("dynamic", "Artwork Dynamic", Color(0xFFB7C8FF)),
     ApertureThemeOption("classic", "Material TV", Color(0xFFFFFFFF)),
     ApertureThemeOption("green", "Emerald", Color(0xFF7DDA9A)),
     ApertureThemeOption("red", "Cinema Red", Color(0xFFFFB4AB)),

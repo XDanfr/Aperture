@@ -95,10 +95,12 @@ fun MediaDetailsModal(
         onClose()
     }
 
-    LaunchedEffect(mediaId) {
+    LaunchedEffect(mediaId, episodeOnly) {
         if (mediaId != null) {
             displayedMedia = null
-            viewModel.loadMedia(mediaId)
+            // Grouped show cards resume the most recently active episode. An
+            // individual episode popup must continue to honour the exact card.
+            viewModel.loadMedia(mediaId, preferActiveEpisode = !episodeOnly)
         } else if (displayedMedia != null) {
             delay(320)
             displayedMedia = null
