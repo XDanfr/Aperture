@@ -70,6 +70,8 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Better Movie Detection**: Improve TMDb matching for sequels, years and similarly named films.
 - [X] **Manual Title Correction**: This also updates assets accordingly.
 - [ ] **Rounded Spotlight**
+- [ ] **OpenSubtitles Support**
+- [ ] **Support for more codecs**
 
 ## 🚀 Getting Started
 
