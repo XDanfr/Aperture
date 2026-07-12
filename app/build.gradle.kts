@@ -21,8 +21,8 @@ android {
         applicationId = "me.xdan.aperture"
         minSdk = 27
         targetSdk = 37
-        versionCode = 8
-        versionName = "v0.4.0-pre-alpha"
+        versionCode = 9
+        versionName = "v0.4.1-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -90,6 +90,7 @@ dependencies {
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
+    implementation(libs.nextlib.media3ext)
     implementation(libs.coil.compose)
     implementation(libs.converter.moshi)
     implementation(libs.kotlinx.coroutines.android)

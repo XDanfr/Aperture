@@ -27,7 +27,8 @@ fun ShowsScreen(
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     val episodes by viewModel.shows.collectAsState()
     val presentationMode by viewModel.showPresentationMode.collectAsState()
@@ -48,7 +49,8 @@ fun ShowsScreen(
             onMediaLongClick = onMediaLongClick,
             drawerFocusRequester = drawerFocusRequester,
             contentEntryFocusRequester = contentEntryFocusRequester,
-            onContentFocused = onContentFocused
+            onContentFocused = onContentFocused,
+            onActiveMediaChanged = onActiveMediaChanged
         )
     } else {
         GroupedShowsGrid(
@@ -57,7 +59,8 @@ fun ShowsScreen(
             onMediaLongClick = onMediaLongClick,
             drawerFocusRequester = drawerFocusRequester,
             contentEntryFocusRequester = contentEntryFocusRequester,
-            onContentFocused = onContentFocused
+            onContentFocused = onContentFocused,
+            onActiveMediaChanged = onActiveMediaChanged
         )
     }
 }
@@ -69,7 +72,8 @@ private fun GroupedShowsGrid(
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp)) {
         Text("TV Shows", style = MaterialTheme.typography.headlineLarge)
@@ -92,7 +96,10 @@ private fun GroupedShowsGrid(
                             modifier = Modifier.fillMaxWidth(),
                             focusRequester = contentEntryFocusRequester.takeIf { index == 0 },
                             drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
-                            onFocused = onContentFocused,
+                            onFocused = { requester ->
+                                onContentFocused(requester)
+                                onActiveMediaChanged(media.id)
+                            },
                             onLongClick = { requester, opensToRight ->
                                 onMediaLongClick(media, requester, false, opensToRight)
                             }
@@ -111,7 +118,8 @@ private fun EpisodeRows(
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     val firstEpisode = groups.first().episodes.first()
     LazyColumn(
@@ -149,7 +157,10 @@ private fun EpisodeRows(
                                                     episode.id == firstEpisode.id
                                                 },
                                                 drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
-                                                onFocused = onContentFocused,
+                                                onFocused = { requester ->
+                                                    onContentFocused(requester)
+                                                    onActiveMediaChanged(episode.id)
+                                                },
                                                 onLongClick = { requester, opensToRight ->
                                                     onMediaLongClick(episode, requester, false, opensToRight)
                                                 }

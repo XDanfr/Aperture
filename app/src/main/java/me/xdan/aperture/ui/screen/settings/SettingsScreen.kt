@@ -794,6 +794,8 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
                     Text("• Nova Video Player (Archos)")
                     Text("• laposa/media-player")
                     Text("• AndroidX Media3")
+                    Text("• NextLib Media3 FFmpeg extensions (GPLv3)")
+                    Text("• FFmpeg")
                     Text("• Jetpack Compose")
                     Text("• Coil")
                     Text("• Retrofit, OkHttp and Moshi")

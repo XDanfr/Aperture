@@ -16,6 +16,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import javax.inject.Singleton
 
 @Module
@@ -30,8 +31,10 @@ object PlayerModule {
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val renderersFactory = DefaultRenderersFactory(context)
-            // Keep fallback enabled for devices that need an alternative audio decoder.
+        val renderersFactory = NextRenderersFactory(context)
+            // Keep Android's hardware renderers first. FFmpeg is appended as a
+            // software fallback for formats the device cannot decode itself.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
 
         val player = ExoPlayer.Builder(context, renderersFactory)

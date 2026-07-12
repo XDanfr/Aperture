@@ -183,7 +183,8 @@ private fun HomeContent(
                 contentEntryFocusRequester = contentEntryFocusRequester,
                 restoreFocusKey = entryFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
-                onContentFocused = onContentFocused
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged
             )
         }
     }
@@ -345,7 +346,8 @@ private fun HomeMediaRow(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     if (row.items.isEmpty()) return
 
@@ -390,9 +392,7 @@ private fun HomeMediaRow(
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)
-                        // Dynamic artwork theming belongs to Spotlight. Rebuilding
-                        // the app-wide colour scheme for every horizontal card move
-                        // adds a second, asynchronous source of layout churn here.
+                        onActiveMediaChanged(media.id)
                     },
                     onLongClick = { requester, opensToRight ->
                         onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)

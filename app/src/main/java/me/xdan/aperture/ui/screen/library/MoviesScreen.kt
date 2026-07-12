@@ -32,7 +32,8 @@ fun MoviesScreen(
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     val movies by viewModel.movies.collectAsState()
     if (movies.isEmpty()) {
@@ -61,7 +62,8 @@ fun MoviesScreen(
                         onMediaLongClick = onMediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
                         contentEntryFocusRequester = contentEntryFocusRequester,
-                        onContentFocused = onContentFocused
+                        onContentFocused = onContentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged
                     )
                 }
             }
@@ -78,7 +80,8 @@ private fun AnimatedMovieCard(
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
-    onContentFocused: (FocusRequester) -> Unit
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit
 ) {
     var visible by remember(media.id) { mutableStateOf(false) }
     LaunchedEffect(media.id) { visible = true }
@@ -92,7 +95,10 @@ private fun AnimatedMovieCard(
             modifier = Modifier.fillMaxWidth(),
             focusRequester = contentEntryFocusRequester.takeIf { isFirst },
             drawerFocusRequester = drawerFocusRequester.takeIf { isLeftmost },
-            onFocused = onContentFocused,
+            onFocused = { requester ->
+                onContentFocused(requester)
+                onActiveMediaChanged(media.id)
+            },
             onLongClick = { requester, opensToRight ->
                 onMediaLongClick(media, requester, false, opensToRight)
             }

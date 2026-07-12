@@ -54,6 +54,7 @@ class MainViewModel @Inject constructor(
     val dynamicAccentArgb: StateFlow<Int?> = _dynamicAccentArgb
     private val artworkAccentCache = mutableMapOf<Long, Int>()
     private var requestedActiveMediaId: Long? = null
+    private var dynamicThemeJob: Job? = null
 
     val isTutorialRequired = userPreferencesRepository.isTutorialRequired.stateIn(
         viewModelScope,
@@ -100,11 +101,16 @@ class MainViewModel @Inject constructor(
     fun setActiveMedia(mediaId: Long) {
         if (themeId.value != "dynamic") return
         requestedActiveMediaId = mediaId
+        dynamicThemeJob?.cancel()
         artworkAccentCache[mediaId]?.let {
             _dynamicAccentArgb.value = it
             return
         }
-        viewModelScope.launch {
+        dynamicThemeJob = viewModelScope.launch {
+            // Avoid recolouring the whole app while the user is rapidly
+            // traversing a row; settle briefly on the focused card first.
+            kotlinx.coroutines.delay(140)
+            if (requestedActiveMediaId != mediaId) return@launch
             val media = mediaRepository.getMediaById(mediaId) ?: return@launch
             val artworkPath = media.backdropPath ?: media.posterPath ?: return@launch
             val url = TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath

@@ -558,7 +558,8 @@ private fun NavContent(
                     onMediaLongClick = mediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
                 is Destination.Shows -> ShowsScreen(
                     viewModel = viewModel(),
@@ -566,7 +567,8 @@ private fun NavContent(
                     onMediaLongClick = mediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged
                 )
                 is Destination.Settings -> SettingsScreen(
                     drawerFocusRequester = drawerFocusRequester,
