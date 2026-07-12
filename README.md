@@ -10,7 +10,8 @@
 
 <p align="center">
   <a href="https://xdan.me/aperture">Website</a> •
-  <a href="https://github.com/XDanfr/Aperture/releases/latest">Download the latest alpha</a>
+  <a href="https://github.com/XDanfr/Aperture/releases/latest">Download the latest alpha</a> •
+  <a href="https://discord.gg/vne5ED9xsm">Discord Server
 </p>
 
 ---
