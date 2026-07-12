@@ -71,6 +71,7 @@ fun MediaDetailsModal(
     val assetCandidates by viewModel.assetCandidates.collectAsState()
     val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
+    val episodeSelectorFocusRequester = remember { FocusRequester() }
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
     var waitForLeftRelease by remember { mutableStateOf(false) }
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
@@ -254,6 +255,8 @@ fun MediaDetailsModal(
                             EpisodeSelector(
                                 episodes = episodes,
                                 selectedEpisodeId = m.id,
+                                entryFocusRequester = episodeSelectorFocusRequester,
+                                playButtonFocusRequester = playButtonFocusRequester,
                                 onSelectEpisode = viewModel::selectEpisode
                             )
                         }
@@ -269,6 +272,11 @@ fun MediaDetailsModal(
                                 onClick = { onPlay(m.id, false) },
                                 modifier = Modifier
                                     .focusRequester(playButtonFocusRequester)
+                                    .focusProperties {
+                                        if (showEpisodeSelector) {
+                                            up = episodeSelectorFocusRequester
+                                        }
+                                    }
                                     .onFocusChanged { focusState ->
                                         if (focusState.isFocused) {
                                             if (ignoreNextPlayFocus) {
@@ -362,6 +370,8 @@ fun MediaDetailsModal(
 private fun EpisodeSelector(
     episodes: List<me.xdan.aperture.data.local.entity.MediaEntity>,
     selectedEpisodeId: Long,
+    entryFocusRequester: FocusRequester,
+    playButtonFocusRequester: FocusRequester,
     onSelectEpisode: (Long) -> Unit
 ) {
     val seasons = remember(episodes) {
@@ -397,13 +407,29 @@ private fun EpisodeSelector(
             modifier = Modifier.fillMaxWidth().heightIn(max = 96.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            val seasonEpisodes = episodes.filter { (it.seasonNumber ?: 0) == selectedSeason }
+            val entryEpisodeId = seasonEpisodes.firstOrNull { it.id == selectedEpisodeId }?.id
+                ?: seasonEpisodes.firstOrNull()?.id
             lazyItems(
-                episodes.filter { (it.seasonNumber ?: 0) == selectedSeason },
+                seasonEpisodes,
                 key = { it.id }
             ) { episode ->
                 Surface(
                     onClick = { onSelectEpisode(episode.id) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Explicitly connect the button row to the currently selected
+                        // episode. Nested lazy lists otherwise hand DPAD Up to the
+                        // background dialog on some TV devices.
+                        .focusRequester(
+                            entryFocusRequester.takeIf { episode.id == entryEpisodeId }
+                                ?: FocusRequester.Default
+                        )
+                        .focusProperties {
+                            if (episode == seasonEpisodes.lastOrNull()) {
+                                down = playButtonFocusRequester
+                            }
+                        },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (episode.id == selectedEpisodeId) {

@@ -181,7 +181,7 @@ fun SettingsScreen(
                     icon = Icons.Rounded.VisibilityOff,
                     drawerFocusRequester = drawerFocusRequester,
                     focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == null || restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
+                        restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
                     },
                     onFocused = { requester ->
                         onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)

@@ -130,7 +130,12 @@ private fun EpisodeRows(
                                 if (season > 0) "Season $season" else "Episodes",
                                 style = MaterialTheme.typography.titleMedium
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            LazyRow(
+                                // Cards scale when focused; keep that scale inside the
+                                // viewport at both ends of every episode row.
+                                contentPadding = PaddingValues(horizontal = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 itemsIndexed(seasonEpisodes, key = { _, episode -> episode.id }) { index, episode ->
                                     AnimatedLibraryCard(episode.id) {
                                         Column(Modifier.width(220.dp)) {
