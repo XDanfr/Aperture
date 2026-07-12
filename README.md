@@ -23,15 +23,23 @@
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="screenshots/HomeSide.png" alt="Aperture home screen with the expanded navigation sidebar" />
+  <img src="screenshots/Home.png" alt="Aperture home screen with Spotlight and Recently Added media" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Popup.png" width="49%" alt="Aperture media details popup" />
-  <img src="screenshots/Search.png" width="49%" alt="Aperture search screen" />
+  <img src="screenshots/Movies.png" width="49%" alt="Aperture Movies library" />
+  <img src="screenshots/TV%20Shows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
 </p>
 
-<p align="center"><sub>there are only so many times I can screenshot the angry birds movie</sub></p>
+<p align="center">
+  <img src="screenshots/GroupPopup.png" width="49%" alt="Aperture grouped TV show details popup" />
+  <img src="screenshots/EpisodeSelect.png" width="49%" alt="Aperture season and episode selector" />
+</p>
+
+<p align="center">
+  <img src="screenshots/Search.png" width="49%" alt="Aperture media search" />
+  <img src="screenshots/MetaReplace.png" width="49%" alt="Aperture manual artwork and metadata selection" />
+</p>
 
 ## ✨ Features
 

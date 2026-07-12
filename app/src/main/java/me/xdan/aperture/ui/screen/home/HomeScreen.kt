@@ -173,7 +173,7 @@ private fun HomeContent(
                 allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates
             )
         }
-        items(state.rows) { row ->
+        items(state.rows, key = { it.title }) { row ->
             HomeMediaRow(
                 row = row,
                 onMediaClick = onMediaClick,
@@ -183,8 +183,7 @@ private fun HomeContent(
                 contentEntryFocusRequester = contentEntryFocusRequester,
                 restoreFocusKey = entryFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
-                onContentFocused = onContentFocused,
-                onActiveMediaChanged = onActiveMediaChanged
+                onContentFocused = onContentFocused
             )
         }
     }
@@ -346,8 +345,7 @@ private fun HomeMediaRow(
     contentEntryFocusRequester: FocusRequester,
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
-    onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onContentFocused: (FocusRequester) -> Unit
 ) {
     if (row.items.isEmpty()) return
 
@@ -367,7 +365,7 @@ private fun HomeMediaRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            itemsIndexed(row.items) { index, media ->
+            itemsIndexed(row.items, key = { _, media -> media.id }) { index, media ->
                 val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
@@ -379,6 +377,11 @@ private fun HomeMediaRow(
                         )
                     },
                     modifier = Modifier.width(150.dp),
+                    // This row is nested inside Home's vertical LazyColumn. Scaling
+                    // its focus target makes Compose's bring-into-view logic chase
+                    // animated bounds and produces the vertical "wobble". The TV
+                    // focus border remains, while press feedback still scales down.
+                    focusScale = 1f,
                     focusRequester = contentEntryFocusRequester.takeIf {
                         restoreFocusKey == focusKey
                     },
@@ -387,7 +390,9 @@ private fun HomeMediaRow(
                     onFocused = { requester ->
                         onFocusKeyChanged(focusKey)
                         onContentFocused(requester)
-                        onActiveMediaChanged(media.id)
+                        // Dynamic artwork theming belongs to Spotlight. Rebuilding
+                        // the app-wide colour scheme for every horizontal card move
+                        // adds a second, asynchronous source of layout churn here.
                     },
                     onLongClick = { requester, opensToRight ->
                         onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)

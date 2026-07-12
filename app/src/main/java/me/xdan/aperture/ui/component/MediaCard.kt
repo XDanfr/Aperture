@@ -49,6 +49,7 @@ fun MediaCard(
     aspectRatio: Float = 2f / 3f,
     preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
+    focusScale: Float = 1.05f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
@@ -77,12 +78,15 @@ fun MediaCard(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    var opensToRight by remember { mutableStateOf(true) }
+    // This value is only read when the long-press action fires. Keeping it as
+    // Compose state caused every newly positioned/off-screen card to recompose
+    // on its first layout pass, which made nested Home rows visibly wobble.
+    val opensToRight = remember { booleanArrayOf(true) }
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
             isPressed -> 0.95f
-            isFocused -> 1.05f
+            isFocused -> focusScale
             else -> 1f
         },
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
@@ -108,7 +112,7 @@ fun MediaCard(
                             holdJob = scope.launch {
                                 delay(550)
                                 longClickTriggered = true
-                                onLongClick(cardFocusRequester, opensToRight)
+                                onLongClick(cardFocusRequester, opensToRight[0])
                             }
                         }
                         longClickTriggered
@@ -124,7 +128,7 @@ fun MediaCard(
                 }
             }
             .onGloballyPositioned { coordinates ->
-                opensToRight = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
+                opensToRight[0] = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
             }
             .then(
                 if (drawerFocusRequester != null) {
