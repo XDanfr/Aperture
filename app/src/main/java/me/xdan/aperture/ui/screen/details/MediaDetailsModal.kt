@@ -479,7 +479,9 @@ private fun EpisodePickerDialog(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp),
+                    // Focused TV surfaces scale beyond their normal bounds.
+                    // Keep that animation safely inside the picker on all sides.
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     lazyItems(seasonEpisodes, key = { it.id }) { episode ->
@@ -501,6 +503,9 @@ private fun EpisodePickerDialog(
                                 } else MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
+                            // Let the surface supply its focused content colour.
+                            // A hard-coded onSurfaceVariant colour becomes unreadable
+                            // against the light focused container on TV.
                             Row(
                                 Modifier.fillMaxWidth().padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -533,8 +538,7 @@ private fun EpisodePickerDialog(
                                         episode.episodeOverview ?: "No synopsis available.",
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }

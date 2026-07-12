@@ -233,11 +233,8 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(homeDrawerRequester)
                                     .focusProperties {
-                                        right = if (homeRestoreFocusKey?.startsWith("row:") == true) {
-                                            lastFocusedRequesters["home"] ?: homeContentEntryRequester
-                                        } else {
-                                            homeContentEntryRequester
-                                        }
+                                        right = lastFocusedRequesters["home"]
+                                            ?: homeContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
                             ) {
@@ -324,7 +321,10 @@ fun NavGraph(
                         contentEntryRequesters = contentEntryRequesters,
                         homeRestoreFocusKey = homeRestoreFocusKey,
                         settingsRestoreFocusKey = settingsRestoreFocusKey,
-                        onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
+                        // Card-to-card focus is already held by lastFocusedRequesters.
+                        // Updating navigation state for every DPAD move causes Home's
+                        // parent LazyColumn to recompose and visibly wobble.
+                        onHomeFocusKeyChanged = {},
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
@@ -355,7 +355,7 @@ fun NavGraph(
                     contentEntryRequesters = contentEntryRequesters,
                     homeRestoreFocusKey = homeRestoreFocusKey,
                     settingsRestoreFocusKey = settingsRestoreFocusKey,
-                    onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
+                    onHomeFocusKeyChanged = {},
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
                     onActiveMediaChanged = mainViewModel::setActiveMedia,

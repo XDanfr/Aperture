@@ -41,5 +41,13 @@ data class ShowGroup(
     val episodes: List<MediaEntity>
 ) {
     val representative: MediaEntity
-        get() = episodes.firstOrNull { !it.posterPath.isNullOrBlank() } ?: episodes.first()
+        // A show card must open at the first available episode, not whichever
+        // episode happened to receive poster art first.
+        get() = episodes.minWithOrNull(
+            compareBy<MediaEntity>(
+                { it.seasonNumber ?: Int.MAX_VALUE },
+                { it.episodeNumber ?: Int.MAX_VALUE },
+                { it.id }
+            )
+        ) ?: episodes.first()
 }
