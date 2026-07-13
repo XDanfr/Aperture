@@ -1,6 +1,8 @@
 package me.xdan.aperture.ui.screen.settings
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -103,7 +105,7 @@ fun SettingsScreen(
     var showMediaFolders by remember { mutableStateOf(false) }
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
-            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(context.packageManager) != null
+            hasDocumentProvider(context.packageManager)
         )
     }
     val folderPicker = rememberLauncherForActivityResult(
@@ -496,6 +498,12 @@ private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
 private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
 private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
+
+private fun hasDocumentProvider(packageManager: PackageManager): Boolean =
+    packageManager.queryIntentContentProviders(
+        Intent(DocumentsContract.PROVIDER_INTERFACE),
+        PackageManager.MATCH_DEFAULT_ONLY
+    ).isNotEmpty()
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
