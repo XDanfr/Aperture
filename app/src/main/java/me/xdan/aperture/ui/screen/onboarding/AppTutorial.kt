@@ -53,6 +53,7 @@ fun AppTutorial(
                 add(TutorialStep("Build My List", "Open a title like $exampleTitle and choose Add to My List. Your newest additions appear first.", Destination.Home, TutorialPlacement.BottomStart, Icons.Rounded.ArrowForward))
             }
             add(TutorialStep("Make it yours", "Settings lives on the sidebar. Here lie themes, library tools, update checking and more.", Destination.Home, placement = TutorialPlacement.CenterEnd, pointer = Icons.Rounded.ArrowBack))
+            add(TutorialStep("Missing any media?", "Add a folder from Settings to scan a USB drive or another media location.", Destination.Settings))
         }
     }
     var index by remember { mutableIntStateOf(0) }

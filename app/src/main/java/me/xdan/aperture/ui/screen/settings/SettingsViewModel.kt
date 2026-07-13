@@ -68,10 +68,34 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         emptyList()
     )
+    val mediaFolders = repository.mediaFolders
+    val mediaFolderMessage = MutableStateFlow<String?>(null)
 
     fun forceRescan() {
         viewModelScope.launch {
             repository.scanLocalFiles()
+        }
+    }
+
+    fun addMediaFolder(uri: Uri) {
+        viewModelScope.launch {
+            mediaFolderMessage.value = "Adding folder…"
+            repository.addMediaFolder(uri.toString())
+                .onSuccess {
+                    mediaFolderMessage.value = "Folder added. Scanning now…"
+                    repository.scanLocalFiles()
+                    mediaFolderMessage.value = null
+                }
+                .onFailure { error ->
+                    mediaFolderMessage.value = error.message ?: "Aperture could not add that folder"
+                }
+        }
+    }
+
+    fun removeMediaFolder(uri: String) {
+        viewModelScope.launch {
+            repository.removeMediaFolder(uri)
+            mediaFolderMessage.value = null
         }
     }
 

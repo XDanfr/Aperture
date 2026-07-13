@@ -6,6 +6,7 @@ import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
@@ -210,20 +211,43 @@ class PlayerViewModel @Inject constructor(
         resetOsdTimer()
     }
 
-    private fun buildMediaItem(media: MediaEntity): MediaItem {
-        val videoFile = File(media.filePath)
-        val subtitles = (findSiblingSubtitles(videoFile) + downloadedSubtitleFiles)
-            .distinctBy { it.absolutePath }
-            .mapIndexed { index, file ->
-                MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(file))
-                    .setMimeType(subtitleMimeType(file.extension))
-                    .setLabel(file.nameWithoutExtension)
-                    .setLanguage(inferLanguage(file.nameWithoutExtension, videoFile.nameWithoutExtension))
+    private suspend fun buildMediaItem(media: MediaEntity): MediaItem {
+        val isDocumentUri = media.filePath.startsWith("content://")
+        val videoFile = media.filePath.takeUnless { isDocumentUri }?.let(::File)
+        val videoBaseName = if (videoFile != null) {
+            videoFile.nameWithoutExtension
+        } else {
+            Uri.decode(Uri.parse(media.filePath).lastPathSegment.orEmpty())
+                .substringAfterLast('/')
+                .substringBeforeLast('.')
+        }
+        val localSubtitles = if (isDocumentUri) {
+            withContext(Dispatchers.IO) { findSiblingDocumentSubtitles(media, videoBaseName) }
+        } else {
+            videoFile?.let(::findSiblingSubtitles).orEmpty().map { file ->
+                SubtitleSource(Uri.fromFile(file), file.nameWithoutExtension, file.extension)
+            }
+        }
+        val downloadedSubtitles = downloadedSubtitleFiles.map { file ->
+            SubtitleSource(Uri.fromFile(file), file.nameWithoutExtension, file.extension)
+        }
+        val subtitles = (localSubtitles + downloadedSubtitles)
+            .distinctBy { it.uri }
+            .mapIndexed { index, subtitle ->
+                MediaItem.SubtitleConfiguration.Builder(subtitle.uri)
+                    .setMimeType(subtitleMimeType(subtitle.extension))
+                    .setLabel(subtitle.label)
+                    .setLanguage(
+                        inferLanguage(
+                            subtitle.label,
+                            videoBaseName
+                        )
+                    )
                     .setSelectionFlags(if (index == 0) C.SELECTION_FLAG_DEFAULT else 0)
                     .build()
             }
         return MediaItem.Builder()
-            .setUri(Uri.fromFile(videoFile))
+            .setUri(mediaPlaybackUri(media.filePath))
             .setSubtitleConfigurations(subtitles)
             .build()
     }
@@ -231,7 +255,12 @@ class PlayerViewModel @Inject constructor(
     private fun inspectPlaybackCompatibility(filePath: String): PlaybackCompatibilityWarning? {
         val extractor = MediaExtractor()
         return try {
-            extractor.setDataSource(filePath)
+            val uri = mediaPlaybackUri(filePath)
+            if (uri.scheme == "content") {
+                extractor.setDataSource(context, uri, null)
+            } else {
+                extractor.setDataSource(filePath)
+            }
             var hasDolbyVision = false
             var hasEac3 = false
 
@@ -258,6 +287,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun mediaPlaybackUri(location: String): Uri =
+        if (location.startsWith("content://")) Uri.parse(location) else Uri.fromFile(File(location))
+
     private fun findSiblingSubtitles(videoFile: File): List<File> {
         val base = videoFile.nameWithoutExtension
         return runCatching {
@@ -266,6 +298,60 @@ class PlayerViewModel @Inject constructor(
                     (candidate.nameWithoutExtension.equals(base, ignoreCase = true) ||
                         candidate.nameWithoutExtension.startsWith("$base.", ignoreCase = true))
             }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun findSiblingDocumentSubtitles(
+        media: MediaEntity,
+        videoBaseName: String
+    ): List<SubtitleSource> {
+        val rootUri = media.sourceRootUri?.let(Uri::parse) ?: return emptyList()
+        val parentUri = media.parentDocumentUri?.let(Uri::parse) ?: return emptyList()
+        val parentDocumentId = runCatching {
+            DocumentsContract.getDocumentId(parentUri)
+        }.getOrNull() ?: return emptyList()
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            rootUri,
+            parentDocumentId
+        )
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE
+        )
+        return runCatching {
+            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID
+                )
+                val nameColumn = cursor.getColumnIndexOrThrow(
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                )
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(nameColumn) ?: continue
+                        val extension = name.substringAfterLast('.', missingDelimiterValue = "")
+                            .lowercase()
+                        val nameWithoutExtension = name.substringBeforeLast('.')
+                        val matchesVideo = nameWithoutExtension.equals(
+                            videoBaseName,
+                            ignoreCase = true
+                        ) || nameWithoutExtension.startsWith("$videoBaseName.", ignoreCase = true)
+                        if (extension in SUBTITLE_EXTENSIONS && matchesVideo) {
+                            add(
+                                SubtitleSource(
+                                    uri = DocumentsContract.buildDocumentUriUsingTree(
+                                        rootUri,
+                                        cursor.getString(idColumn)
+                                    ),
+                                    label = nameWithoutExtension,
+                                    extension = extension
+                                )
+                            )
+                        }
+                    }
+                }
+            }.orEmpty()
         }.getOrDefault(emptyList())
     }
 
@@ -453,6 +539,12 @@ private data class PendingPlayback(
     val media: MediaEntity,
     val startFromBeginning: Boolean,
     val compatibility: PlaybackCompatibilityWarning?
+)
+
+private data class SubtitleSource(
+    val uri: Uri,
+    val label: String,
+    val extension: String
 )
 
 data class PlayerSubtitleStyle(

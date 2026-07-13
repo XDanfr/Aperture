@@ -73,9 +73,10 @@ fun OnboardingScreen(
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
     )
+    val hasLibraryAccess = permissionState.status.isGranted
 
-    LaunchedEffect(permissionState.status.isGranted) {
-        if (permissionState.status.isGranted) onStartPreparation()
+    LaunchedEffect(hasLibraryAccess) {
+        if (hasLibraryAccess) onStartPreparation()
     }
 
     LaunchedEffect(progress.stage) {
@@ -90,7 +91,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (permissionState.status.isGranted) {
+        if (hasLibraryAccess) {
             PosterBackground(progress.posterPaths)
             Box(
                 modifier = Modifier
@@ -141,14 +142,17 @@ private fun PermissionPanel(
                 tint = Color.Unspecified
             )
             Text(
-                text = "Allow access so Aperture can find and play your local media collection.",
+                text = "Allow access to videos on this device to build your Aperture library.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
             )
             Spacer(Modifier.height(40.dp))
-            Button(onClick = onGrantPermission, modifier = Modifier.fillMaxWidth()) {
-                Text("Grant permission")
+            Button(
+                onClick = onGrantPermission,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Allow device videos")
             }
         }
     }
