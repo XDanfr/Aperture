@@ -24,6 +24,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     private val HIDE_FINISHED_FROM_SPOTLIGHT = booleanPreferencesKey("hide_finished_from_spotlight")
     private val FINISHED_SPOTLIGHT_EXCLUSION_DAYS = intPreferencesKey("finished_spotlight_exclusion_days")
+    private val ROUNDED_SPOTLIGHT = booleanPreferencesKey("rounded_spotlight")
     private val THEME_ID = stringPreferencesKey("theme_id")
     private val TUTORIAL_REQUIRED = booleanPreferencesKey("tutorial_required")
     private val SHOW_PRESENTATION_MODE = stringPreferencesKey("show_presentation_mode")
@@ -41,6 +42,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val finishedSpotlightExclusionDays: Flow<Int> = context.dataStore.data
         .map { preferences -> preferences[FINISHED_SPOTLIGHT_EXCLUSION_DAYS] ?: 14 }
+
+    override val roundedSpotlight: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[ROUNDED_SPOTLIGHT] ?: false }
 
     override val themeId: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[THEME_ID] ?: "purple" }
@@ -76,6 +80,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[FINISHED_SPOTLIGHT_EXCLUSION_DAYS] = days.coerceIn(1, 365)
         }
+    }
+
+    override suspend fun setRoundedSpotlight(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[ROUNDED_SPOTLIGHT] = enabled }
     }
 
     override suspend fun setThemeId(themeId: String) {

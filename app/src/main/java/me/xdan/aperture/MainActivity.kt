@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -19,6 +20,8 @@ import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.navigation.Destination
 import me.xdan.aperture.ui.navigation.NavGraph
 import me.xdan.aperture.ui.screen.ambient.AmbientMode
+import me.xdan.aperture.data.update.UpdateCheckState
+import me.xdan.aperture.ui.screen.settings.UpdateDialog
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 @AndroidEntryPoint
@@ -34,6 +37,8 @@ class MainActivity : ComponentActivity() {
             val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
             val themeId by mainViewModel.themeId.collectAsState()
             val dynamicAccentArgb by mainViewModel.dynamicAccentArgb.collectAsState()
+            val updateState by mainViewModel.updateState.collectAsState()
+            var dismissedUpdateVersion by rememberSaveable { mutableStateOf<String?>(null) }
             var appVisible by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 delay(80)
@@ -77,6 +82,23 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+                }
+
+                val offeredUpdate = when (val state = updateState) {
+                    is UpdateCheckState.Available -> state
+                    is UpdateCheckState.PermissionRequired -> state.update
+                    is UpdateCheckState.Downloading -> state.update
+                    else -> null
+                }
+                if (
+                    offeredUpdate != null &&
+                    offeredUpdate.version != dismissedUpdateVersion
+                ) {
+                    UpdateDialog(
+                        state = updateState,
+                        onInstall = mainViewModel::downloadAndInstallUpdate,
+                        onDismiss = { dismissedUpdateVersion = offeredUpdate.version }
+                    )
                 }
                 }
             }

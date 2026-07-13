@@ -6,6 +6,7 @@ interface UserPreferencesRepository {
     val isOnboardingCompleted: Flow<Boolean>
     val hideFinishedFromSpotlight: Flow<Boolean>
     val finishedSpotlightExclusionDays: Flow<Int>
+    val roundedSpotlight: Flow<Boolean>
     val themeId: Flow<String>
     val isTutorialRequired: Flow<Boolean>
     val showPresentationMode: Flow<String>
@@ -16,6 +17,7 @@ interface UserPreferencesRepository {
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setHideFinishedFromSpotlight(enabled: Boolean)
     suspend fun setFinishedSpotlightExclusionDays(days: Int)
+    suspend fun setRoundedSpotlight(enabled: Boolean)
     suspend fun setThemeId(themeId: String)
     suspend fun setTutorialRequired(required: Boolean)
     suspend fun setShowPresentationMode(mode: String)

@@ -3,6 +3,8 @@ package me.xdan.aperture.ui.screen.home
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,6 +28,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -53,6 +56,7 @@ fun HomeScreen(
     onActiveMediaChanged: (Long) -> Unit = {}
 ) {
     val state by viewModel.homeState.collectAsState()
+    val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (val s = state) {
@@ -81,7 +85,8 @@ fun HomeScreen(
                     restoreFocusKey = restoreFocusKey,
                     onFocusKeyChanged = onFocusKeyChanged,
                     onContentFocused = onContentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
+                    onActiveMediaChanged = onActiveMediaChanged,
+                    roundedSpotlight = roundedSpotlight
                 )
             }
         }
@@ -99,7 +104,8 @@ private fun HomeContent(
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onActiveMediaChanged: (Long) -> Unit,
+    roundedSpotlight: Boolean
 ) {
     val listState = rememberLazyListState()
     val refreshAlpha = remember { Animatable(1f) }
@@ -170,7 +176,8 @@ private fun HomeContent(
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused,
                 onActiveMediaChanged = onActiveMediaChanged,
-                allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates
+                allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates,
+                roundedSpotlight = roundedSpotlight
             )
         }
         items(state.rows, key = { it.title }) { row ->
@@ -204,7 +211,8 @@ private fun FeaturedCarousel(
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
-    allowUnfocusedArtworkUpdates: Boolean
+    allowUnfocusedArtworkUpdates: Boolean,
+    roundedSpotlight: Boolean
 ) {
     if (featured.isEmpty()) return
 
@@ -213,6 +221,7 @@ private fun FeaturedCarousel(
         List(featured.size) { FocusRequester() }
     }
     var focusActiveSpotlight by remember { mutableStateOf(false) }
+    val spotlightShape = RoundedCornerShape(if (roundedSpotlight) 32.dp else 0.dp)
 
     LaunchedEffect(
         carouselState.activeItemIndex,
@@ -245,6 +254,22 @@ private fun FeaturedCarousel(
             .fillMaxWidth()
             .height(400.dp)
             .padding(16.dp)
+            .clip(spotlightShape)
+            .then(
+                if (roundedSpotlight) {
+                    Modifier.border(
+                        width = if (focusActiveSpotlight) 3.dp else 1.dp,
+                        color = if (focusActiveSpotlight) {
+                            Color.White
+                        } else {
+                            Color.White.copy(alpha = 0.28f)
+                        },
+                        shape = spotlightShape
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .onFocusChanged { focusState ->
                 focusActiveSpotlight = focusState.hasFocus
             }
@@ -280,11 +305,20 @@ private fun FeaturedCarousel(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Brush.verticalGradient(
-                            colors = listOf(HeroGradientStart, HeroGradientEnd),
-                            startY = 0f,
-                            endY = Float.POSITIVE_INFINITY
-                        )
+                        if (roundedSpotlight) {
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.22f),
+                                    Color.Black.copy(alpha = 0.22f)
+                                )
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                colors = listOf(HeroGradientStart, HeroGradientEnd),
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
+                            )
+                        }
                     )
             )
             Column(

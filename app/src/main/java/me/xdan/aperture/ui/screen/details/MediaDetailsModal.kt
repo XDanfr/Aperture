@@ -581,7 +581,16 @@ private fun AssetPickerDialog(
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { androidx.compose.material3.Text("Search title") }
+                    label = { androidx.compose.material3.Text("Search title") },
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 )
                 Spacer(Modifier.height(20.dp))
                 when {
@@ -592,7 +601,7 @@ private fun AssetPickerDialog(
                         Text("No matching artwork found.")
                     }
                     else -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(150.dp),
+                        columns = GridCells.Adaptive(112.dp),
                         modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -601,7 +610,20 @@ private fun AssetPickerDialog(
                             Surface(
                                 onClick = { onSelect(candidate) },
                                 modifier = Modifier.aspectRatio(2f / 3f),
-                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp))
+                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                                scale = ClickableSurfaceDefaults.scale(
+                                    focusedScale = 1.04f,
+                                    pressedScale = 0.98f
+                                ),
+                                border = ClickableSurfaceDefaults.border(
+                                    focusedBorder = Border(
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            3.dp,
+                                            Color.White
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                )
                             ) {
                                 Box(Modifier.fillMaxSize()) {
                                     if (candidate.posterPath.isNullOrBlank()) {

@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -26,11 +27,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.data.update.UpdateCheckState
+import me.xdan.aperture.data.update.UpdateManager
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
+    private val updateManager: UpdateManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -66,12 +70,25 @@ class MainViewModel @Inject constructor(
         .map { it.firstOrNull() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val updateState = updateManager.state
+
     init {
         viewModelScope.launch {
             userPreferencesRepository.isOnboardingCompleted
                 .filter { it }
                 .first()
             startLibraryPreparation()
+        }
+        viewModelScope.launch {
+            combine(
+                userPreferencesRepository.isOnboardingCompleted,
+                userPreferencesRepository.isTutorialRequired
+            ) { onboardingCompleted, tutorialRequired ->
+                onboardingCompleted && !tutorialRequired
+            }
+                .filter { it }
+                .first()
+            updateManager.checkForUpdates(silent = true)
         }
     }
 
@@ -96,6 +113,10 @@ class MainViewModel @Inject constructor(
 
     fun completeTutorial() {
         viewModelScope.launch { userPreferencesRepository.setTutorialRequired(false) }
+    }
+
+    fun downloadAndInstallUpdate(update: UpdateCheckState.Available) {
+        viewModelScope.launch { updateManager.downloadAndInstall(update) }
     }
 
     fun setActiveMedia(mediaId: Long) {

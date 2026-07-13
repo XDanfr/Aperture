@@ -43,6 +43,7 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.tv.material3.*
 import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -57,6 +58,7 @@ fun PlayerScreen(
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val onlineSubtitles by viewModel.onlineSubtitles.collectAsState()
+    val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
     val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
     val playbackFailure by viewModel.playbackFailure.collectAsState()
     var isQuickMenuVisible by remember { mutableStateOf(false) }
@@ -222,6 +224,7 @@ fun PlayerScreen(
                 player = player,
                 focusRequester = quickMenuFocusRequester,
                 onlineSubtitleState = onlineSubtitles,
+                openSubtitlesSession = openSubtitlesSession,
                 onSearchOnline = viewModel::searchOpenSubtitles,
                 onDownloadOnline = viewModel::downloadOpenSubtitle
             )
@@ -320,6 +323,7 @@ private fun QuickMenu(
     player: androidx.media3.common.Player,
     focusRequester: FocusRequester,
     onlineSubtitleState: OnlineSubtitleState,
+    openSubtitlesSession: OpenSubtitlesSessionState,
     onSearchOnline: () -> Unit,
     onDownloadOnline: (OnlineSubtitleOption) -> Unit
 ) {
@@ -400,6 +404,7 @@ private fun QuickMenu(
 
             OnlineSubtitlesColumn(
                 state = onlineSubtitleState,
+                session = openSubtitlesSession,
                 onSearch = onSearchOnline,
                 onDownload = onDownloadOnline
             )
@@ -487,6 +492,7 @@ private fun RowScope.QuickMenuColumn(
 @Composable
 private fun RowScope.OnlineSubtitlesColumn(
     state: OnlineSubtitleState,
+    session: OpenSubtitlesSessionState,
     onSearch: () -> Unit,
     onDownload: (OnlineSubtitleOption) -> Unit
 ) {
@@ -497,19 +503,54 @@ private fun RowScope.OnlineSubtitlesColumn(
             Text("OpenSubtitles", style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(16.dp))
-        Text(
-            "Coming soon",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
-        )
-        Spacer(Modifier.height(8.dp))
-        Surface(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
-        ) {
-            Text("Search online", modifier = Modifier.padding(8.dp))
+        if (session !is OpenSubtitlesSessionState.SignedIn) {
+            Text(
+                "Sign in from Settings",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            Surface(
+                onClick = onSearch,
+                enabled = state !is OnlineSubtitleState.Loading &&
+                    state !is OnlineSubtitleState.Downloading,
+                modifier = Modifier.fillMaxWidth(),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
+            ) {
+                Text(
+                    if (state is OnlineSubtitleState.Loading) "Searching…" else "Search online",
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (state) {
+                    is OnlineSubtitleState.Results -> {
+                        if (state.options.isEmpty()) {
+                            item { Text("No subtitles found", style = MaterialTheme.typography.bodySmall) }
+                        }
+                        items(state.options, key = { it.fileId }) { option ->
+                            Surface(
+                                onClick = { onDownload(option) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
+                            ) {
+                                Text(option.label, modifier = Modifier.padding(8.dp))
+                            }
+                        }
+                    }
+                    is OnlineSubtitleState.Downloading -> item {
+                        Text("Downloading ${state.label}…", style = MaterialTheme.typography.bodySmall)
+                    }
+                    is OnlineSubtitleState.Attached -> item {
+                        Text("Attached ${state.label}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    is OnlineSubtitleState.Error -> item {
+                        Text(state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    else -> Unit
+                }
+            }
         }
     }
 }

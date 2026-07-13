@@ -2,36 +2,61 @@ package me.xdan.aperture.data.remote.api
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import me.xdan.aperture.BuildConfig
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 interface OpenSubtitlesApi {
-    @GET("subtitles")
+    @POST("login")
+    suspend fun login(
+        @Body request: OpenSubtitlesLoginRequest,
+        @Header("Api-Key") apiKey: String,
+        @Header("User-Agent") userAgent: String = USER_AGENT
+    ): OpenSubtitlesLoginResponse
+
+    @GET
     suspend fun searchSubtitles(
+        @Url url: String,
         @Query("tmdb_id") tmdbId: Int? = null,
         @Query("query") query: String? = null,
         @Query("season_number") seasonNumber: Int? = null,
         @Query("episode_number") episodeNumber: Int? = null,
         @Query("languages") languages: String = "en",
         @Header("Api-Key") apiKey: String,
+        @Header("Authorization") authorization: String,
         @Header("User-Agent") userAgent: String = USER_AGENT
     ): OpenSubtitlesSearchResponse
 
-    @POST("download")
+    @POST
     suspend fun createDownload(
+        @Url url: String,
         @Body request: OpenSubtitlesDownloadRequest,
         @Header("Api-Key") apiKey: String,
+        @Header("Authorization") authorization: String,
         @Header("User-Agent") userAgent: String = USER_AGENT
     ): OpenSubtitlesDownloadResponse
 
     companion object {
         const val BASE_URL = "https://api.opensubtitles.com/api/v1/"
-        const val USER_AGENT = "Aperture v0.4"
+        val USER_AGENT = "Aperture ${BuildConfig.VERSION_NAME}"
     }
 }
+
+@JsonClass(generateAdapter = true)
+data class OpenSubtitlesLoginRequest(
+    @Json(name = "username") val username: String,
+    @Json(name = "password") val password: String
+)
+
+@JsonClass(generateAdapter = true)
+data class OpenSubtitlesLoginResponse(
+    @Json(name = "token") val token: String,
+    @Json(name = "base_url") val baseUrl: String
+)
 
 @JsonClass(generateAdapter = true)
 data class OpenSubtitlesSearchResponse(

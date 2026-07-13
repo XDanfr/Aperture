@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Subtitles
@@ -65,6 +66,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
+import me.xdan.aperture.data.update.UpdateCheckState
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -81,12 +84,14 @@ fun SettingsScreen(
     val spotlightSettings by viewModel.spotlightSettings.collectAsState()
     val selectedThemeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
     val hiddenMedia by viewModel.hiddenMedia.collectAsState()
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var showOpenSubtitlesDialog by remember { mutableStateOf(false) }
     var showHiddenMedia by remember { mutableStateOf(false) }
     var showSpotlightDaysPicker by remember { mutableStateOf(false) }
     var showShowLayoutPicker by remember { mutableStateOf(false) }
@@ -103,15 +108,17 @@ fun SettingsScreen(
         val restoreIndex = when (restoreFocusKey) {
             SETTINGS_THEME_FOCUS_KEY -> 1
             SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 2
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 3
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 4
-            SETTINGS_RESCAN_FOCUS_KEY -> 7
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 8
-            SETTINGS_LICENCES_FOCUS_KEY -> 9
-            SETTINGS_UPDATE_FOCUS_KEY -> 10
-            SETTINGS_TMDB_FOCUS_KEY -> 11
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
-            SETTINGS_DONATE_FOCUS_KEY -> 13
+            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 3
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 4
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 5
+            SETTINGS_RESCAN_FOCUS_KEY -> 8
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 9
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 10
+            SETTINGS_LICENCES_FOCUS_KEY -> 11
+            SETTINGS_UPDATE_FOCUS_KEY -> 12
+            SETTINGS_TMDB_FOCUS_KEY -> 13
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 14
+            SETTINGS_DONATE_FOCUS_KEY -> 15
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -167,6 +174,29 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showShowLayoutPicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Rounded Spotlight",
+                    subtitle = if (spotlightSettings.roundedSpotlight) {
+                        "On · Display Spotlight inside a rounded Material 3 container"
+                    } else {
+                        "Off · Use the full-width Spotlight layout"
+                    },
+                    icon = Icons.Rounded.ViewModule,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = {
+                        viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
+                    }
                 )
             }
 
@@ -250,6 +280,28 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = viewModel::forceRescan
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "OpenSubtitles.com",
+                    subtitle = when (val session = openSubtitlesSession) {
+                        is OpenSubtitlesSessionState.SignedIn -> "Signed in as ${session.username}"
+                        OpenSubtitlesSessionState.SigningIn -> "Signing in…"
+                        is OpenSubtitlesSessionState.Error -> session.message
+                        OpenSubtitlesSessionState.SignedOut -> "Sign in to download subtitles"
+                    },
+                    icon = Icons.Rounded.Person,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_OPEN_SUBTITLES_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showOpenSubtitlesDialog = true }
                 )
             }
 
@@ -389,6 +441,14 @@ fun SettingsScreen(
             onDismiss = { showUpdateDialog = false }
         )
     }
+    if (showOpenSubtitlesDialog) {
+        OpenSubtitlesAccountDialog(
+            state = openSubtitlesSession,
+            onLogin = viewModel::loginToOpenSubtitles,
+            onLogout = viewModel::logoutOfOpenSubtitles,
+            onDismiss = { showOpenSubtitlesDialog = false }
+        )
+    }
     if (showHiddenMedia) {
         HiddenMediaDialog(
             media = hiddenMedia,
@@ -431,10 +491,12 @@ fun SettingsScreen(
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
+private const val SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY = "rounded_spotlight"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"
 private const val SETTINGS_HIDDEN_FOCUS_KEY = "hidden"
 private const val SETTINGS_RESCAN_FOCUS_KEY = "rescan"
 private const val SETTINGS_SUBTITLES_FOCUS_KEY = "subtitles"
+private const val SETTINGS_OPEN_SUBTITLES_FOCUS_KEY = "open_subtitles"
 private const val SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY = "spotlight_toggle"
 private const val SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY = "spotlight_days"
 private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
@@ -585,11 +647,127 @@ private fun HiddenMediaDialog(
 }
 
 @Composable
-private fun UpdateDialog(
+private fun OpenSubtitlesAccountDialog(
+    state: OpenSubtitlesSessionState,
+    onLogin: (String, String) -> Unit,
+    onLogout: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val usernameFocusRequester = remember { FocusRequester() }
+    val closeFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(state) {
+        delay(80)
+        runCatching {
+            if (state is OpenSubtitlesSessionState.SignedIn) {
+                closeFocusRequester.requestFocus()
+            } else {
+                usernameFocusRequester.requestFocus()
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.width(560.dp).padding(32.dp)) {
+                Text("OpenSubtitles.com", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Sign in with your OpenSubtitles.com account to search and download subtitles. Aperture stores the 24-hour session token, never your password.",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                )
+                Spacer(Modifier.height(22.dp))
+
+                when (state) {
+                    is OpenSubtitlesSessionState.SignedIn -> {
+                        Text("Signed in as ${state.username}")
+                    }
+                    else -> {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { androidx.compose.material3.Text("Username") },
+                            singleLine = true,
+                            enabled = state != OpenSubtitlesSessionState.SigningIn,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f),
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(usernameFocusRequester)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        androidx.compose.material3.OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { androidx.compose.material3.Text("Password") },
+                            singleLine = true,
+                            enabled = state != OpenSubtitlesSessionState.SigningIn,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f),
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (state is OpenSubtitlesSessionState.Error) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(state.message, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                Row(
+                    Modifier.align(Alignment.End),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeFocusRequester)
+                    ) { Text("Close") }
+                    if (state is OpenSubtitlesSessionState.SignedIn) {
+                        Button(onClick = onLogout) { Text("Sign out") }
+                    } else {
+                        Button(
+                            onClick = { onLogin(username, password) },
+                            enabled = state != OpenSubtitlesSessionState.SigningIn
+                        ) {
+                            Text(if (state == OpenSubtitlesSessionState.SigningIn) "Signing in…" else "Sign in")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UpdateDialog(
     state: UpdateCheckState,
     onInstall: (UpdateCheckState.Available) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val closeFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(80)
+        runCatching { closeFocusRequester.requestFocus() }
+    }
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.width(500.dp).padding(32.dp)) {
@@ -619,7 +797,10 @@ private fun UpdateDialog(
                 }
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Close") }
+                    androidx.tv.material3.OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeFocusRequester)
+                    ) { Text("Close") }
                     if (state is UpdateCheckState.Available) {
                         Button(onClick = { onInstall(state) }) {
                             Text(if (state.apkUrl != null) "Download & install" else "Open release")

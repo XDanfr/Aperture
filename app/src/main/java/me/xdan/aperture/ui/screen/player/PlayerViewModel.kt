@@ -31,6 +31,8 @@ import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.data.remote.api.OpenSubtitleResult
 import me.xdan.aperture.data.remote.api.OpenSubtitlesApi
 import me.xdan.aperture.data.remote.api.OpenSubtitlesDownloadRequest
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import okhttp3.OkHttpClient
@@ -44,6 +46,7 @@ class PlayerViewModel @Inject constructor(
     private val repository: MediaRepository,
     preferences: UserPreferencesRepository,
     private val openSubtitlesApi: OpenSubtitlesApi,
+    private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val okHttpClient: OkHttpClient,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -54,6 +57,8 @@ class PlayerViewModel @Inject constructor(
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
     val onlineSubtitles: StateFlow<OnlineSubtitleState> = _onlineSubtitles
+    val openSubtitlesSession: StateFlow<OpenSubtitlesSessionState> =
+        openSubtitlesSessionManager.state
     private val _compatibilityWarning = MutableStateFlow<PlaybackCompatibilityWarning?>(null)
     val compatibilityWarning: StateFlow<PlaybackCompatibilityWarning?> = _compatibilityWarning
     private val _playbackFailure = MutableStateFlow<PlaybackFailure?>(null)
@@ -272,30 +277,51 @@ class PlayerViewModel @Inject constructor(
             )
             return
         }
+        val token = openSubtitlesSessionManager.tokenOrNull()
+        if (token == null) {
+            _onlineSubtitles.value = OnlineSubtitleState.Error(
+                "Sign in to OpenSubtitles.com from Settings first."
+            )
+            return
+        }
         _onlineSubtitles.value = OnlineSubtitleState.Loading
         viewModelScope.launch {
             _onlineSubtitles.value = runCatching {
                 val response = openSubtitlesApi.searchSubtitles(
+                    url = openSubtitlesSessionManager.searchEndpoint(),
                     tmdbId = media.tmdbId,
                     query = media.title,
                     seasonNumber = media.seasonNumber,
                     episodeNumber = media.episodeNumber,
-                    apiKey = BuildConfig.OPENSUBTITLES_API_KEY
+                    apiKey = BuildConfig.OPENSUBTITLES_API_KEY,
+                    authorization = "Bearer $token"
                 )
                 val options = response.data.mapNotNull(::toOnlineSubtitleOption).take(20)
                 OnlineSubtitleState.Results(options)
-            }.getOrElse { OnlineSubtitleState.Error(it.message ?: "Subtitle search failed") }
+            }.getOrElse {
+                handleExpiredOpenSubtitlesSession(it)
+                OnlineSubtitleState.Error(it.message ?: "Subtitle search failed")
+            }
         }
     }
 
     fun downloadOpenSubtitle(option: OnlineSubtitleOption) {
         val media = _media.value ?: return
+        val token = openSubtitlesSessionManager.tokenOrNull()
+        if (token == null) {
+            _onlineSubtitles.value = OnlineSubtitleState.Error(
+                "Your OpenSubtitles session expired. Sign in again from Settings."
+            )
+            return
+        }
         _onlineSubtitles.value = OnlineSubtitleState.Downloading(option.label)
         viewModelScope.launch {
             val result: OnlineSubtitleState = runCatching<OnlineSubtitleState> {
                 val download = openSubtitlesApi.createDownload(
+                    openSubtitlesSessionManager.downloadEndpoint(),
                     OpenSubtitlesDownloadRequest(option.fileId),
-                    BuildConfig.OPENSUBTITLES_API_KEY
+                    BuildConfig.OPENSUBTITLES_API_KEY,
+                    "Bearer $token"
                 )
                 val extension = download.fileName?.substringAfterLast('.', "srt") ?: "srt"
                 val directory = File(context.cacheDir, "open_subtitles").apply { mkdirs() }
@@ -315,9 +341,17 @@ class PlayerViewModel @Inject constructor(
                 player.prepare()
                 player.playWhenReady = playWhenReady
                 OnlineSubtitleState.Attached(option.label)
-            }.getOrElse { OnlineSubtitleState.Error(it.message ?: "Subtitle download failed") }
+            }.getOrElse {
+                handleExpiredOpenSubtitlesSession(it)
+                OnlineSubtitleState.Error(it.message ?: "Subtitle download failed")
+            }
             _onlineSubtitles.value = result
         }
+    }
+
+    private fun handleExpiredOpenSubtitlesSession(error: Throwable) {
+        val code = (error as? retrofit2.HttpException)?.code()
+        if (code == 401 || code == 406) openSubtitlesSessionManager.logout()
     }
 
     private fun startProgressTracker(mediaId: Long) {
