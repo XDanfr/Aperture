@@ -105,7 +105,7 @@ fun SettingsScreen(
     var showMediaFolders by remember { mutableStateOf(false) }
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
-            hasDocumentProvider(context.packageManager)
+            hasFolderPicker(context.packageManager)
         )
     }
     val folderPicker = rememberLauncherForActivityResult(
@@ -499,11 +499,12 @@ private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
 private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
 
-private fun hasDocumentProvider(packageManager: PackageManager): Boolean =
-    packageManager.queryIntentContentProviders(
-        Intent(DocumentsContract.PROVIDER_INTERFACE),
-        0
-    ).isNotEmpty()
+private fun hasFolderPicker(packageManager: PackageManager): Boolean =
+    Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(packageManager) != null &&
+        packageManager.queryIntentContentProviders(
+            Intent(DocumentsContract.PROVIDER_INTERFACE),
+            0
+        ).isNotEmpty()
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -551,7 +552,7 @@ private fun MediaFoldersDialog(
                     if (!pickerAvailable) {
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "This device does not have a compatible system folder picker. Install a file manager that supports Android's document provider, then try again.",
+                            "This device does not include Android's system folder picker. Aperture will still scan any USB media that Android adds to its media library.",
                             color = MaterialTheme.colorScheme.error
                         )
                     }

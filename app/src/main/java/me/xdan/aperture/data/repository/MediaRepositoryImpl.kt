@@ -3,6 +3,7 @@ package me.xdan.aperture.data.repository
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -126,9 +127,9 @@ class MediaRepositoryImpl @Inject constructor(
                         stage = LibraryPreparationStage.DISCOVERING
                     )
 
-                    // A user can grant a single folder through the system picker without
-                    // granting broad video access. Keep the legacy scans best-effort so a
-                    // denied MediaStore permission cannot prevent selected folders from loading.
+                    // Android TV devices can expose removable USB storage as separate
+                    // MediaStore volumes. Scan each volume rather than only the primary
+                    // external volume so indexed USB media is included as well.
                     runCatching {
                         val projection = arrayOf(
                             MediaStore.Video.Media._ID,
@@ -137,23 +138,33 @@ class MediaRepositoryImpl @Inject constructor(
                             MediaStore.Video.Media.DURATION
                         )
 
-                        context.contentResolver.query(
-                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                            projection,
-                            null,
-                            null,
-                            null
-                        )?.use {
-                            val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                            val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                            val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                        val videoUris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            MediaStore.getExternalVolumeNames(context).map { volumeName ->
+                                MediaStore.Video.Media.getContentUri(volumeName)
+                            }
+                        } else {
+                            listOf(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                        }
 
-                            while (it.moveToNext()) {
-                                processFile(
-                                    name = it.getString(nameColumn),
-                                    path = it.getString(dataColumn),
-                                    duration = it.getLong(durationColumn)
-                                )
+                        videoUris.forEach { videoUri ->
+                            context.contentResolver.query(
+                                videoUri,
+                                projection,
+                                null,
+                                null,
+                                null
+                            )?.use {
+                                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                                val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+                                val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+
+                                while (it.moveToNext()) {
+                                    processFile(
+                                        name = it.getString(nameColumn),
+                                        path = it.getString(dataColumn),
+                                        duration = it.getLong(durationColumn)
+                                    )
+                                }
                             }
                         }
                     }.onFailure { it.printStackTrace() }
