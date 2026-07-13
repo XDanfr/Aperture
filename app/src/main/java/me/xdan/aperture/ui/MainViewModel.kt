@@ -17,7 +17,6 @@ import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
 import android.content.Context
-import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.core.graphics.drawable.toBitmap
@@ -44,9 +43,6 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val libraryPreparation = mediaRepository.preparationProgress
-    val mediaFolders = mediaRepository.mediaFolders
-    private val _mediaFolderMessage = MutableStateFlow<String?>(null)
-    val mediaFolderMessage: StateFlow<String?> = _mediaFolderMessage
 
     val themeId = userPreferencesRepository.themeId.stateIn(
         viewModelScope,
@@ -88,21 +84,6 @@ class MainViewModel @Inject constructor(
         hasStartedPreparation = true
         preparationJob = viewModelScope.launch {
             mediaRepository.scanLocalFiles()
-        }
-    }
-
-    fun addMediaFolder(uri: Uri) {
-        viewModelScope.launch {
-            _mediaFolderMessage.value = "Adding folder…"
-            mediaRepository.addMediaFolder(uri.toString())
-                .onSuccess {
-                    _mediaFolderMessage.value = "Folder added. Scanning now…"
-                    mediaRepository.scanLocalFiles()
-                    _mediaFolderMessage.value = null
-                }
-                .onFailure { error ->
-                    _mediaFolderMessage.value = error.message ?: "Aperture could not add that folder"
-                }
         }
     }
 

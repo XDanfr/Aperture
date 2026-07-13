@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.screen.settings
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -54,6 +55,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -81,6 +83,7 @@ fun SettingsScreen(
     onFocusKeyChanged: (String) -> Unit = {},
     onContentFocused: (FocusRequester) -> Unit = {}
 ) {
+    val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val spotlightSettings by viewModel.spotlightSettings.collectAsState()
     val selectedThemeId by viewModel.themeId.collectAsState()
@@ -98,6 +101,11 @@ fun SettingsScreen(
     var showShowLayoutPicker by remember { mutableStateOf(false) }
     var showSubtitleAppearance by remember { mutableStateOf(false) }
     var showMediaFolders by remember { mutableStateOf(false) }
+    var folderPickerAvailable by remember(context) {
+        mutableStateOf(
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(context.packageManager) != null
+        )
+    }
     val folderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -257,6 +265,7 @@ fun SettingsScreen(
                     title = "Media folders",
                     subtitle = when {
                         mediaFolderMessage != null -> mediaFolderMessage!!
+                        !folderPickerAvailable -> "Folder picker unavailable on this device"
                         mediaFolders.isEmpty() -> "Add a USB drive or another media location"
                         mediaFolders.size == 1 -> mediaFolders.first().name
                         else -> "${mediaFolders.size} selected folders"
@@ -462,7 +471,11 @@ fun SettingsScreen(
         MediaFoldersDialog(
             folders = mediaFolders,
             message = mediaFolderMessage,
-            onAdd = { folderPicker.launch(null) },
+            pickerAvailable = folderPickerAvailable,
+            onAdd = {
+                runCatching { folderPicker.launch(null) }
+                    .onFailure { folderPickerAvailable = false }
+            },
             onRemove = viewModel::removeMediaFolder,
             onDismiss = { showMediaFolders = false }
         )
@@ -489,15 +502,19 @@ private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
 private fun MediaFoldersDialog(
     folders: List<MediaFolder>,
     message: String?,
+    pickerAvailable: Boolean,
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val addFocusRequester = remember { FocusRequester() }
+    val doneFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(pickerAvailable) {
         delay(80)
-        addFocusRequester.requestFocus()
+        runCatching {
+            if (pickerAvailable) addFocusRequester.requestFocus() else doneFocusRequester.requestFocus()
+        }
     }
 
     Dialog(
@@ -523,6 +540,13 @@ private fun MediaFoldersDialog(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
+                    if (!pickerAvailable) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "This device does not have a compatible system folder picker. Install a file manager that supports Android's document provider, then try again.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     if (message != null) {
                         Spacer(Modifier.height(12.dp))
                         Text(message, color = MaterialTheme.colorScheme.primary)
@@ -580,13 +604,17 @@ private fun MediaFoldersDialog(
                     ) {
                         Button(
                             onClick = onAdd,
+                            enabled = pickerAvailable,
                             modifier = Modifier.focusRequester(addFocusRequester)
                         ) {
                             Icon(Icons.Rounded.FolderOpen, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text("Add folder")
                         }
-                        OutlinedButton(onClick = onDismiss) { Text("Done") }
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.focusRequester(doneFocusRequester)
+                        ) { Text("Done") }
                     }
                 }
             }

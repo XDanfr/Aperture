@@ -147,8 +147,6 @@ fun NavGraph(
     }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
     val libraryPreparation by mainViewModel.libraryPreparation.collectAsState()
-    val mediaFolders by mainViewModel.mediaFolders.collectAsState()
-    val mediaFolderMessage by mainViewModel.mediaFolderMessage.collectAsState()
     val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
     val tutorialExampleMedia by mainViewModel.tutorialExampleMedia.collectAsState()
 
@@ -209,9 +207,6 @@ fun NavGraph(
     } else if (isOnboardingCompleted == false) {
         OnboardingScreen(
             progress = libraryPreparation,
-            mediaFolders = mediaFolders,
-            mediaFolderMessage = mediaFolderMessage,
-            onAddMediaFolder = mainViewModel::addMediaFolder,
             onStartPreparation = mainViewModel::startLibraryPreparation,
             onSkip = { mainViewModel.completeOnboarding(showTutorial = false) },
             onComplete = { mainViewModel.completeOnboarding(showTutorial = true) }
