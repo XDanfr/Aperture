@@ -502,7 +502,7 @@ private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
 private fun hasDocumentProvider(packageManager: PackageManager): Boolean =
     packageManager.queryIntentContentProviders(
         Intent(DocumentsContract.PROVIDER_INTERFACE),
-        PackageManager.MATCH_DEFAULT_ONLY
+        0
     ).isNotEmpty()
 
 @OptIn(ExperimentalTvMaterial3Api::class)
