@@ -30,6 +30,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE filePath = :filePath")
     suspend fun getMediaByPath(filePath: String): MediaEntity?
 
+    @Query("SELECT * FROM media WHERE sourceRootUri = :sourceRootUri")
+    suspend fun getMediaFromSource(sourceRootUri: String): List<MediaEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedia(media: MediaEntity): Long
 
@@ -38,6 +41,9 @@ interface MediaDao {
 
     @Delete
     suspend fun deleteMedia(media: MediaEntity)
+
+    @Query("DELETE FROM media WHERE sourceRootUri = :sourceRootUri")
+    suspend fun deleteMediaFromSource(sourceRootUri: String)
 
     @Query("SELECT * FROM media WHERE isHidden = 0 AND title LIKE '%' || :query || '%'")
     fun searchMedia(query: String): Flow<List<MediaEntity>>

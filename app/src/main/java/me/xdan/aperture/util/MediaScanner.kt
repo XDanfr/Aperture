@@ -30,6 +30,9 @@ object MediaScanner {
         return allFiles
     }
 
+    fun isVideoFile(name: String): Boolean =
+        name.substringAfterLast('.', missingDelimiterValue = "").lowercase() in VIDEO_EXTENSIONS
+
     private fun scanDir(dir: File, result: MutableList<File>) {
         val files = dir.listFiles() ?: return
         for (file in files) {
@@ -39,7 +42,7 @@ object MediaScanner {
                     scanDir(file, result)
                 }
             } else {
-                if (file.extension.lowercase() in VIDEO_EXTENSIONS) {
+                if (isVideoFile(file.name)) {
                     result.add(file)
                 }
             }

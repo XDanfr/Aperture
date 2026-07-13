@@ -1,5 +1,7 @@
 package me.xdan.aperture.ui.screen.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Movie
@@ -66,6 +69,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
+import me.xdan.aperture.domain.repository.MediaFolder
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -82,6 +86,8 @@ fun SettingsScreen(
     val selectedThemeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val hiddenMedia by viewModel.hiddenMedia.collectAsState()
+    val mediaFolders by viewModel.mediaFolders.collectAsState()
+    val mediaFolderMessage by viewModel.mediaFolderMessage.collectAsState()
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
@@ -91,6 +97,12 @@ fun SettingsScreen(
     var showSpotlightDaysPicker by remember { mutableStateOf(false) }
     var showShowLayoutPicker by remember { mutableStateOf(false) }
     var showSubtitleAppearance by remember { mutableStateOf(false) }
+    var showMediaFolders by remember { mutableStateOf(false) }
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let(viewModel::addMediaFolder)
+    }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
@@ -105,13 +117,14 @@ fun SettingsScreen(
             SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 2
             SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 3
             SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 4
-            SETTINGS_RESCAN_FOCUS_KEY -> 7
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 8
-            SETTINGS_LICENCES_FOCUS_KEY -> 9
-            SETTINGS_UPDATE_FOCUS_KEY -> 10
-            SETTINGS_TMDB_FOCUS_KEY -> 11
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
-            SETTINGS_DONATE_FOCUS_KEY -> 13
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 7
+            SETTINGS_RESCAN_FOCUS_KEY -> 8
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 9
+            SETTINGS_LICENCES_FOCUS_KEY -> 10
+            SETTINGS_UPDATE_FOCUS_KEY -> 11
+            SETTINGS_TMDB_FOCUS_KEY -> 12
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 13
+            SETTINGS_DONATE_FOCUS_KEY -> 14
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -241,8 +254,27 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
+                    title = "Media folders",
+                    subtitle = when {
+                        mediaFolderMessage != null -> mediaFolderMessage!!
+                        mediaFolders.isEmpty() -> "Add a USB drive or another media location"
+                        mediaFolders.size == 1 -> mediaFolders.first().name
+                        else -> "${mediaFolders.size} selected folders"
+                    },
+                    icon = Icons.Rounded.FolderOpen,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_MEDIA_FOLDERS_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showMediaFolders = true }
+                )
+            }
+
+            item {
+                SettingsItem(
                     title = "Force Rescan Local Files",
-                    subtitle = "Update the library from storage",
+                    subtitle = "Update the library from device storage and selected folders",
                     icon = Icons.Rounded.Refresh,
                     drawerFocusRequester = drawerFocusRequester,
                     onFocused = { requester ->
@@ -426,6 +458,15 @@ fun SettingsScreen(
             onDismiss = { showSubtitleAppearance = false }
         )
     }
+    if (showMediaFolders) {
+        MediaFoldersDialog(
+            folders = mediaFolders,
+            message = mediaFolderMessage,
+            onAdd = { folderPicker.launch(null) },
+            onRemove = viewModel::removeMediaFolder,
+            onDismiss = { showMediaFolders = false }
+        )
+    }
 }
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
@@ -433,6 +474,7 @@ private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"
 private const val SETTINGS_HIDDEN_FOCUS_KEY = "hidden"
+private const val SETTINGS_MEDIA_FOLDERS_FOCUS_KEY = "media_folders"
 private const val SETTINGS_RESCAN_FOCUS_KEY = "rescan"
 private const val SETTINGS_SUBTITLES_FOCUS_KEY = "subtitles"
 private const val SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY = "spotlight_toggle"
@@ -441,6 +483,116 @@ private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
 private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
 private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MediaFoldersDialog(
+    folders: List<MediaFolder>,
+    message: String?,
+    onAdd: () -> Unit,
+    onRemove: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val addFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(80)
+        addFocusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.78f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(760.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(38.dp)) {
+                    Text("Media folders", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Choose folders on USB drives or other storage. Aperture keeps read access after a restart.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                    )
+                    if (message != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(message, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(22.dp))
+
+                    if (folders.isEmpty()) {
+                        Text(
+                            "No extra folders selected. Internal media scanning still works as before.",
+                            modifier = Modifier.padding(vertical = 24.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(folders, key = { it.uri }) { folder ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = SurfaceDefaults.colors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(18.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.width(500.dp)) {
+                                            Text(folder.name, style = MaterialTheme.typography.titleMedium)
+                                            Text(
+                                                if (folder.isAvailable) "Available" else "Drive unavailable",
+                                                color = if (folder.isAvailable) {
+                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.error
+                                                }
+                                            )
+                                        }
+                                        OutlinedButton(onClick = { onRemove(folder.uri) }) {
+                                            Text("Remove")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = onAdd,
+                            modifier = Modifier.focusRequester(addFocusRequester)
+                        ) {
+                            Icon(Icons.Rounded.FolderOpen, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add folder")
+                        }
+                        OutlinedButton(onClick = onDismiss) { Text("Done") }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun ShowLayoutDialog(

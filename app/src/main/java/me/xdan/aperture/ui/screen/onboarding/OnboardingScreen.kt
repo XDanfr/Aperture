@@ -2,6 +2,9 @@ package me.xdan.aperture.ui.screen.onboarding
 
 import android.Manifest
 import android.os.Build
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -57,11 +60,15 @@ import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
+import me.xdan.aperture.domain.repository.MediaFolder
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun OnboardingScreen(
     progress: LibraryPreparationProgress,
+    mediaFolders: List<MediaFolder>,
+    mediaFolderMessage: String?,
+    onAddMediaFolder: (Uri) -> Unit,
     onStartPreparation: () -> Unit,
     onSkip: () -> Unit,
     onComplete: () -> Unit
@@ -73,9 +80,15 @@ fun OnboardingScreen(
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
     )
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let(onAddMediaFolder)
+    }
+    val hasLibraryAccess = permissionState.status.isGranted || mediaFolders.isNotEmpty()
 
-    LaunchedEffect(permissionState.status.isGranted) {
-        if (permissionState.status.isGranted) onStartPreparation()
+    LaunchedEffect(hasLibraryAccess) {
+        if (hasLibraryAccess) onStartPreparation()
     }
 
     LaunchedEffect(progress.stage) {
@@ -90,7 +103,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (permissionState.status.isGranted) {
+        if (hasLibraryAccess) {
             PosterBackground(progress.posterPaths)
             Box(
                 modifier = Modifier
@@ -106,6 +119,9 @@ fun OnboardingScreen(
             )
             PreparationPanel(
                 progress = progress,
+                mediaFolders = mediaFolders,
+                mediaFolderMessage = mediaFolderMessage,
+                onAddMediaFolder = { folderPicker.launch(null) },
                 onRetry = onStartPreparation,
                 onSkip = onSkip,
                 modifier = Modifier.align(Alignment.Center)
@@ -113,6 +129,7 @@ fun OnboardingScreen(
         } else {
             PermissionPanel(
                 onGrantPermission = permissionState::launchPermissionRequest,
+                onChooseFolder = { folderPicker.launch(null) },
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -123,6 +140,7 @@ fun OnboardingScreen(
 @Composable
 private fun PermissionPanel(
     onGrantPermission: () -> Unit,
+    onChooseFolder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -141,14 +159,18 @@ private fun PermissionPanel(
                 tint = Color.Unspecified
             )
             Text(
-                text = "Allow access so Aperture can find and play your local media collection.",
+                text = "Allow access to videos on this device, or choose a folder on a USB drive or other storage.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
             )
             Spacer(Modifier.height(40.dp))
             Button(onClick = onGrantPermission, modifier = Modifier.fillMaxWidth()) {
-                Text("Grant permission")
+                Text("Allow device videos")
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onChooseFolder, modifier = Modifier.fillMaxWidth()) {
+                Text("Choose media folder")
             }
         }
     }
@@ -158,6 +180,9 @@ private fun PermissionPanel(
 @Composable
 private fun PreparationPanel(
     progress: LibraryPreparationProgress,
+    mediaFolders: List<MediaFolder>,
+    mediaFolderMessage: String?,
+    onAddMediaFolder: () -> Unit,
     onRetry: () -> Unit,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier
@@ -185,6 +210,18 @@ private fun PreparationPanel(
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
+            if (mediaFolders.isNotEmpty() || mediaFolderMessage != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    mediaFolderMessage ?: if (mediaFolders.size == 1) {
+                        "Also scanning ${mediaFolders.first().name}"
+                    } else {
+                        "Also scanning ${mediaFolders.size} selected folders"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Text(
                 text = when {
@@ -231,6 +268,8 @@ private fun PreparationPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                OutlinedButton(onClick = onAddMediaFolder) { Text("Add folder") }
+                Spacer(Modifier.width(12.dp))
                 if (isError) {
                     OutlinedButton(onClick = onRetry) { Text("Try again") }
                     Spacer(Modifier.width(12.dp))

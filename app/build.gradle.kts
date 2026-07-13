@@ -21,8 +21,8 @@ android {
         applicationId = "me.xdan.aperture"
         minSdk = 27
         targetSdk = 37
-        versionCode = 9
-        versionName = "v0.4.0-alpha"
+        versionCode = 10
+        versionName = "v0.4.1-pre-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

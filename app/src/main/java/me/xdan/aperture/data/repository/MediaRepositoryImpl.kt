@@ -1,7 +1,10 @@
 package me.xdan.aperture.data.repository
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.provider.MediaStore
+import androidx.documentfile.provider.DocumentFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -18,6 +21,7 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.MediaFolder
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.util.FilenameParser
@@ -40,6 +44,12 @@ class MediaRepositoryImpl @Inject constructor(
     private val showMatchCache = ConcurrentHashMap<String, TmdbResult>()
     private val _preparationProgress = MutableStateFlow(LibraryPreparationProgress())
     override val preparationProgress: StateFlow<LibraryPreparationProgress> = _preparationProgress
+    private val folderPreferences = context.getSharedPreferences(
+        MEDIA_FOLDER_PREFERENCES,
+        Context.MODE_PRIVATE
+    )
+    private val _mediaFolders = MutableStateFlow(loadMediaFolders())
+    override val mediaFolders: StateFlow<List<MediaFolder>> = _mediaFolders
 
     override fun getAllMedia(): Flow<List<MediaEntity>> = mediaDao.getAllMedia()
 
@@ -76,6 +86,38 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun clearProgress(mediaId: Long) = progressDao.deleteProgress(mediaId)
 
+    override suspend fun addMediaFolder(uri: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val treeUri = Uri.parse(uri)
+            context.contentResolver.takePersistableUriPermission(
+                treeUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            val folder = DocumentFile.fromTreeUri(context, treeUri)
+            require(folder != null && folder.isDirectory && folder.canRead()) {
+                "Aperture could not read that folder"
+            }
+            val updated = selectedFolderUris() + uri
+            saveFolderUris(updated)
+            refreshMediaFolders()
+        }
+    }
+
+    override suspend fun removeMediaFolder(uri: String) = withContext(Dispatchers.IO) {
+        mediaDao.getMediaFromSource(uri).forEach { media ->
+            progressDao.deleteProgress(media.id)
+        }
+        mediaDao.deleteMediaFromSource(uri)
+        saveFolderUris(selectedFolderUris() - uri)
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(
+                Uri.parse(uri),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        refreshMediaFolders()
+    }
+
     override suspend fun scanLocalFiles() {
         scanMutex.withLock {
             withContext(Dispatchers.IO) {
@@ -84,36 +126,50 @@ class MediaRepositoryImpl @Inject constructor(
                         stage = LibraryPreparationStage.DISCOVERING
                     )
 
-                    val projection = arrayOf(
-                        MediaStore.Video.Media._ID,
-                        MediaStore.Video.Media.DISPLAY_NAME,
-                        MediaStore.Video.Media.DATA,
-                        MediaStore.Video.Media.DURATION
-                    )
+                    // A user can grant a single folder through the system picker without
+                    // granting broad video access. Keep the legacy scans best-effort so a
+                    // denied MediaStore permission cannot prevent selected folders from loading.
+                    runCatching {
+                        val projection = arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.DURATION
+                        )
 
-                    context.contentResolver.query(
-                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                        projection,
-                        null,
-                        null,
-                        null
-                    )?.use {
-                        val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                        val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                        val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                        context.contentResolver.query(
+                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                            projection,
+                            null,
+                            null,
+                            null
+                        )?.use {
+                            val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                            val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+                            val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
 
-                        while (it.moveToNext()) {
-                            processFile(
-                                name = it.getString(nameColumn),
-                                path = it.getString(dataColumn),
-                                duration = it.getLong(durationColumn)
-                            )
+                            while (it.moveToNext()) {
+                                processFile(
+                                    name = it.getString(nameColumn),
+                                    path = it.getString(dataColumn),
+                                    duration = it.getLong(durationColumn)
+                                )
+                            }
                         }
+                    }.onFailure { it.printStackTrace() }
+
+                    runCatching {
+                        MediaScanner.scanDirectories().forEach { file ->
+                            processFile(file.name, file.absolutePath, 0L)
+                        }
+                    }.onFailure { it.printStackTrace() }
+
+                    selectedFolderUris().forEach { folderUri ->
+                        runCatching { scanSelectedFolder(folderUri) }
+                            .onFailure { it.printStackTrace() }
                     }
 
-                    MediaScanner.scanDirectories().forEach { file ->
-                        processFile(file.name, file.absolutePath, 0L)
-                    }
+                    refreshMediaFolders()
 
                     prepareMetadata(mediaDao.getAllMediaOnce())
                 } catch (exception: Exception) {
@@ -129,12 +185,21 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun processFile(name: String, path: String, duration: Long) {
+    private suspend fun processFile(
+        name: String,
+        path: String,
+        duration: Long,
+        parserPath: String = path,
+        sourceRootUri: String? = null,
+        parentDocumentUri: String? = null
+    ) {
         val existing = mediaDao.getMediaByPath(path)
-        val cleanedInfo = FilenameParser.parse(name, path)
+        val cleanedInfo = FilenameParser.parse(name, parserPath)
         if (existing == null) {
             val media = MediaEntity(
                 filePath = path,
+                sourceRootUri = sourceRootUri,
+                parentDocumentUri = parentDocumentUri,
                 title = cleanedInfo.title,
                 year = cleanedInfo.year,
                 duration = duration,
@@ -143,10 +208,17 @@ class MediaRepositoryImpl @Inject constructor(
                 episodeNumber = cleanedInfo.episode
             )
             mediaDao.insertMedia(media)
-        } else if (
-            cleanedInfo.season != null &&
-            (existing.seasonNumber == null || existing.episodeNumber == null)
-        ) {
+        } else if (sourceRootUri != null &&
+            (existing.sourceRootUri != sourceRootUri ||
+                existing.parentDocumentUri != parentDocumentUri)) {
+            mediaDao.updateMedia(
+                existing.copy(
+                    sourceRootUri = sourceRootUri,
+                    parentDocumentUri = parentDocumentUri
+                )
+            )
+        } else if (cleanedInfo.season != null &&
+            (existing.seasonNumber == null || existing.episodeNumber == null)) {
             mediaDao.updateMedia(
                 existing.copy(
                     title = cleanedInfo.title,
@@ -162,6 +234,73 @@ class MediaRepositoryImpl @Inject constructor(
             )
         }
     }
+
+    private suspend fun scanSelectedFolder(folderUri: String) {
+        val rootUri = Uri.parse(folderUri)
+        val root = DocumentFile.fromTreeUri(context, rootUri) ?: return
+        if (!root.isDirectory || !root.canRead()) return
+
+        val seenUris = mutableSetOf<String>()
+        val rootName = root.name?.takeIf { it.isNotBlank() } ?: "Selected media"
+
+        suspend fun scanDirectory(directory: DocumentFile, relativeParts: List<String>) {
+            directory.listFiles().forEach { document ->
+                val name = document.name ?: return@forEach
+                if (name.startsWith('.')) return@forEach
+                if (document.isDirectory) {
+                    scanDirectory(document, relativeParts + name)
+                } else if (document.isFile && MediaScanner.isVideoFile(name)) {
+                    val documentUri = document.uri.toString()
+                    seenUris += documentUri
+                    val parserPath = (listOf(rootName) + relativeParts + name)
+                        .joinToString(separator = "/", prefix = "/")
+                    processFile(
+                        name = name,
+                        path = documentUri,
+                        duration = 0L,
+                        parserPath = parserPath,
+                        sourceRootUri = folderUri,
+                        parentDocumentUri = directory.uri.toString()
+                    )
+                }
+            }
+        }
+
+        scanDirectory(root, emptyList())
+        mediaDao.getMediaFromSource(folderUri)
+            .filterNot { it.filePath in seenUris }
+            .forEach { staleMedia ->
+                progressDao.deleteProgress(staleMedia.id)
+                mediaDao.deleteMedia(staleMedia)
+            }
+    }
+
+    private fun selectedFolderUris(): Set<String> =
+        folderPreferences.getStringSet(MEDIA_FOLDER_URIS, emptySet())?.toSet().orEmpty()
+
+    private fun saveFolderUris(uris: Set<String>) {
+        folderPreferences.edit().putStringSet(MEDIA_FOLDER_URIS, uris).apply()
+    }
+
+    private fun refreshMediaFolders() {
+        _mediaFolders.value = loadMediaFolders()
+    }
+
+    private fun loadMediaFolders(): List<MediaFolder> = selectedFolderUris()
+        .map { uriString ->
+            val document = runCatching {
+                DocumentFile.fromTreeUri(context, Uri.parse(uriString))
+            }.getOrNull()
+            MediaFolder(
+                uri = uriString,
+                name = document?.name?.takeIf { it.isNotBlank() }
+                    ?: Uri.decode(Uri.parse(uriString).lastPathSegment.orEmpty())
+                        .substringAfterLast(':')
+                        .ifBlank { "Media folder" },
+                isAvailable = document?.let { it.isDirectory && it.canRead() } == true
+            )
+        }
+        .sortedBy { it.name.lowercase() }
 
     private suspend fun prepareMetadata(mediaItems: List<MediaEntity>) {
         var firstError: String? = null
@@ -329,7 +468,13 @@ class MediaRepositoryImpl @Inject constructor(
 
     private fun mediaForMetadataLookup(media: MediaEntity): MediaEntity {
         val parsed = runCatching {
-            FilenameParser.parse(File(media.filePath).name, media.filePath)
+            val fileName = if (media.filePath.startsWith("content://")) {
+                Uri.decode(Uri.parse(media.filePath).lastPathSegment.orEmpty())
+                    .substringAfterLast('/')
+            } else {
+                File(media.filePath).name
+            }
+            FilenameParser.parse(fileName, media.filePath.takeUnless { it.startsWith("content://") })
         }.getOrNull() ?: return media
         return media.copy(
             title = parsed.title.ifBlank { media.title },
@@ -416,6 +561,8 @@ class MediaRepositoryImpl @Inject constructor(
         .trim()
 
     private companion object {
+        const val MEDIA_FOLDER_PREFERENCES = "media_folders"
+        const val MEDIA_FOLDER_URIS = "folder_uris"
         const val MAX_METADATA_ATTEMPTS = 3
         const val METADATA_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1_000L
         val NUMBER_TOKEN_REGEX = Regex("\\b\\d+\\b")

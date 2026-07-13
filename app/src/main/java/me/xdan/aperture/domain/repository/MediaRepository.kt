@@ -8,6 +8,7 @@ import me.xdan.aperture.data.remote.dto.TmdbResult
 
 interface MediaRepository {
     val preparationProgress: StateFlow<LibraryPreparationProgress>
+    val mediaFolders: StateFlow<List<MediaFolder>>
 
     fun getAllMedia(): Flow<List<MediaEntity>>
     fun getMediaByType(type: String): Flow<List<MediaEntity>>
@@ -28,7 +29,15 @@ interface MediaRepository {
     suspend fun clearProgress(mediaId: Long)
     
     suspend fun scanLocalFiles()
+    suspend fun addMediaFolder(uri: String): Result<Unit>
+    suspend fun removeMediaFolder(uri: String)
     suspend fun syncMetadata(media: MediaEntity)
     suspend fun searchMetadataCandidates(media: MediaEntity, query: String? = null): List<TmdbResult>
     suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult)
 }
+
+data class MediaFolder(
+    val uri: String,
+    val name: String,
+    val isAvailable: Boolean
+)
