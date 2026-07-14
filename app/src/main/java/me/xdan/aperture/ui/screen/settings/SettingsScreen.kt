@@ -204,9 +204,9 @@ fun SettingsScreen(
                 SettingsItem(
                     title = "Rounded Spotlight",
                     subtitle = if (spotlightSettings.roundedSpotlight) {
-                        "On · Display Spotlight inside a rounded Material 3 container"
+                        "Rounded Material 3 Spotlight"
                     } else {
-                        "Off · Use the full-width Spotlight layout"
+                        "Use the full-width Spotlight layout"
                     },
                     icon = Icons.Rounded.ViewModule,
                     drawerFocusRequester = drawerFocusRequester,
@@ -219,6 +219,18 @@ fun SettingsScreen(
                     },
                     onClick = {
                         viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Switch(
+                            checked = spotlightSettings.roundedSpotlight,
+                            onCheckedChange = null,
+                            colors = androidx.compose.material3.SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
                     }
                 )
             }
@@ -1077,7 +1089,8 @@ private fun SettingsItem(
     enabled: Boolean = true,
     drawerFocusRequester: FocusRequester? = null,
     focusRequester: FocusRequester? = null,
-    onFocused: (FocusRequester) -> Unit = {}
+    onFocused: (FocusRequester) -> Unit = {},
+    trailingContent: @Composable (() -> Unit)? = null
 ) {
     val internalFocusRequester = remember { FocusRequester() }
     val itemFocusRequester = focusRequester
@@ -1126,6 +1139,10 @@ private fun SettingsItem(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.alpha(if (enabled) 0.72f else 0.48f)
                 )
+            }
+            if (trailingContent != null) {
+                Spacer(Modifier.weight(1f))
+                trailingContent()
             }
         }
     }

@@ -26,7 +26,7 @@ class HomeViewModel @Inject constructor(
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
     val homeState: StateFlow<HomeState> = _homeState
     val roundedSpotlight = userPreferencesRepository.roundedSpotlight
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     private val suggestionGeneration = MutableStateFlow(0)
 
     init {
