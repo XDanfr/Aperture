@@ -34,6 +34,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -171,6 +173,14 @@ private fun PreparationPanel(
     val isError = progress.stage == LibraryPreparationStage.ERROR
     val isComplete = progress.stage == LibraryPreparationStage.COMPLETE
 
+    val skipFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(isComplete) {
+        if (!isComplete) {
+            delay(80)
+            runCatching { skipFocusRequester.requestFocus() }
+        }
+    }
+
     Surface(
         colors = SurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
@@ -240,7 +250,10 @@ private fun PreparationPanel(
                     Spacer(Modifier.width(12.dp))
                 }
                 if (!isComplete) {
-                    Button(onClick = onSkip) { Text("Skip") }
+                    Button(
+                        onClick = onSkip,
+                        modifier = Modifier.focusRequester(skipFocusRequester)
+                    ) { Text("Skip") }
                 }
             }
         }
