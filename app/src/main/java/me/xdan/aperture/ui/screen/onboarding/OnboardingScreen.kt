@@ -66,7 +66,9 @@ fun OnboardingScreen(
     progress: LibraryPreparationProgress,
     onStartPreparation: () -> Unit,
     onSkip: () -> Unit,
-    onComplete: () -> Unit
+    onComplete: () -> Unit,
+    rescanMode: Boolean = false,
+    onRescanComplete: () -> Unit = onComplete
 ) {
     val permissionState = rememberPermissionState(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -76,15 +78,23 @@ fun OnboardingScreen(
         }
     )
     val hasLibraryAccess = permissionState.status.isGranted
+    var rescanHasStarted by remember(rescanMode) { mutableStateOf(!rescanMode) }
 
     LaunchedEffect(hasLibraryAccess) {
         if (hasLibraryAccess) onStartPreparation()
     }
 
     LaunchedEffect(progress.stage) {
+        if (rescanMode && progress.stage in setOf(
+                LibraryPreparationStage.DISCOVERING,
+                LibraryPreparationStage.MATCHING
+            )) {
+            rescanHasStarted = true
+        }
         if (progress.stage == LibraryPreparationStage.COMPLETE) {
+            if (rescanMode && !rescanHasStarted) return@LaunchedEffect
             delay(700)
-            onComplete()
+            if (rescanMode) onRescanComplete() else onComplete()
         }
     }
 
@@ -93,7 +103,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (hasLibraryAccess) {
+        if (rescanMode || hasLibraryAccess) {
             PosterBackground(progress.posterPaths)
             Box(
                 modifier = Modifier
@@ -111,6 +121,7 @@ fun OnboardingScreen(
                 progress = progress,
                 onRetry = onStartPreparation,
                 onSkip = onSkip,
+                rescanMode = rescanMode,
                 modifier = Modifier.align(Alignment.Center)
             )
         } else {
@@ -166,6 +177,7 @@ private fun PreparationPanel(
     progress: LibraryPreparationProgress,
     onRetry: () -> Unit,
     onSkip: () -> Unit,
+    rescanMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isDiscovering = progress.stage == LibraryPreparationStage.IDLE ||
@@ -196,8 +208,8 @@ private fun PreparationPanel(
             Text(
                 text = when {
                     isError -> "We hit a snag"
-                    isComplete -> "Your library is ready"
-                    isDiscovering -> "Finding your media"
+                    isComplete -> if (rescanMode) "Rescan complete" else "Your library is ready"
+                    isDiscovering -> if (rescanMode) "Scanning your library" else "Finding your media"
                     else -> "Building your library"
                 },
                 style = MaterialTheme.typography.headlineLarge,
@@ -207,10 +219,10 @@ private fun PreparationPanel(
             Text(
                 text = when {
                     isError -> progress.errorMessage ?: "Aperture could not finish matching metadata."
-                    isComplete && progress.errorMessage != null -> "Your library is ready, but some titles could not be matched yet. Aperture can retry them later."
+                    isComplete && progress.errorMessage != null -> if (rescanMode) "The library was updated, but some titles could not be matched yet." else "Your library is ready, but some titles could not be matched yet. Aperture can retry them later."
                     isComplete -> "Everything we found has been added."
                     isDiscovering -> "Scanning local storage before matching titles with TMDB…"
-                    else -> "Matching artwork and information with TMDB. You can skip and let this continue in the background."
+                    else -> if (rescanMode) "Matching artwork and information with TMDB…" else "Matching artwork and information with TMDB. You can skip and let this continue in the background."
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f)
@@ -253,7 +265,7 @@ private fun PreparationPanel(
                     OutlinedButton(onClick = onRetry) { Text("Try again") }
                     Spacer(Modifier.width(12.dp))
                 }
-                if (!isComplete) {
+                if (!isComplete && !rescanMode) {
                     Button(
                         onClick = onSkip,
                         modifier = Modifier.focusRequester(skipFocusRequester)

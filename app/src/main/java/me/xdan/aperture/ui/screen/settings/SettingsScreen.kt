@@ -86,7 +86,8 @@ fun SettingsScreen(
     contentEntryFocusRequester: FocusRequester = FocusRequester.Default,
     restoreFocusKey: String? = null,
     onFocusKeyChanged: (String) -> Unit = {},
-    onContentFocused: (FocusRequester) -> Unit = {}
+    onContentFocused: (FocusRequester) -> Unit = {},
+    onForceRescan: () -> Unit = viewModel::forceRescan
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -335,7 +336,7 @@ fun SettingsScreen(
                         onFocusKeyChanged(SETTINGS_RESCAN_FOCUS_KEY)
                         onContentFocused(requester)
                     },
-                    onClick = viewModel::forceRescan
+                    onClick = onForceRescan
                 )
             }
 

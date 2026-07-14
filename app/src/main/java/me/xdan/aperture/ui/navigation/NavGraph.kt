@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -59,6 +60,7 @@ fun NavGraph(
     var settingsRestoreFocusKey by remember { mutableStateOf<String?>(null) }
     var playerOriginFocusKey by remember { mutableStateOf<String?>(null) }
     var pendingPlayerFocusRestore by remember { mutableStateOf<String?>(null) }
+    var isRescanVisible by remember { mutableStateOf(false) }
     val homeDrawerRequester = remember { FocusRequester() }
     val searchDrawerRequester = remember { FocusRequester() }
     val moviesDrawerRequester = remember { FocusRequester() }
@@ -199,7 +201,21 @@ fun NavGraph(
         playerOriginFocusKey = null
     }
 
-    if (isOnboardingCompleted == null) {
+    if (isRescanVisible) {
+        val finishRescan: () -> Unit = {
+            isRescanVisible = false
+            while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+        }
+        BackHandler(onBack = finishRescan)
+        OnboardingScreen(
+            progress = libraryPreparation,
+            onStartPreparation = { mainViewModel.startLibraryPreparation(force = true) },
+            onSkip = finishRescan,
+            onComplete = finishRescan,
+            rescanMode = true,
+            onRescanComplete = finishRescan
+        )
+    } else if (isOnboardingCompleted == null) {
         // Loading state, show nothing or a splash screen
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -347,6 +363,10 @@ fun NavGraph(
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onForceRescan = {
+                            isRescanVisible = true
+                            mainViewModel.startLibraryPreparation(force = true)
+                        },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
@@ -378,6 +398,10 @@ fun NavGraph(
                     onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                     onPlayerBack = returnFromPlayer,
                     onActiveMediaChanged = mainViewModel::setActiveMedia,
+                    onForceRescan = {
+                        isRescanVisible = true
+                        mainViewModel.startLibraryPreparation(force = true)
+                    },
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
@@ -516,6 +540,7 @@ private fun NavContent(
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
+    onForceRescan: () -> Unit,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -591,7 +616,8 @@ private fun NavContent(
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     restoreFocusKey = settingsRestoreFocusKey,
                     onFocusKeyChanged = onSettingsFocusKeyChanged,
-                    onContentFocused = contentFocused
+                    onContentFocused = contentFocused,
+                    onForceRescan = onForceRescan
                 )
                 is Destination.Player -> PlayerScreen(
                     mediaId = destination.mediaId,

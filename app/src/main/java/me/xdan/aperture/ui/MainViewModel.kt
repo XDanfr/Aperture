@@ -92,9 +92,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun startLibraryPreparation() {
+    fun startLibraryPreparation(force: Boolean = false) {
         if (preparationJob?.isActive == true) return
-        if (
+        if (!force &&
             hasStartedPreparation &&
             mediaRepository.preparationProgress.value.stage != LibraryPreparationStage.ERROR
         ) return
