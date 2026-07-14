@@ -44,7 +44,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         .map { preferences -> preferences[FINISHED_SPOTLIGHT_EXCLUSION_DAYS] ?: 14 }
 
     override val roundedSpotlight: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[ROUNDED_SPOTLIGHT] ?: false }
+        .map { preferences -> preferences[ROUNDED_SPOTLIGHT] ?: true }
 
     override val themeId: Flow<String> = context.dataStore.data
         .map { preferences -> preferences[THEME_ID] ?: "purple" }

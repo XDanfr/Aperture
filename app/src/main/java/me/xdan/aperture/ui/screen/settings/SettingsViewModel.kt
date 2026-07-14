@@ -1,6 +1,7 @@
 package me.xdan.aperture.ui.screen.settings
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
@@ -10,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -68,10 +70,34 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         emptyList()
     )
+    val mediaFolders = repository.mediaFolders
+    val mediaFolderMessage = MutableStateFlow<String?>(null)
 
     fun forceRescan() {
         viewModelScope.launch {
             repository.scanLocalFiles()
+        }
+    }
+
+    fun addMediaFolder(uri: Uri) {
+        viewModelScope.launch {
+            mediaFolderMessage.value = "Adding folder…"
+            repository.addMediaFolder(uri.toString())
+                .onSuccess {
+                    mediaFolderMessage.value = "Folder added. Scanning now…"
+                    repository.scanLocalFiles()
+                    mediaFolderMessage.value = null
+                }
+                .onFailure { error ->
+                    mediaFolderMessage.value = error.message ?: "Aperture could not add that folder"
+                }
+        }
+    }
+
+    fun removeMediaFolder(uri: String) {
+        viewModelScope.launch {
+            repository.removeMediaFolder(uri)
+            mediaFolderMessage.value = null
         }
     }
 
@@ -148,5 +174,5 @@ data class SubtitleAppearanceSettings(
 data class SpotlightSettings(
     val hideFinishedFromSpotlight: Boolean = true,
     val exclusionDays: Int = 14,
-    val roundedSpotlight: Boolean = false
+    val roundedSpotlight: Boolean = true
 )

@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 data class MediaEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val filePath: String,
+    val sourceRootUri: String? = null,
+    val parentDocumentUri: String? = null,
     val title: String,
     val year: Int? = null,
     val tmdbId: Int? = null,
