@@ -176,8 +176,12 @@ private fun PreparationPanel(
     val skipFocusRequester = remember { FocusRequester() }
     LaunchedEffect(isComplete) {
         if (!isComplete) {
-            delay(80)
-            runCatching { skipFocusRequester.requestFocus() }
+            repeat(15) {
+                delay(100)
+                if (runCatching { skipFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+            }
         }
     }
 
