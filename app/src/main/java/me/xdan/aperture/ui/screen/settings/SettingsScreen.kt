@@ -327,7 +327,8 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     title = "Force Rescan Local Files",
-                    subtitle = "Update the library from device storage and selected folders",
+                    subtitle = mediaFolderMessage
+                        ?: "Update the library from device storage and selected folders",
                     icon = Icons.Rounded.Refresh,
                     drawerFocusRequester = drawerFocusRequester,
                     onFocused = { requester ->

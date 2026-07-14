@@ -3,6 +3,7 @@
 package me.xdan.aperture.ui.screen.player
 
 import android.view.KeyEvent
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Audiotrack
+import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -31,6 +33,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -38,12 +42,16 @@ import androidx.media3.common.C
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
-import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
+import androidx.media3.ui.PlayerView
 import androidx.tv.material3.*
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
+import me.xdan.aperture.data.remote.api.TmdbApi
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -61,8 +69,10 @@ fun PlayerScreen(
     val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
     val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
     val playbackFailure by viewModel.playbackFailure.collectAsState()
-    var isQuickMenuVisible by remember { mutableStateOf(false) }
     val player = viewModel.player
+    var isQuickMenuVisible by remember { mutableStateOf(false) }
+    var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
+    var playbackState by remember(player) { mutableIntStateOf(player.playbackState) }
     val playerFocusRequester = remember { FocusRequester() }
     val controlsFocusRequester = remember { FocusRequester() }
     val quickMenuFocusRequester = remember { FocusRequester() }
@@ -71,6 +81,16 @@ fun PlayerScreen(
 
     LaunchedEffect(mediaId) {
         viewModel.loadMedia(mediaId, startFromBeginning)
+    }
+
+    DisposableEffect(player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                playbackState = state
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
     }
 
     DisposableEffect(Unit) {
@@ -182,12 +202,33 @@ fun PlayerScreen(
             .focusRequester(playerFocusRequester)
             .focusable()
     ) {
-        PlayerSurface(
-            player = player,
+        AndroidView(
+            factory = { context ->
+                PlayerView(context).apply {
+                    useController = false
+                    subtitleView?.visibility = View.GONE
+                    this.player = player
+                }
+            },
+            update = { view ->
+                view.useController = false
+                view.subtitleView?.visibility = View.GONE
+                view.player = player
+                view.resizeMode = videoResizeMode.media3Mode
+            },
             modifier = Modifier.fillMaxSize()
         )
 
         SubtitleOverlay(player = player, style = subtitleStyle)
+
+        AnimatedVisibility(
+            visible = media != null && playbackState != androidx.media3.common.Player.STATE_READY &&
+                playbackState != androidx.media3.common.Player.STATE_ENDED,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            BufferingOverlay(media = media)
+        }
 
         // OSD
         AnimatedVisibility(
@@ -225,6 +266,8 @@ fun PlayerScreen(
                 focusRequester = quickMenuFocusRequester,
                 onlineSubtitleState = onlineSubtitles,
                 openSubtitlesSession = openSubtitlesSession,
+                videoResizeMode = videoResizeMode,
+                onVideoResizeModeSelected = { videoResizeMode = it },
                 onSearchOnline = viewModel::searchOpenSubtitles,
                 onDownloadOnline = viewModel::downloadOpenSubtitle
             )
@@ -260,6 +303,61 @@ fun PlayerScreen(
                     onProceed = viewModel::retryPlayback
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun BufferingOverlay(media: MediaEntity?) {
+    val context = LocalContext.current
+    val artworkPath = media?.backdropPath ?: media?.posterPath
+    val artworkModel = artworkPath?.let { path ->
+        ImageRequest.Builder(context)
+            .data(
+                TmdbApi.IMAGE_BASE_URL +
+                    (if (media?.backdropPath != null) "w1280" else "w780") + path
+            )
+            .crossfade(true)
+            .build()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        artworkModel?.let { model ->
+            AsyncImage(
+                model = model,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.62f))
+        )
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            androidx.compose.material3.CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(52.dp)
+            )
+            Text(
+                text = media?.title ?: "Preparing playback…",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White
+            )
+            Text(
+                text = "Buffering…",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.8f)
+            )
         }
     }
 }
@@ -324,6 +422,8 @@ private fun QuickMenu(
     focusRequester: FocusRequester,
     onlineSubtitleState: OnlineSubtitleState,
     openSubtitlesSession: OpenSubtitlesSessionState,
+    videoResizeMode: VideoResizeMode,
+    onVideoResizeModeSelected: (VideoResizeMode) -> Unit,
     onSearchOnline: () -> Unit,
     onDownloadOnline: (OnlineSubtitleOption) -> Unit
 ) {
@@ -339,7 +439,7 @@ private fun QuickMenu(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.46f)
+            .fillMaxHeight(0.54f)
             .padding(horizontal = 32.dp, vertical = 20.dp),
         colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
         shape = RoundedCornerShape(32.dp)
@@ -408,6 +508,61 @@ private fun QuickMenu(
                 onSearch = onSearchOnline,
                 onDownload = onDownloadOnline
             )
+
+            PlaybackOptionsColumn(
+                selectedResizeMode = videoResizeMode,
+                onResizeModeSelected = onVideoResizeModeSelected
+            )
+        }
+    }
+}
+
+private enum class VideoResizeMode(
+    val label: String,
+    val description: String,
+    val media3Mode: Int
+) {
+    FIT("Fit", "Show the complete picture", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    FILL("Stretch", "Fill the screen without preserving shape", AspectRatioFrameLayout.RESIZE_MODE_FILL),
+    ZOOM("Zoom", "Fill the screen and crop the edges", AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
+}
+
+@Composable
+private fun RowScope.PlaybackOptionsColumn(
+    selectedResizeMode: VideoResizeMode,
+    onResizeModeSelected: (VideoResizeMode) -> Unit
+) {
+    Column(modifier = Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.AspectRatio, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Text("Picture", style = MaterialTheme.typography.titleMedium)
+        }
+        Spacer(Modifier.height(16.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(VideoResizeMode.entries) { resizeMode ->
+                Surface(
+                    onClick = { onResizeModeSelected(resizeMode) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (resizeMode == selectedResizeMode) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            Color.Transparent
+                        }
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(resizeMode.label, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            resizeMode.description,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -120,8 +121,12 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun scanLocalFiles() {
-        scanMutex.withLock {
-            withContext(Dispatchers.IO) {
+        // A scan may be started by onboarding, Settings, or another screen-scoped
+        // ViewModel. Once it has acquired the lock, keep the actual library work
+        // alive if that screen is closed; otherwise a Back press can leave an
+        // externally selected folder only partly imported.
+        withContext(Dispatchers.IO + NonCancellable) {
+            scanMutex.withLock {
                 try {
                     _preparationProgress.value = LibraryPreparationProgress(
                         stage = LibraryPreparationStage.DISCOVERING

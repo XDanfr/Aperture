@@ -9,7 +9,10 @@ import coil.annotation.ExperimentalCoilApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -72,10 +75,21 @@ class SettingsViewModel @Inject constructor(
     )
     val mediaFolders = repository.mediaFolders
     val mediaFolderMessage = MutableStateFlow<String?>(null)
+    private var rescanJob: Job? = null
 
     fun forceRescan() {
-        viewModelScope.launch {
+        if (rescanJob?.isActive == true) return
+        rescanJob = viewModelScope.launch {
+            mediaFolderMessage.value = "Rescanning device storage and selected folders…"
             repository.scanLocalFiles()
+            val progress = repository.preparationProgress.value
+            mediaFolderMessage.value = if (progress.stage == LibraryPreparationStage.ERROR) {
+                progress.errorMessage ?: "Rescan failed"
+            } else {
+                "Rescan complete"
+            }
+            delay(3_000)
+            mediaFolderMessage.value = null
         }
     }
 
