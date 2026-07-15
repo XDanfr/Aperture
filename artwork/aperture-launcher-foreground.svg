@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="-38 -38 176 176">
+  <defs>
+    <linearGradient id="blade-glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="0.24" stop-color="#d0bcff" stop-opacity="0.58"/>
+      <stop offset="0.72" stop-color="#d0bcff" stop-opacity="0.19"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.07"/>
+    </linearGradient>
+    <filter id="glass-elevation" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.25" result="blur"/>
+      <feOffset in="blur" dx="0" dy="1.1" result="offset-blur"/>
+      <feFlood flood-color="#000000" flood-opacity="0.24" result="shadow-color"/>
+      <feComposite in="shadow-color" in2="offset-blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g fill="url(#blade-glass)" stroke="#e6dcff" stroke-width="1.15" stroke-linejoin="round" opacity="0.84" filter="url(#glass-elevation)">
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(0 50 50)"/>
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(60 50 50)"/>
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(120 50 50)"/>
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(180 50 50)"/>
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(240 50 50)"/>
+    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(300 50 50)"/>
+  </g>
+
+  <path fill="#ffffff" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z"/>
+</svg>
