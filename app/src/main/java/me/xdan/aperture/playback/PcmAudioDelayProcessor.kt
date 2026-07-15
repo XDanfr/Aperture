@@ -20,6 +20,7 @@ class PcmAudioDelayProcessor : BaseAudioProcessor() {
         }
 
     private var pendingSilenceBytes = 0
+    private var inputCopy = ByteArray(0)
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat =
         inputAudioFormat
@@ -41,6 +42,15 @@ class PcmAudioDelayProcessor : BaseAudioProcessor() {
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val inputBytes = inputBuffer.remaining()
+
+        // Media3 may recycle this processor's output buffer as its next input buffer.
+        // Copy the decoded PCM before replaceOutputBuffer() so output and input can
+        // never be the same ByteBuffer (ByteBuffer.put() rejects self-copies).
+        if (inputCopy.size < inputBytes) {
+            inputCopy = ByteArray(inputBytes)
+        }
+        inputBuffer.get(inputCopy, 0, inputBytes)
+
         val output = replaceOutputBuffer(pendingSilenceBytes + inputBytes)
 
         var remainingSilence = pendingSilenceBytes
@@ -51,7 +61,7 @@ class PcmAudioDelayProcessor : BaseAudioProcessor() {
         }
         pendingSilenceBytes = 0
 
-        output.put(inputBuffer)
+        output.put(inputCopy, 0, inputBytes)
         output.flip()
     }
 
