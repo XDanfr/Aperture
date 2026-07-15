@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
     
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
     private var isAmbientActive by mutableStateOf(false)
+    private var isPlayerActive by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,7 +65,9 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         while (true) {
                             delay(1000)
-                            if (System.currentTimeMillis() - lastInteractionTime > 5 * 60 * 1000) {
+                            if (!isPlayerActive &&
+                                System.currentTimeMillis() - lastInteractionTime > 5 * 60 * 1000
+                            ) {
                                 isAmbientActive = true
                             }
                         }
@@ -76,6 +79,7 @@ class MainActivity : ComponentActivity() {
                         NavGraph(
                             backstack = backstack,
                             mainViewModel = mainViewModel,
+                            onPlayerStateChanged = { isPlayerActive = it },
                             onNavigate = {
                                 lastInteractionTime = System.currentTimeMillis()
                                 backstack.add(it)

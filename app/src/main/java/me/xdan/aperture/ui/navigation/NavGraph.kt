@@ -40,7 +40,8 @@ import me.xdan.aperture.ui.screen.onboarding.AppTutorial
 fun NavGraph(
     backstack: NavBackStack<Destination>,
     onNavigate: (Destination) -> Unit,
-    mainViewModel: me.xdan.aperture.ui.MainViewModel = viewModel()
+    mainViewModel: me.xdan.aperture.ui.MainViewModel = viewModel(),
+    onPlayerStateChanged: (Boolean) -> Unit = {}
 ) {
     val homeViewModel: HomeViewModel = viewModel()
     val mediaActionsViewModel: MediaActionsViewModel = viewModel()
@@ -48,6 +49,10 @@ fun NavGraph(
     val currentDestination = backstack.last()
     val showDrawer = currentDestination !is Destination.Player
     val currentFocusKey = currentDestination.focusKey()
+
+    LaunchedEffect(currentDestination is Destination.Player) {
+        onPlayerStateChanged(currentDestination is Destination.Player)
+    }
     
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
     var selectedEpisodeOnly by remember { mutableStateOf(false) }
