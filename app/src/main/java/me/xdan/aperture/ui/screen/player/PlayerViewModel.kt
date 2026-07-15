@@ -37,7 +37,6 @@ import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
-import me.xdan.aperture.playback.PcmAudioDelayProcessor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -51,7 +50,6 @@ class PlayerViewModel @Inject constructor(
     private val openSubtitlesApi: OpenSubtitlesApi,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val okHttpClient: OkHttpClient,
-    private val audioDelayProcessor: PcmAudioDelayProcessor,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -69,8 +67,6 @@ class PlayerViewModel @Inject constructor(
     val playbackFailure: StateFlow<PlaybackFailure?> = _playbackFailure
     private val _subtitleDelayMs = MutableStateFlow(0L)
     val subtitleDelayMs: StateFlow<Long> = _subtitleDelayMs
-    private val _audioDelayMs = MutableStateFlow(0L)
-    val audioDelayMs: StateFlow<Long> = _audioDelayMs
 
     val subtitleStyle = combine(
         preferences.subtitleTextScale,
@@ -86,7 +82,6 @@ class PlayerViewModel @Inject constructor(
 
     private var osdTimerJob: Job? = null
     private var progressTrackerJob: Job? = null
-    private var audioDelayApplyJob: Job? = null
     private var activeMediaId: Long? = null
     private val downloadedSubtitleFiles = mutableListOf<File>()
     private var pendingPlayback: PendingPlayback? = null
@@ -182,8 +177,6 @@ class PlayerViewModel @Inject constructor(
         val progress = repository.getProgress(media.id)
 
         player.subtitleDelayMilliseconds = _subtitleDelayMs.value
-        audioDelayProcessor.delayMs = _audioDelayMs.value
-
         player.stop()
         player.clearMediaItems()
 
@@ -242,55 +235,19 @@ class PlayerViewModel @Inject constructor(
         persistSyncSettings()
     }
 
-    fun adjustAudioDelay(deltaMs: Long) {
-        setAudioDelay(_audioDelayMs.value + deltaMs)
-    }
-
-    fun resetAudioDelay() {
-        setAudioDelay(0L)
-    }
-
-    private fun setAudioDelay(value: Long) {
-        val adjusted = value.coerceIn(0L, PcmAudioDelayProcessor.MAX_DELAY_MS)
-        if (_audioDelayMs.value == adjusted) return
-
-        _audioDelayMs.value = adjusted
-        audioDelayProcessor.delayMs = adjusted
-        persistSyncSettings()
-
-        // Audio processors are flushed on a seek, applying the new amount immediately
-        // without replacing the current MediaItem or changing play/pause state.
-        audioDelayApplyJob?.cancel()
-        audioDelayApplyJob = viewModelScope.launch {
-            // Let repeated remote presses settle before flushing the audio pipeline.
-            delay(180L)
-            if (player.playbackState != Player.STATE_IDLE) {
-                player.seekTo(player.currentPosition.coerceAtLeast(0L))
-            }
-        }
-    }
-
     private fun restoreSyncSettings(mediaId: Long) {
         val subtitleDelay = syncPreferences.getLong(
             subtitleDelayKey(mediaId),
             0L
         ).coerceIn(-MAX_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
-        val audioDelay = syncPreferences.getLong(
-            audioDelayKey(mediaId),
-            0L
-        ).coerceIn(0L, PcmAudioDelayProcessor.MAX_DELAY_MS)
-
         _subtitleDelayMs.value = subtitleDelay
-        _audioDelayMs.value = audioDelay
         player.subtitleDelayMilliseconds = subtitleDelay
-        audioDelayProcessor.delayMs = audioDelay
     }
 
     private fun persistSyncSettings() {
         val mediaId = _media.value?.id ?: return
         syncPreferences.edit()
             .putLong(subtitleDelayKey(mediaId), _subtitleDelayMs.value)
-            .putLong(audioDelayKey(mediaId), _audioDelayMs.value)
             .apply()
     }
 
@@ -584,13 +541,10 @@ class PlayerViewModel @Inject constructor(
         player.stop()
         progressTrackerJob?.cancel()
         osdTimerJob?.cancel()
-        audioDelayApplyJob?.cancel()
         super.onCleared()
     }
 
     private fun subtitleDelayKey(mediaId: Long) = "subtitle_delay_$mediaId"
-    private fun audioDelayKey(mediaId: Long) = "audio_delay_$mediaId"
-
     companion object {
         const val SYNC_STEP_MS = 100L
         const val MAX_SUBTITLE_DELAY_MS = 5_000L

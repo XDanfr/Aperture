@@ -11,15 +11,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
-import me.xdan.aperture.playback.PcmAudioDelayProcessor
 import javax.inject.Singleton
 
 @Module
@@ -28,30 +25,15 @@ object PlayerModule {
 
     @Provides
     @Singleton
-    fun provideAudioDelayProcessor(): PcmAudioDelayProcessor = PcmAudioDelayProcessor()
-
-    @Provides
-    @Singleton
     fun provideExoPlayer(
-        @ApplicationContext context: Context,
-        audioDelayProcessor: PcmAudioDelayProcessor
+        @ApplicationContext context: Context
     ): ExoPlayer {
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val renderersFactory = object : NextRenderersFactory(context) {
-            override fun buildAudioSink(
-                context: Context,
-                enableFloatOutput: Boolean,
-                enableAudioOutputPlaybackParameters: Boolean
-            ): AudioSink = DefaultAudioSink.Builder(context)
-                .setAudioProcessors(arrayOf(audioDelayProcessor))
-                .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParameters)
-                .build()
-        }
+        val renderersFactory = NextRenderersFactory(context)
         renderersFactory
             // Keep Android's hardware renderers first. FFmpeg is appended as a
             // software fallback for formats the device cannot decode itself.

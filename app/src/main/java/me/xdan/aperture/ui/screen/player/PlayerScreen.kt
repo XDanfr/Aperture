@@ -70,7 +70,6 @@ fun PlayerScreen(
     val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
     val playbackFailure by viewModel.playbackFailure.collectAsState()
     val subtitleDelayMs by viewModel.subtitleDelayMs.collectAsState()
-    val audioDelayMs by viewModel.audioDelayMs.collectAsState()
     val player = viewModel.player
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
@@ -271,7 +270,6 @@ fun PlayerScreen(
                 videoResizeMode = videoResizeMode,
                 onVideoResizeModeSelected = { videoResizeMode = it },
                 subtitleDelayMs = subtitleDelayMs,
-                audioDelayMs = audioDelayMs,
                 onSubtitleDelayDecrease = {
                     viewModel.adjustSubtitleDelay(-PlayerViewModel.SYNC_STEP_MS)
                 },
@@ -279,13 +277,6 @@ fun PlayerScreen(
                     viewModel.adjustSubtitleDelay(PlayerViewModel.SYNC_STEP_MS)
                 },
                 onSubtitleDelayReset = viewModel::resetSubtitleDelay,
-                onAudioDelayDecrease = {
-                    viewModel.adjustAudioDelay(-PlayerViewModel.SYNC_STEP_MS)
-                },
-                onAudioDelayIncrease = {
-                    viewModel.adjustAudioDelay(PlayerViewModel.SYNC_STEP_MS)
-                },
-                onAudioDelayReset = viewModel::resetAudioDelay,
                 onSearchOnline = viewModel::searchOpenSubtitles,
                 onDownloadOnline = viewModel::downloadOpenSubtitle
             )
@@ -443,13 +434,9 @@ private fun QuickMenu(
     videoResizeMode: VideoResizeMode,
     onVideoResizeModeSelected: (VideoResizeMode) -> Unit,
     subtitleDelayMs: Long,
-    audioDelayMs: Long,
     onSubtitleDelayDecrease: () -> Unit,
     onSubtitleDelayIncrease: () -> Unit,
     onSubtitleDelayReset: () -> Unit,
-    onAudioDelayDecrease: () -> Unit,
-    onAudioDelayIncrease: () -> Unit,
-    onAudioDelayReset: () -> Unit,
     onSearchOnline: () -> Unit,
     onDownloadOnline: (OnlineSubtitleOption) -> Unit
 ) {
@@ -482,16 +469,6 @@ private fun QuickMenu(
                 items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO)
                     .filter { it.isSupported },
                 emptyLabel = "No compatible audio tracks",
-                headerContent = {
-                    TimingAdjustmentControl(
-                        label = "Audio delay",
-                        valueMs = audioDelayMs,
-                        supportingText = "Experimental · PCM audio",
-                        onDecrease = onAudioDelayDecrease,
-                        onIncrease = onAudioDelayIncrease,
-                        onReset = onAudioDelayReset
-                    )
-                },
                 onItemSelected = { trackGroup, index ->
                     if (trackGroup.isTrackSupported(index)) {
                         player.trackSelectionParameters = player.trackSelectionParameters
@@ -518,7 +495,7 @@ private fun QuickMenu(
                     TimingAdjustmentControl(
                         label = "Subtitle sync",
                         valueMs = subtitleDelayMs,
-                        supportingText = "Negative values show subtitles earlier",
+                        supportingText = "Negative values show subs earlier",
                         focusRequester = focusRequester,
                         onDecrease = onSubtitleDelayDecrease,
                         onIncrease = onSubtitleDelayIncrease,
