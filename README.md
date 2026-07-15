@@ -56,23 +56,9 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 
 ### Planned Features
 
-- [X] **Popup Animations**: Smooth entrance/exit transitions for the media details modal
-- [X] **Progress Indicators**
-- [X] **My List**
-- [X] **Hold-for-actions Context Menu** (https://github.com/XDanfr/Aperture/issues/1)
-- [X] **Movies and TV Shows sorted separately**
-- [X] **TV Show Season and Episode grouping**
-- [X] **Dynamic Theming**: based on active media artwork
-- [X] **Custom Themes**
-- [ ] **Optionally selecting Assets manually**
-- [X] **Update Checking**
 - [ ] **Press Back for Sidebar Navigation**
-- [X] **Proper Show and Episode Detection**: Support for more file names and types. Always improving.
-- [ ] **Better Movie Detection**: Improve TMDb matching for sequels, years and similarly named films.
-- [X] **Manual Title Correction**: This also updates assets accordingly.
-- [ ] **Rounded Spotlight**
-- [ ] **OpenSubtitles Support**
-- [ ] **Support for more codecs**
+- [ ] **Branding updates**
+- [ ] **App launch animation**
 
 ## 🚀 Getting Started
 
