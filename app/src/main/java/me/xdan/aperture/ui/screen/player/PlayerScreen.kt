@@ -11,7 +11,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Audiotrack
@@ -52,6 +51,7 @@ import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.data.remote.api.TmdbApi
+import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -69,6 +69,8 @@ fun PlayerScreen(
     val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
     val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
     val playbackFailure by viewModel.playbackFailure.collectAsState()
+    val subtitleDelayMs by viewModel.subtitleDelayMs.collectAsState()
+    val audioDelayMs by viewModel.audioDelayMs.collectAsState()
     val player = viewModel.player
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
@@ -268,6 +270,22 @@ fun PlayerScreen(
                 openSubtitlesSession = openSubtitlesSession,
                 videoResizeMode = videoResizeMode,
                 onVideoResizeModeSelected = { videoResizeMode = it },
+                subtitleDelayMs = subtitleDelayMs,
+                audioDelayMs = audioDelayMs,
+                onSubtitleDelayDecrease = {
+                    viewModel.adjustSubtitleDelay(-PlayerViewModel.SYNC_STEP_MS)
+                },
+                onSubtitleDelayIncrease = {
+                    viewModel.adjustSubtitleDelay(PlayerViewModel.SYNC_STEP_MS)
+                },
+                onSubtitleDelayReset = viewModel::resetSubtitleDelay,
+                onAudioDelayDecrease = {
+                    viewModel.adjustAudioDelay(-PlayerViewModel.SYNC_STEP_MS)
+                },
+                onAudioDelayIncrease = {
+                    viewModel.adjustAudioDelay(PlayerViewModel.SYNC_STEP_MS)
+                },
+                onAudioDelayReset = viewModel::resetAudioDelay,
                 onSearchOnline = viewModel::searchOpenSubtitles,
                 onDownloadOnline = viewModel::downloadOpenSubtitle
             )
@@ -424,6 +442,14 @@ private fun QuickMenu(
     openSubtitlesSession: OpenSubtitlesSessionState,
     videoResizeMode: VideoResizeMode,
     onVideoResizeModeSelected: (VideoResizeMode) -> Unit,
+    subtitleDelayMs: Long,
+    audioDelayMs: Long,
+    onSubtitleDelayDecrease: () -> Unit,
+    onSubtitleDelayIncrease: () -> Unit,
+    onSubtitleDelayReset: () -> Unit,
+    onAudioDelayDecrease: () -> Unit,
+    onAudioDelayIncrease: () -> Unit,
+    onAudioDelayReset: () -> Unit,
     onSearchOnline: () -> Unit,
     onDownloadOnline: (OnlineSubtitleOption) -> Unit
 ) {
@@ -456,6 +482,16 @@ private fun QuickMenu(
                 items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO)
                     .filter { it.isSupported },
                 emptyLabel = "No compatible audio tracks",
+                headerContent = {
+                    TimingAdjustmentControl(
+                        label = "Audio delay",
+                        valueMs = audioDelayMs,
+                        supportingText = "Experimental · PCM audio",
+                        onDecrease = onAudioDelayDecrease,
+                        onIncrease = onAudioDelayIncrease,
+                        onReset = onAudioDelayReset
+                    )
+                },
                 onItemSelected = { trackGroup, index ->
                     if (trackGroup.isTrackSupported(index)) {
                         player.trackSelectionParameters = player.trackSelectionParameters
@@ -475,10 +511,20 @@ private fun QuickMenu(
             QuickMenuColumn(
                 title = "Subtitles",
                 icon = Icons.Rounded.Subtitles,
-                firstItemFocusRequester = focusRequester,
                 items = getTrackItems(tracks, C.TRACK_TYPE_TEXT)
                     .filter { it.isSupported },
                 emptyLabel = "No compatible subtitle tracks",
+                headerContent = {
+                    TimingAdjustmentControl(
+                        label = "Subtitle sync",
+                        valueMs = subtitleDelayMs,
+                        supportingText = "Negative values show subtitles earlier",
+                        focusRequester = focusRequester,
+                        onDecrease = onSubtitleDelayDecrease,
+                        onIncrease = onSubtitleDelayIncrease,
+                        onReset = onSubtitleDelayReset
+                    )
+                },
                 onItemSelected = { trackGroup, index ->
                     if (trackGroup.isTrackSupported(index)) {
                         player.trackSelectionParameters = player.trackSelectionParameters
@@ -580,20 +626,31 @@ private fun RowScope.QuickMenuColumn(
     title: String,
     icon: ImageVector,
     items: List<Any>,
-    firstItemFocusRequester: FocusRequester? = null,
     onItemSelected: (Tracks.Group, Int) -> Unit,
     emptyLabel: String = "No tracks found",
+    headerContent: (@Composable () -> Unit)? = null,
     onDisable: (() -> Unit)? = null,
     disableLabel: String? = null
 ) {
-    Column(modifier = Modifier.weight(1f)) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
             Text(title, style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.height(16.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        headerContent?.let {
+            Spacer(Modifier.height(12.dp))
+            it()
+        }
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             if (items.isEmpty()) {
                 item {
                     Text(
@@ -613,7 +670,7 @@ private fun RowScope.QuickMenuColumn(
                     ) { Text(disableLabel, modifier = Modifier.padding(8.dp)) }
                 }
             }
-            itemsIndexed(items) { index, item ->
+            items(items) { item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
                 
@@ -621,13 +678,7 @@ private fun RowScope.QuickMenuColumn(
                     onClick = { 
                         if (item is TrackItem) onItemSelected(item.group, item.index)
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (index == 0 && firstItemFocusRequester != null) {
-                                Modifier.focusRequester(firstItemFocusRequester)
-                            } else Modifier
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
@@ -642,6 +693,82 @@ private fun RowScope.QuickMenuColumn(
             }
         }
     }
+}
+
+@Composable
+private fun TimingAdjustmentControl(
+    label: String,
+    valueMs: Long,
+    supportingText: String,
+    focusRequester: FocusRequester? = null,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onReset: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TimingButton(
+                label = "−",
+                onClick = onDecrease,
+                modifier = if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            TimingButton(
+                label = formatDelay(valueMs),
+                onClick = onReset,
+                modifier = Modifier.weight(1f)
+            )
+            TimingButton(label = "+", onClick = onIncrease)
+        }
+        Text(
+            supportingText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun TimingButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(38.dp),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+    }
+}
+
+private fun formatDelay(delayMs: Long): String = when {
+    delayMs == 0L -> "0 ms"
+    kotlin.math.abs(delayMs) < 1_000L -> String.format(Locale.getDefault(), "%+d ms", delayMs)
+    else -> String.format(Locale.getDefault(), "%+.1f s", delayMs / 1_000f)
 }
 
 @Composable
