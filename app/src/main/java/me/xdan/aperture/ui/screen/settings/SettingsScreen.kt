@@ -6,6 +6,7 @@ import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,8 +59,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -94,7 +96,6 @@ fun SettingsScreen(
     onPreviewAmbientMode: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val spotlightSettings by viewModel.spotlightSettings.collectAsState()
     val selectedThemeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
@@ -115,6 +116,8 @@ fun SettingsScreen(
     var showSubtitleAppearance by remember { mutableStateOf(false) }
     var showMediaFolders by remember { mutableStateOf(false) }
     var showAmbientSettings by remember { mutableStateOf(false) }
+    var showTmdbQr by remember { mutableStateOf(false) }
+    var showSponsorsQr by remember { mutableStateOf(false) }
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
             hasFolderPicker(context.packageManager)
@@ -302,6 +305,18 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.setHideFinishedFromSpotlight(
                             !spotlightSettings.hideFinishedFromSpotlight
+                        )
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Switch(
+                            checked = spotlightSettings.hideFinishedFromSpotlight,
+                            onCheckedChange = null,
+                            colors = androidx.compose.material3.SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
                     }
                 )
@@ -516,33 +531,38 @@ fun SettingsScreen(
                         onFocusKeyChanged(SETTINGS_TMDB_FOCUS_KEY)
                         onContentFocused(requester)
                     },
-                    onClick = { uriHandler.openUri("https://www.themoviedb.org") }
+                    onClick = { showTmdbQr = true }
                 )
             }
 
             item {
-                Spacer(Modifier.height(28.dp))
-                Button(
-                    onClick = { uriHandler.openUri("https://github.com/XDanfr") },
+                Column(
                     modifier = Modifier
-                        .padding(horizontal = 56.dp)
                         .fillMaxWidth()
-                        .then(
-                            if (drawerFocusRequester != null) {
-                                Modifier.focusProperties { left = drawerFocusRequester }
-                            } else Modifier
-                        )
-                        .focusRequester(donateFocusRequester)
-                        .onFocusChanged {
-                            if (it.isFocused) {
-                                onFocusKeyChanged(SETTINGS_DONATE_FOCUS_KEY)
-                                onContentFocused(donateFocusRequester)
-                            }
-                        }
+                        .padding(top = 28.dp, bottom = 24.dp)
                 ) {
-                    Icon(Icons.Rounded.Favorite, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Donate to XDanfr on GitHub")
+                    Button(
+                        onClick = { showSponsorsQr = true },
+                        modifier = Modifier
+                            .padding(horizontal = 56.dp)
+                            .fillMaxWidth()
+                            .then(
+                                if (drawerFocusRequester != null) {
+                                    Modifier.focusProperties { left = drawerFocusRequester }
+                                } else Modifier
+                            )
+                            .focusRequester(donateFocusRequester)
+                            .onFocusChanged {
+                                if (it.isFocused) {
+                                    onFocusKeyChanged(SETTINGS_DONATE_FOCUS_KEY)
+                                    onContentFocused(donateFocusRequester)
+                                }
+                            }
+                    ) {
+                        Icon(Icons.Rounded.Favorite, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Sponsor XDanfr on GitHub")
+                    }
                 }
             }
             }
@@ -639,6 +659,24 @@ fun SettingsScreen(
                 }
             },
             onDismiss = { showAmbientSettings = false }
+        )
+    }
+    if (showTmdbQr) {
+        LinkQrDialog(
+            title = "The Movie Database",
+            description = "Scan to visit TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.",
+            url = TMDB_URL,
+            qrRows = TMDB_QR_ROWS,
+            onDismiss = { showTmdbQr = false }
+        )
+    }
+    if (showSponsorsQr) {
+        LinkQrDialog(
+            title = "Sponsor XDanfr on GitHub",
+            description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
+            url = GITHUB_SPONSORS_URL,
+            qrRows = GITHUB_SPONSORS_QR_ROWS,
+            onDismiss = { showSponsorsQr = false }
         )
     }
 }
@@ -843,10 +881,14 @@ private fun SubtitleAppearanceDialog(
     var settings by remember(initial) { mutableStateOf(initial) }
     val firstRequester = remember { FocusRequester() }
     val colours = listOf("white", "yellow", "cyan")
+    val previewTextColour = subtitlePreviewColour(settings.colour)
     LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(modifier = Modifier.width(620.dp), shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.padding(34.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        Surface(
+            modifier = Modifier.width(840.dp).heightIn(max = 920.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(Modifier.padding(34.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text("Subtitle Appearance", style = MaterialTheme.typography.headlineSmall)
                 Text("Aperture uses a readable system sans-serif typeface with a translucent dark background.")
                 PreferenceStepper(
@@ -862,12 +904,82 @@ private fun SubtitleAppearanceDialog(
                     onDecrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity - 0.1f).coerceAtLeast(0f)) },
                     onIncrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity + 0.1f).coerceAtMost(0.9f)) }
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text("Text colour", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = {
-                        val next = (colours.indexOf(settings.colour).coerceAtLeast(0) + 1) % colours.size
-                        settings = settings.copy(colour = colours[next])
-                    }) { Text(settings.colour.replaceFirstChar { it.uppercase() }) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        colours.forEach { colourName ->
+                            val selected = settings.colour == colourName
+                            Surface(
+                                onClick = { settings = settings.copy(colour = colourName) },
+                                modifier = Modifier.size(56.dp),
+                                shape = ClickableSurfaceDefaults.shape(CircleShape),
+                                colors = ClickableSurfaceDefaults.colors(
+                                    containerColor = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ),
+                                scale = ClickableSurfaceDefaults.scale(
+                                    focusedScale = 1.1f,
+                                    pressedScale = 0.94f
+                                ),
+                                border = ClickableSurfaceDefaults.border(
+                                    focusedBorder = Border(
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = CircleShape
+                                    )
+                                )
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Box(
+                                        Modifier
+                                            .size(32.dp)
+                                            .background(subtitlePreviewColour(colourName), CircleShape)
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.24f),
+                                                CircleShape
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF17171B))
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(22.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "This is a subtitle.",
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF0C0C0E).copy(
+                                        alpha = settings.backgroundOpacity.coerceIn(0f, 0.9f)
+                                    ),
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                            color = previewTextColour,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = (36f * settings.textScale).sp,
+                                lineHeight = (44f * settings.textScale).sp
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
                 Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = onDismiss) { Text("Cancel") }
@@ -886,15 +998,30 @@ private fun PreferenceStepper(
     onIncrease: () -> Unit,
     focusRequester: FocusRequester? = null
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         Button(
             onClick = onDecrease,
             modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
         ) { Text("−") }
-        Text(value, modifier = Modifier.width(90.dp), style = MaterialTheme.typography.titleMedium)
+        Text(
+            value,
+            modifier = Modifier.width(90.dp),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
         Button(onClick = onIncrease) { Text("+") }
     }
+}
+
+private fun subtitlePreviewColour(colour: String): Color = when (colour) {
+    "yellow" -> Color.Yellow
+    "cyan" -> Color.Cyan
+    else -> Color.White
 }
 
 @Composable
