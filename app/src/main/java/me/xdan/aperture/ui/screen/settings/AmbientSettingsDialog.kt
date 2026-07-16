@@ -143,7 +143,7 @@ internal fun AmbientSettingsDialog(
                             Column(Modifier.weight(1f)) {
                                 Text("Clock", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    if (settings.showClock) "Shown with Aperture branding" else "Hidden",
+                                    if (settings.showClock) "Shown" else "Hidden",
                                     modifier = Modifier.alpha(0.68f)
                                 )
                             }
