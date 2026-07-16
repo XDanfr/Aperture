@@ -17,7 +17,9 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.xdan.aperture.ui.screen.home.HomeScreen
 import me.xdan.aperture.ui.screen.search.SearchScreen
 import me.xdan.aperture.ui.screen.player.PlayerScreen
@@ -100,6 +102,24 @@ fun NavGraph(
             "settings" to settingsContentEntryRequester
         )
     }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val focusScope = rememberCoroutineScope()
+    val pendingFocusJob = remember { arrayOfNulls<Job>(1) }
+
+    fun requestFocusWhenReady(requester: FocusRequester?) {
+        pendingFocusJob[0]?.cancel()
+        if (requester == null) return
+        pendingFocusJob[0] = focusScope.launch {
+            delay(80)
+            repeat(4) {
+                if (runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                    return@launch
+                }
+                delay(60)
+            }
+        }
+    }
+
     // Every drawer item returns to the content page that opened the drawer.
     // Its label is a destination, but the drawer itself is an overlay on the
     // current destination, so Right must not jump into the hovered label.
@@ -142,8 +162,31 @@ fun NavGraph(
         if (destination is Destination.MyList) {
             lastFocusedRequesters.remove("my_list")
         }
+        if (destination is Destination.Settings) {
+            lastFocusedRequesters.remove("settings")
+            settingsRestoreFocusKey = null
+        }
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
         if (destination !is Destination.Home) backstack.add(destination)
+    }
+    val openDrawer: () -> Unit = {
+        drawerState.setValue(DrawerValue.Open)
+        requestFocusWhenReady(currentFocusKey?.let(drawerRequesters::get))
+    }
+    val closeDrawerAndRestoreFocus: () -> Unit = {
+        drawerState.setValue(DrawerValue.Closed)
+        requestFocusWhenReady(drawerReturnFocusRequester)
+    }
+    val selectDrawerDestination: (Destination) -> Unit = selectDestination@ { destination ->
+        val destinationFocusKey = destination.focusKey()
+        if (destinationFocusKey == currentFocusKey) {
+            closeDrawerAndRestoreFocus()
+            return@selectDestination
+        }
+
+        drawerState.setValue(DrawerValue.Closed)
+        navigateFromDrawer(destination)
+        requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get))
     }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
@@ -238,6 +281,7 @@ fun NavGraph(
         ProvideFocusMemory {
             if (showDrawer) {
                 NavigationDrawer(
+                    drawerState = drawerState,
                     drawerContent = { drawerValue ->
                         Column(
                             modifier = Modifier
@@ -268,11 +312,13 @@ fun NavGraph(
                                 selected = currentDestination is Destination.Home,
                                 onClick = {
                                     if (currentDestination is Destination.Home) {
+                                        drawerState.setValue(DrawerValue.Closed)
                                         homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
                                         lastFocusedRequesters["home"] = homeContentEntryRequester
                                         homeViewModel.regenerateSuggestions()
+                                        requestFocusWhenReady(homeContentEntryRequester)
                                     } else {
-                                        navigateFromDrawer(Destination.Home)
+                                        selectDrawerDestination(Destination.Home)
                                     }
                                 },
                                 modifier = Modifier
@@ -286,7 +332,7 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Search,
-                                onClick = { navigateFromDrawer(Destination.Search) },
+                                onClick = { selectDrawerDestination(Destination.Search) },
                                 modifier = Modifier
                                     .focusRequester(searchDrawerRequester)
                                     .focusProperties {
@@ -298,7 +344,7 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Movies,
-                                onClick = { navigateFromDrawer(Destination.Movies) },
+                                onClick = { selectDrawerDestination(Destination.Movies) },
                                 modifier = Modifier
                                     .focusRequester(moviesDrawerRequester)
                                     .focusProperties {
@@ -310,7 +356,7 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Shows,
-                                onClick = { navigateFromDrawer(Destination.Shows) },
+                                onClick = { selectDrawerDestination(Destination.Shows) },
                                 modifier = Modifier
                                     .focusRequester(showsDrawerRequester)
                                     .focusProperties {
@@ -322,7 +368,7 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.MyList,
-                                onClick = { navigateFromDrawer(Destination.MyList) },
+                                onClick = { selectDrawerDestination(Destination.MyList) },
                                 modifier = Modifier
                                     .focusRequester(myListDrawerRequester)
                                     .focusProperties {
@@ -334,16 +380,7 @@ fun NavGraph(
                             }
                             NavigationDrawerItem(
                                 selected = currentDestination is Destination.Settings,
-                                onClick = {
-                                    // Preserve position when simply returning from the drawer.
-                                    // A real destination change gets a fresh Settings composition,
-                                    // starting at Theme instead.
-                                    if (currentDestination !is Destination.Settings) {
-                                        lastFocusedRequesters.remove("settings")
-                                        settingsRestoreFocusKey = null
-                                        navigateFromDrawer(Destination.Settings)
-                                    }
-                                },
+                                onClick = { selectDrawerDestination(Destination.Settings) },
                                 modifier = Modifier
                                     .focusRequester(settingsDrawerRequester)
                                     .focusProperties {
@@ -428,6 +465,22 @@ fun NavGraph(
                         mediaActionsViewModel.load(media.id)
                     }
                 )
+            }
+
+            // Compose this after NavigationDrawer so Aperture owns the top-level
+            // Back contract. Dialog windows and the overlays below still get
+            // first refusal, while Player is outside this handler entirely.
+            BackHandler(
+                enabled = showDrawer &&
+                    contextMediaId == null &&
+                    selectedMediaId == null &&
+                    !tutorialRequired
+            ) {
+                if (drawerState.currentValue == DrawerValue.Open) {
+                    closeDrawerAndRestoreFocus()
+                } else {
+                    openDrawer()
+                }
             }
 
             contextMediaId?.takeIf { mediaActionState.media?.id == it }?.let { mediaId ->
