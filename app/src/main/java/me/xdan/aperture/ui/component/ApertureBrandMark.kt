@@ -1,7 +1,11 @@
 package me.xdan.aperture.ui.component
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -16,12 +20,17 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.tv.material3.MaterialTheme
 
-/** A static glass Aperture mark coloured by the active app theme. */
+private const val BladeSpinDurationMillis = 650
+private val BladeSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+
+/** A glass Aperture mark coloured by the active app theme. */
 @Composable
 fun ApertureBrandMark(
     modifier: Modifier = Modifier,
-    accent: Color = MaterialTheme.colorScheme.primary
+    accent: Color = MaterialTheme.colorScheme.primary,
+    spinBlades: Boolean = false
 ) {
+    val bladeRotation = remember { Animatable(0f) }
     val bladePath = remember { apertureBrandBladePath() }
     val playPath = remember { apertureBrandPlayPath() }
     val bladeBrush = remember(accent) {
@@ -38,30 +47,48 @@ fun ApertureBrandMark(
     }
     val bladeStroke = mixBrandColor(accent, Color.White, 0.46f)
 
+    LaunchedEffect(spinBlades) {
+        if (spinBlades) {
+            bladeRotation.snapTo(0f)
+            bladeRotation.animateTo(
+                targetValue = 360f,
+                animationSpec = tween(
+                    durationMillis = BladeSpinDurationMillis,
+                    easing = BladeSpinEasing
+                )
+            )
+        } else {
+            // Zero and 360 degrees are visually identical; resetting here primes the next opening.
+            bladeRotation.snapTo(0f)
+        }
+    }
+
     Canvas(modifier = modifier) {
         val unit = size.minDimension / 100f
         scale(scaleX = unit, scaleY = unit, pivot = Offset.Zero) {
-            repeat(6) { index ->
-                rotate(degrees = index * 60f, pivot = ApertureBrandCentre) {
-                    translate(top = 1.1f) {
+            rotate(degrees = bladeRotation.value, pivot = ApertureBrandCentre) {
+                repeat(6) { index ->
+                    rotate(degrees = index * 60f, pivot = ApertureBrandCentre) {
+                        translate(top = 1.1f) {
+                            drawPath(
+                                path = bladePath,
+                                color = Color.Black,
+                                alpha = 0.24f
+                            )
+                        }
                         drawPath(
                             path = bladePath,
-                            color = Color.Black,
-                            alpha = 0.24f
+                            brush = bladeBrush,
+                            alpha = 0.84f,
+                            blendMode = BlendMode.Screen
+                        )
+                        drawPath(
+                            path = bladePath,
+                            color = bladeStroke,
+                            alpha = 0.9f,
+                            style = Stroke(width = 1.15f, join = StrokeJoin.Round)
                         )
                     }
-                    drawPath(
-                        path = bladePath,
-                        brush = bladeBrush,
-                        alpha = 0.84f,
-                        blendMode = BlendMode.Screen
-                    )
-                    drawPath(
-                        path = bladePath,
-                        color = bladeStroke,
-                        alpha = 0.9f,
-                        style = Stroke(width = 1.15f, join = StrokeJoin.Round)
-                    )
                 }
             }
             drawPath(path = playPath, color = Color.White)

@@ -237,7 +237,7 @@ fun NavGraph(
         ProvideFocusMemory {
             if (showDrawer) {
                 NavigationDrawer(
-                    drawerContent = { _ ->
+                    drawerContent = { drawerValue ->
                         Column(
                             modifier = Modifier
                                 .padding(16.dp)
@@ -249,7 +249,10 @@ fun NavGraph(
                                 modifier = Modifier.padding(bottom = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                ApertureBrandMark(modifier = Modifier.size(40.dp))
+                                ApertureBrandMark(
+                                    modifier = Modifier.size(40.dp),
+                                    spinBlades = drawerValue == DrawerValue.Open
+                                )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Aperture",
