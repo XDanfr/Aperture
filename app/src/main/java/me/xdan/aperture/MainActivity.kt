@@ -3,6 +3,7 @@ package me.xdan.aperture
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
     private var isAmbientActive by mutableStateOf(false)
     private var isPlayerActive by mutableStateOf(false)
+    private val ambientDismissKeys = mutableSetOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +76,10 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (isAmbientActive) {
+                                BackHandler {
+                                    lastInteractionTime = System.currentTimeMillis()
+                                    isAmbientActive = false
+                                }
                                 AmbientMode()
                             } else {
                                 NavGraph(
@@ -126,7 +132,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         lastInteractionTime = System.currentTimeMillis()
-        if (isAmbientActive) {
+        if (
+            keyCode != KeyEvent.KEYCODE_BACK &&
+            (isAmbientActive || keyCode in ambientDismissKeys)
+        ) {
+            ambientDismissKeys += keyCode
             isAmbientActive = false
             return true
         }
@@ -135,6 +145,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         lastInteractionTime = System.currentTimeMillis()
+        if (ambientDismissKeys.remove(keyCode)) {
+            return true
+        }
         return super.onKeyUp(keyCode, event)
     }
 }
