@@ -42,6 +42,8 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = OnBackground,
     surface = Surface,
     onSurface = OnSurface,
+    surfaceVariant = SurfaceVariant,
+    onSurfaceVariant = OnSurfaceVariant,
 )
 
 @Composable
