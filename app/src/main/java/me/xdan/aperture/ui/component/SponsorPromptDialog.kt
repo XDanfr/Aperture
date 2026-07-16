@@ -85,7 +85,8 @@ fun SponsorPromptDialog(
                 Text(
                     "Aperture is free and open source, with no ads or subscriptions. " +
                         "If you would like to support its development and help keep it that way, " +
-                        "you can sponsor XDanfr on GitHub.",
+                        "you can sponsor XDanfr on GitHub. Even a $1 sponsorship removes these " +
+                        "popups permanently after your account is verified.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.84f)
                 )
