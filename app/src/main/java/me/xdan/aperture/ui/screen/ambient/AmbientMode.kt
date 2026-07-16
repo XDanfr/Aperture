@@ -15,13 +15,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +41,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -153,9 +157,10 @@ private fun CinematicAmbientMode(
         )
         if (showClock) {
             AmbientClock(
+                accent = animatedLogoAccent,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 42.dp, top = 38.dp)
+                    .align(Alignment.TopStart)
+                    .padding(start = 38.dp, top = 108.dp)
             )
         }
     }
@@ -301,7 +306,7 @@ private fun PosterWallAmbientMode(
                 Box(
                     Modifier
                         .size(210.dp)
-                        .blur(28.dp)
+                        .blur(28.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                         .background(accent.copy(alpha = 0.18f), CircleShape)
                 )
                 ApertureBrandMark(
@@ -315,9 +320,15 @@ private fun PosterWallAmbientMode(
 
         if (showClock) {
             AmbientClock(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 42.dp, top = 38.dp)
+                accent = accent,
+                modifier = when (brandPlacement) {
+                    AmbientBrandPlacement.TOP_LEFT -> Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 38.dp, top = 108.dp)
+                    AmbientBrandPlacement.CENTRE -> Modifier
+                        .align(Alignment.Center)
+                        .offset(y = 164.dp)
+                }
             )
         }
     }
@@ -385,11 +396,66 @@ private fun BrandChip(
     spinKey: Int,
     modifier: Modifier = Modifier
 ) {
+    AmbientGlassChip(
+        accent = accent,
+        contentPadding = PaddingValues(start = 12.dp, top = 8.dp, end = 22.dp, bottom = 8.dp),
+        modifier = modifier
+    ) {
+        ApertureBrandMark(
+            modifier = Modifier.size(46.dp),
+            accent = accent,
+            spinBlades = spinKey > 0,
+            spinKey = spinKey
+        )
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text = "Aperture",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontFamily = ApertureBrandFontFamily
+            ),
+            color = accent
+        )
+    }
+}
+
+@Composable
+private fun AmbientClock(
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var time by remember { mutableStateOf(DateFormat.getTimeFormat(context).format(Date())) }
+    LaunchedEffect(context) {
+        while (true) {
+            time = DateFormat.getTimeFormat(context).format(Date())
+            delay(30_000L)
+        }
+    }
+    AmbientGlassChip(
+        accent = accent,
+        contentPadding = PaddingValues(horizontal = 19.dp, vertical = 9.dp),
+        modifier = modifier
+    ) {
+        Text(
+            text = time,
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.White.copy(alpha = 0.90f)
+        )
+    }
+}
+
+@Composable
+private fun AmbientGlassChip(
+    accent: Color,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .blur(22.dp)
+                .blur(22.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                 .background(accent.copy(alpha = 0.32f), CircleShape)
         )
         Row(
@@ -404,45 +470,11 @@ private fun BrandChip(
                     CircleShape
                 )
                 .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                .padding(start = 12.dp, top = 8.dp, end = 22.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ApertureBrandMark(
-                modifier = Modifier.size(46.dp),
-                accent = accent,
-                spinBlades = spinKey > 0,
-                spinKey = spinKey
-            )
-            Spacer(Modifier.width(9.dp))
-            Text(
-                text = "Aperture",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = ApertureBrandFontFamily
-                ),
-                color = accent
-            )
-        }
+                .padding(contentPadding),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
     }
-}
-
-@Composable
-private fun AmbientClock(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var time by remember { mutableStateOf(DateFormat.getTimeFormat(context).format(Date())) }
-    LaunchedEffect(context) {
-        while (true) {
-            time = DateFormat.getTimeFormat(context).format(Date())
-            delay(30_000L)
-        }
-    }
-    Text(
-        text = time,
-        style = MaterialTheme.typography.headlineMedium,
-        color = Color.White.copy(alpha = 0.86f),
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.28f), CircleShape)
-            .padding(horizontal = 19.dp, vertical = 9.dp)
-    )
 }
 
 @Composable

@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -127,7 +128,12 @@ internal fun AmbientSettingsDialog(
                         modifier = Modifier.fillMaxWidth(),
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
                         colors = ClickableSurfaceDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            focusedContainerColor = MaterialTheme.colorScheme.primary,
+                            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                            pressedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            pressedContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Row(
@@ -137,8 +143,8 @@ internal fun AmbientSettingsDialog(
                             Column(Modifier.weight(1f)) {
                                 Text("Clock", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    if (settings.showClock) "Shown in the top right" else "Hidden",
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
+                                    if (settings.showClock) "Shown with Aperture branding" else "Hidden",
+                                    modifier = Modifier.alpha(0.68f)
                                 )
                             }
                             androidx.compose.material3.Switch(
