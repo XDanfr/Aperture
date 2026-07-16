@@ -135,43 +135,46 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 2
-            SETTINGS_AMBIENT_FOCUS_KEY -> 3
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 4
-            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 5
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 6
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 7
-            SETTINGS_HIDDEN_FOCUS_KEY -> 10
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 11
-            SETTINGS_RESCAN_FOCUS_KEY -> 12
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 13
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 15
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 16
-            SETTINGS_LICENCES_FOCUS_KEY -> 18
-            SETTINGS_UPDATE_FOCUS_KEY -> 19
-            SETTINGS_TMDB_FOCUS_KEY -> 20
-            SETTINGS_DONATE_FOCUS_KEY -> 21
+            SETTINGS_THEME_FOCUS_KEY -> 1
+            SETTINGS_AMBIENT_FOCUS_KEY -> 2
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
+            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 4
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 5
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 6
+            SETTINGS_HIDDEN_FOCUS_KEY -> 9
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 10
+            SETTINGS_RESCAN_FOCUS_KEY -> 11
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 14
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 15
+            SETTINGS_LICENCES_FOCUS_KEY -> 17
+            SETTINGS_UPDATE_FOCUS_KEY -> 18
+            SETTINGS_TMDB_FOCUS_KEY -> 19
+            SETTINGS_DONATE_FOCUS_KEY -> 20
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = 1_000.dp)
-                .padding(horizontal = 72.dp, vertical = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.padding(bottom = 26.dp)
-                )
-            }
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(start = 72.dp, end = 72.dp, top = 48.dp, bottom = 26.dp)
+            )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(start = 72.dp, end = 72.dp, bottom = 48.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
 
             item {
                 SettingsCategoryHeader(
@@ -541,6 +544,7 @@ fun SettingsScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Donate to XDanfr on GitHub")
                 }
+            }
             }
         }
     }
