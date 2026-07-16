@@ -32,6 +32,18 @@ android {
         buildConfigField("String", "OPENSUBTITLES_API_KEY", "\"$openSubtitlesApiKey\"")
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("standard") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "SPONSOR_PROMPTS_ENABLED", "true")
+        }
+        create("creator") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "SPONSOR_PROMPTS_ENABLED", "false")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

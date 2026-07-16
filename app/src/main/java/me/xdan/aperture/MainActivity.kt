@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val sponsorPromptEligible = launchFinished &&
+                BuildConfig.SPONSOR_PROMPTS_ENABLED &&
                 sponsorPromptDelayElapsed &&
                 onboardingCompleted == true &&
                 !tutorialRequired &&
