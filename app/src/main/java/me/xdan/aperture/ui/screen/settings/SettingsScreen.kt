@@ -135,21 +135,22 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 1
-            SETTINGS_AMBIENT_FOCUS_KEY -> 2
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
-            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 4
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 5
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 6
-            SETTINGS_RESCAN_FOCUS_KEY -> 9
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 10
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 11
-            SETTINGS_LICENCES_FOCUS_KEY -> 12
-            SETTINGS_UPDATE_FOCUS_KEY -> 13
-            SETTINGS_TMDB_FOCUS_KEY -> 14
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 15
-            SETTINGS_DONATE_FOCUS_KEY -> 16
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 8
+            SETTINGS_THEME_FOCUS_KEY -> 2
+            SETTINGS_AMBIENT_FOCUS_KEY -> 3
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 4
+            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 5
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 6
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 7
+            SETTINGS_HIDDEN_FOCUS_KEY -> 10
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 11
+            SETTINGS_RESCAN_FOCUS_KEY -> 12
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 13
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 15
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 16
+            SETTINGS_LICENCES_FOCUS_KEY -> 18
+            SETTINGS_UPDATE_FOCUS_KEY -> 19
+            SETTINGS_TMDB_FOCUS_KEY -> 20
+            SETTINGS_DONATE_FOCUS_KEY -> 21
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -169,6 +170,13 @@ fun SettingsScreen(
                     text = "Settings",
                     style = MaterialTheme.typography.displaySmall,
                     modifier = Modifier.padding(bottom = 26.dp)
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Customisation",
+                    description = "Theme, presentation and ambient mode"
                 )
             }
 
@@ -327,6 +335,13 @@ fun SettingsScreen(
             }
 
             item {
+                SettingsCategoryHeader(
+                    title = "Library & storage",
+                    description = "Folders, hidden titles and library maintenance"
+                )
+            }
+
+            item {
                 SettingsItem(
                     title = "Hidden Media",
                     subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",
@@ -377,6 +392,30 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
+                    title = "Clear Artwork Cache",
+                    subtitle = "Remove downloaded posters and backdrops",
+                    icon = Icons.Rounded.DeleteSweep,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_CLEAR_CACHE_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_CLEAR_CACHE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = viewModel::clearCache
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Playback & subtitles",
+                    description = "Subtitle account and on-screen appearance"
+                )
+            }
+
+            item {
+                SettingsItem(
                     title = "OpenSubtitles.com",
                     subtitle = when (val session = openSubtitlesSession) {
                         is OpenSubtitlesSessionState.SignedIn -> "Signed in as ${session.username}"
@@ -408,6 +447,13 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showSubtitleAppearance = true }
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "About Aperture",
+                    description = "Updates, licences and project information"
                 )
             }
 
@@ -468,23 +514,6 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { uriHandler.openUri("https://www.themoviedb.org") }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Clear Artwork Cache",
-                    subtitle = "Remove downloaded posters and backdrops",
-                    icon = Icons.Rounded.DeleteSweep,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_CLEAR_CACHE_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_CLEAR_CACHE_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = viewModel::clearCache
                 )
             }
 
@@ -1131,6 +1160,28 @@ private fun ThemePickerDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsCategoryHeader(
+    title: String,
+    description: String
+) {
+    Column(
+        modifier = Modifier.padding(start = 4.dp, top = 18.dp, bottom = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f)
+        )
     }
 }
 
