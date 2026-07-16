@@ -13,6 +13,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import me.xdan.aperture.domain.model.AmbientBrandPlacement
+import me.xdan.aperture.domain.model.AmbientModeType
 import javax.inject.Inject
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
@@ -31,6 +33,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private val SUBTITLE_TEXT_SCALE = floatPreferencesKey("subtitle_text_scale")
     private val SUBTITLE_COLOUR = stringPreferencesKey("subtitle_colour")
     private val SUBTITLE_BACKGROUND_OPACITY = floatPreferencesKey("subtitle_background_opacity")
+    private val AMBIENT_MODE = stringPreferencesKey("ambient_mode")
+    private val AMBIENT_WALL_BRAND_PLACEMENT = stringPreferencesKey("ambient_wall_brand_placement")
+    private val AMBIENT_SHOW_CLOCK = booleanPreferencesKey("ambient_show_clock")
 
     override val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -63,6 +68,17 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val subtitleBackgroundOpacity: Flow<Float> = context.dataStore.data
         .map { preferences -> preferences[SUBTITLE_BACKGROUND_OPACITY] ?: 0.55f }
+
+    override val ambientMode: Flow<AmbientModeType> = context.dataStore.data
+        .map { preferences -> AmbientModeType.fromPreference(preferences[AMBIENT_MODE]) }
+
+    override val ambientWallBrandPlacement: Flow<AmbientBrandPlacement> = context.dataStore.data
+        .map { preferences ->
+            AmbientBrandPlacement.fromPreference(preferences[AMBIENT_WALL_BRAND_PLACEMENT])
+        }
+
+    override val ambientShowClock: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[AMBIENT_SHOW_CLOCK] ?: false }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->
@@ -112,5 +128,19 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[SUBTITLE_BACKGROUND_OPACITY] = opacity.coerceIn(0f, 0.9f)
         }
+    }
+
+    override suspend fun setAmbientMode(mode: AmbientModeType) {
+        context.dataStore.edit { preferences -> preferences[AMBIENT_MODE] = mode.preferenceValue }
+    }
+
+    override suspend fun setAmbientWallBrandPlacement(placement: AmbientBrandPlacement) {
+        context.dataStore.edit { preferences ->
+            preferences[AMBIENT_WALL_BRAND_PLACEMENT] = placement.preferenceValue
+        }
+    }
+
+    override suspend fun setAmbientShowClock(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[AMBIENT_SHOW_CLOCK] = enabled }
     }
 }

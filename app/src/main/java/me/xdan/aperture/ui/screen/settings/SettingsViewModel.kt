@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import me.xdan.aperture.domain.model.AmbientSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +66,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         SubtitleAppearanceSettings()
+    )
+    val ambientSettings: StateFlow<AmbientSettings> = combine(
+        userPreferencesRepository.ambientMode,
+        userPreferencesRepository.ambientWallBrandPlacement,
+        userPreferencesRepository.ambientShowClock
+    ) { mode, placement, showClock ->
+        AmbientSettings(mode, placement, showClock)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AmbientSettings()
     )
     val updateState = updateManager.state
     val openSubtitlesSession = openSubtitlesSessionManager.state
@@ -150,6 +162,15 @@ class SettingsViewModel @Inject constructor(
             userPreferencesRepository.setSubtitleTextScale(settings.textScale)
             userPreferencesRepository.setSubtitleColour(settings.colour)
             userPreferencesRepository.setSubtitleBackgroundOpacity(settings.backgroundOpacity)
+        }
+    }
+
+    fun setAmbientSettings(settings: AmbientSettings, onSaved: () -> Unit = {}) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAmbientMode(settings.mode)
+            userPreferencesRepository.setAmbientWallBrandPlacement(settings.wallBrandPlacement)
+            userPreferencesRepository.setAmbientShowClock(settings.showClock)
+            onSaved()
         }
     }
 

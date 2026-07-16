@@ -42,7 +42,8 @@ fun NavGraph(
     backstack: NavBackStack<Destination>,
     onNavigate: (Destination) -> Unit,
     mainViewModel: me.xdan.aperture.ui.MainViewModel = viewModel(),
-    onPlayerStateChanged: (Boolean) -> Unit = {}
+    onPlayerStateChanged: (Boolean) -> Unit = {},
+    onPreviewAmbientMode: () -> Unit = {}
 ) {
     val homeViewModel: HomeViewModel = viewModel()
     val mediaActionsViewModel: MediaActionsViewModel = viewModel()
@@ -373,6 +374,7 @@ fun NavGraph(
                             isRescanVisible = true
                             mainViewModel.startLibraryPreparation(force = true)
                         },
+                        onPreviewAmbientMode = onPreviewAmbientMode,
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
@@ -408,6 +410,7 @@ fun NavGraph(
                         isRescanVisible = true
                         mainViewModel.startLibraryPreparation(force = true)
                     },
+                    onPreviewAmbientMode = onPreviewAmbientMode,
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
@@ -547,6 +550,7 @@ private fun NavContent(
     onPlayerBack: () -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
     onForceRescan: () -> Unit,
+    onPreviewAmbientMode: () -> Unit,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -623,7 +627,8 @@ private fun NavContent(
                     restoreFocusKey = settingsRestoreFocusKey,
                     onFocusKeyChanged = onSettingsFocusKeyChanged,
                     onContentFocused = contentFocused,
-                    onForceRescan = onForceRescan
+                    onForceRescan = onForceRescan,
+                    onPreviewAmbientMode = onPreviewAmbientMode
                 )
                 is Destination.Player -> PlayerScreen(
                     mediaId = destination.mediaId,

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
@@ -77,6 +78,8 @@ import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
 import me.xdan.aperture.domain.repository.MediaFolder
+import me.xdan.aperture.domain.model.AmbientBrandPlacement
+import me.xdan.aperture.domain.model.AmbientModeType
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -87,7 +90,8 @@ fun SettingsScreen(
     restoreFocusKey: String? = null,
     onFocusKeyChanged: (String) -> Unit = {},
     onContentFocused: (FocusRequester) -> Unit = {},
-    onForceRescan: () -> Unit = viewModel::forceRescan
+    onForceRescan: () -> Unit = viewModel::forceRescan,
+    onPreviewAmbientMode: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -100,6 +104,7 @@ fun SettingsScreen(
     val mediaFolderMessage by viewModel.mediaFolderMessage.collectAsState()
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
+    val ambientSettings by viewModel.ambientSettings.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -109,6 +114,7 @@ fun SettingsScreen(
     var showShowLayoutPicker by remember { mutableStateOf(false) }
     var showSubtitleAppearance by remember { mutableStateOf(false) }
     var showMediaFolders by remember { mutableStateOf(false) }
+    var showAmbientSettings by remember { mutableStateOf(false) }
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
             hasFolderPicker(context.packageManager)
@@ -130,19 +136,20 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
             SETTINGS_THEME_FOCUS_KEY -> 1
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 2
-            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 3
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 4
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 5
-            SETTINGS_RESCAN_FOCUS_KEY -> 8
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 9
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 10
-            SETTINGS_LICENCES_FOCUS_KEY -> 11
-            SETTINGS_UPDATE_FOCUS_KEY -> 12
-            SETTINGS_TMDB_FOCUS_KEY -> 13
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 14
-            SETTINGS_DONATE_FOCUS_KEY -> 15
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 7
+            SETTINGS_AMBIENT_FOCUS_KEY -> 2
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
+            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 4
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 5
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 6
+            SETTINGS_RESCAN_FOCUS_KEY -> 9
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 10
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 11
+            SETTINGS_LICENCES_FOCUS_KEY -> 12
+            SETTINGS_UPDATE_FOCUS_KEY -> 13
+            SETTINGS_TMDB_FOCUS_KEY -> 14
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 15
+            SETTINGS_DONATE_FOCUS_KEY -> 16
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 8
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -180,6 +187,34 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showThemes = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Ambient mode",
+                    subtitle = buildString {
+                        append(
+                            when (ambientSettings.mode) {
+                                AmbientModeType.CINEMATIC -> "Cinematic backdrops"
+                                AmbientModeType.POSTER_WALL -> when (ambientSettings.wallBrandPlacement) {
+                                    AmbientBrandPlacement.TOP_LEFT -> "Poster wall · Top left logo"
+                                    AmbientBrandPlacement.CENTRE -> "Poster wall · Centre icon"
+                                }
+                            }
+                        )
+                        append(if (ambientSettings.showClock) " · Clock on" else " · Clock off")
+                    },
+                    icon = Icons.Rounded.NightsStay,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_AMBIENT_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_AMBIENT_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showAmbientSettings = true }
                 )
             }
 
@@ -556,10 +591,28 @@ fun SettingsScreen(
             onDismiss = { showMediaFolders = false }
         )
     }
+    if (showAmbientSettings) {
+        AmbientSettingsDialog(
+            initial = ambientSettings,
+            onSave = { settings ->
+                viewModel.setAmbientSettings(settings) {
+                    showAmbientSettings = false
+                }
+            },
+            onPreview = { settings ->
+                viewModel.setAmbientSettings(settings) {
+                    showAmbientSettings = false
+                    onPreviewAmbientMode()
+                }
+            },
+            onDismiss = { showAmbientSettings = false }
+        )
+    }
 }
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
+private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
 private const val SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY = "rounded_spotlight"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"

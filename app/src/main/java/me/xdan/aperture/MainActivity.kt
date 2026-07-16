@@ -80,6 +80,10 @@ class MainActivity : ComponentActivity() {
                                     backstack = backstack,
                                     mainViewModel = mainViewModel,
                                     onPlayerStateChanged = { isPlayerActive = it },
+                                    onPreviewAmbientMode = {
+                                        lastInteractionTime = System.currentTimeMillis()
+                                        isAmbientActive = true
+                                    },
                                     onNavigate = {
                                         lastInteractionTime = System.currentTimeMillis()
                                         backstack.add(it)

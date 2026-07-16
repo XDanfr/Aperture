@@ -28,7 +28,8 @@ private val BladeSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 fun ApertureBrandMark(
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
-    spinBlades: Boolean = false
+    spinBlades: Boolean = false,
+    spinKey: Any? = null
 ) {
     val bladeRotation = remember { Animatable(0f) }
     val bladePath = remember { apertureBrandBladePath() }
@@ -47,7 +48,7 @@ fun ApertureBrandMark(
     }
     val bladeStroke = mixBrandColor(accent, Color.White, 0.46f)
 
-    LaunchedEffect(spinBlades) {
+    LaunchedEffect(spinBlades, spinKey) {
         if (spinBlades) {
             bladeRotation.snapTo(0f)
             bladeRotation.animateTo(

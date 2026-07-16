@@ -18,8 +18,6 @@ import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Color
 import androidx.core.graphics.drawable.toBitmap
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -29,6 +27,7 @@ import kotlinx.coroutines.withContext
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
+import me.xdan.aperture.ui.artwork.extractArtworkAccent
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -150,35 +149,4 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun extractArtworkAccent(source: Bitmap): Int {
-        val bitmap = Bitmap.createScaledBitmap(source, 32, 32, true)
-        var red = 0.0
-        var green = 0.0
-        var blue = 0.0
-        var totalWeight = 0.0
-        val hsv = FloatArray(3)
-        for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) {
-            val pixel = bitmap.getPixel(x, y)
-            Color.colorToHSV(pixel, hsv)
-            val value = hsv[2]
-            val saturation = hsv[1]
-            if (Color.alpha(pixel) < 180 || value < 0.14f || value > 0.92f) continue
-            val weight = (0.35f + saturation).toDouble()
-            red += Color.red(pixel) * weight
-            green += Color.green(pixel) * weight
-            blue += Color.blue(pixel) * weight
-            totalWeight += weight
-        }
-        if (bitmap !== source) bitmap.recycle()
-        if (totalWeight == 0.0) return 0xFFD0BCFF.toInt()
-        val raw = Color.rgb(
-            (red / totalWeight).toInt().coerceIn(0, 255),
-            (green / totalWeight).toInt().coerceIn(0, 255),
-            (blue / totalWeight).toInt().coerceIn(0, 255)
-        )
-        Color.colorToHSV(raw, hsv)
-        hsv[1] = hsv[1].coerceAtLeast(0.35f)
-        hsv[2] = hsv[2].coerceIn(0.68f, 0.92f)
-        return Color.HSVToColor(hsv)
-    }
 }
