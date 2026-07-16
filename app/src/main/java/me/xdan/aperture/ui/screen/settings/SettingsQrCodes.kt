@@ -39,7 +39,9 @@ internal fun LinkQrDialog(
     description: String,
     url: String,
     qrRows: List<String>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    nextLabel: String? = null,
+    onNext: (() -> Unit)? = null
 ) {
     val closeRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -77,11 +79,20 @@ internal fun LinkQrDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.End).focusRequester(closeRequester)
-                    ) {
-                        Text("Done")
+                    Row(modifier = Modifier.align(Alignment.End)) {
+                        if (nextLabel != null && onNext != null) {
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.focusRequester(closeRequester)
+                            ) { Text("Cancel") }
+                            androidx.compose.foundation.layout.Spacer(Modifier.width(12.dp))
+                            Button(onClick = onNext) { Text(nextLabel) }
+                        } else {
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.focusRequester(closeRequester)
+                            ) { Text("Done") }
+                        }
                     }
                 }
             }

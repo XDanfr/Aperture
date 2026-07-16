@@ -212,7 +212,13 @@ class MainActivity : ComponentActivity() {
                             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
                             url = GITHUB_SPONSORS_URL,
                             qrRows = GITHUB_SPONSORS_QR_ROWS,
-                            onDismiss = { showSponsorQr = false }
+                            onDismiss = { showSponsorQr = false },
+                            nextLabel = "Next",
+                            onNext = {
+                                showSponsorQr = false
+                                showSponsorVerification = true
+                                scope.launch { sponsorVerificationManager.verify() }
+                            }
                         )
                     }
 
