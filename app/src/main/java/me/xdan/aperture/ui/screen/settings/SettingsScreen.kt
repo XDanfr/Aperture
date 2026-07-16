@@ -82,6 +82,7 @@ import me.xdan.aperture.ui.theme.ApertureThemeOptions
 import me.xdan.aperture.domain.repository.MediaFolder
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
+import me.xdan.aperture.ui.component.SponsorVerificationDialog
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -118,6 +119,8 @@ fun SettingsScreen(
     var showAmbientSettings by remember { mutableStateOf(false) }
     var showTmdbQr by remember { mutableStateOf(false) }
     var showSponsorsQr by remember { mutableStateOf(false) }
+    var showSponsorVerification by remember { mutableStateOf(false) }
+    val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
             hasFolderPicker(context.packageManager)
@@ -676,7 +679,23 @@ fun SettingsScreen(
             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
             url = GITHUB_SPONSORS_URL,
             qrRows = GITHUB_SPONSORS_QR_ROWS,
-            onDismiss = { showSponsorsQr = false }
+            onDismiss = { showSponsorsQr = false },
+            nextLabel = "Next",
+            onNext = {
+                showSponsorsQr = false
+                showSponsorVerification = true
+                viewModel.verifySponsor()
+            }
+        )
+    }
+    if (showSponsorVerification) {
+        SponsorVerificationDialog(
+            state = sponsorVerificationState,
+            onRetry = viewModel::verifySponsor,
+            onDismiss = {
+                showSponsorVerification = false
+                viewModel.resetSponsorVerificationState()
+            }
         )
     }
 }

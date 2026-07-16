@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
+import me.xdan.aperture.data.sponsor.SponsorVerificationManager
 import javax.inject.Inject
 
 @HiltViewModel
@@ -31,8 +32,16 @@ class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val updateManager: UpdateManager,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
+    private val sponsorVerificationManager: SponsorVerificationManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+    val sponsorVerificationState = sponsorVerificationManager.state
+
+    fun verifySponsor() {
+        viewModelScope.launch { sponsorVerificationManager.verify() }
+    }
+
+    fun resetSponsorVerificationState() = sponsorVerificationManager.resetState()
 
     val spotlightSettings: StateFlow<SpotlightSettings> = combine(
         userPreferencesRepository.hideFinishedFromSpotlight,
