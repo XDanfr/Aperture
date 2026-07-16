@@ -22,9 +22,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.navigation.Destination
 import me.xdan.aperture.ui.navigation.NavGraph
+import me.xdan.aperture.ui.component.SponsorPromptDialog
 import me.xdan.aperture.ui.screen.ambient.AmbientMode
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.ui.screen.launch.ApertureLaunchAnimation
+import me.xdan.aperture.ui.screen.settings.GITHUB_SPONSORS_QR_ROWS
+import me.xdan.aperture.ui.screen.settings.GITHUB_SPONSORS_URL
+import me.xdan.aperture.ui.screen.settings.LinkQrDialog
 import me.xdan.aperture.ui.screen.settings.UpdateDialog
 import me.xdan.aperture.ui.theme.ApertureTheme
 
@@ -44,8 +48,62 @@ class MainActivity : ComponentActivity() {
             val themeId by mainViewModel.themeId.collectAsState()
             val dynamicAccentArgb by mainViewModel.dynamicAccentArgb.collectAsState()
             val updateState by mainViewModel.updateState.collectAsState()
+            val onboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
+            val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
             var dismissedUpdateVersion by rememberSaveable { mutableStateOf<String?>(null) }
             var launchFinished by rememberSaveable { mutableStateOf(false) }
+            var sponsorPromptHandledThisLaunch by rememberSaveable { mutableStateOf(false) }
+            var sponsorPromptDelayElapsed by remember { mutableStateOf(false) }
+            var showSponsorPrompt by rememberSaveable { mutableStateOf(false) }
+            var showSponsorQr by rememberSaveable { mutableStateOf(false) }
+            val offeredUpdate = when (val state = updateState) {
+                is UpdateCheckState.Available -> state
+                is UpdateCheckState.PermissionRequired -> state.update
+                is UpdateCheckState.Downloading -> state.update
+                else -> null
+            }
+            val updateDialogVisible = launchFinished &&
+                offeredUpdate != null &&
+                offeredUpdate.version != dismissedUpdateVersion
+            val updateBlocksSponsorPrompt = when (updateState) {
+                UpdateCheckState.Checking,
+                is UpdateCheckState.PermissionRequired,
+                is UpdateCheckState.Downloading,
+                is UpdateCheckState.Installing -> true
+                is UpdateCheckState.Available -> updateDialogVisible
+                else -> false
+            }
+
+            LaunchedEffect(onboardingCompleted, tutorialRequired) {
+                sponsorPromptDelayElapsed = false
+                if (onboardingCompleted == true && !tutorialRequired) {
+                    delay(SPONSOR_PROMPT_TEST_DELAY_MS)
+                    sponsorPromptDelayElapsed = true
+                }
+            }
+
+            val sponsorPromptEligible = launchFinished &&
+                sponsorPromptDelayElapsed &&
+                onboardingCompleted == true &&
+                !tutorialRequired &&
+                !isPlayerActive &&
+                !isAmbientActive &&
+                !updateBlocksSponsorPrompt
+
+            LaunchedEffect(sponsorPromptEligible, sponsorPromptHandledThisLaunch) {
+                if (sponsorPromptEligible && !sponsorPromptHandledThisLaunch) {
+                    sponsorPromptHandledThisLaunch = true
+                    showSponsorPrompt = true
+                }
+            }
+
+            LaunchedEffect(updateDialogVisible) {
+                if (updateDialogVisible) {
+                    showSponsorPrompt = false
+                    showSponsorQr = false
+                }
+            }
+
             ApertureTheme(
                 themeId = themeId,
                 dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
@@ -68,6 +126,8 @@ class MainActivity : ComponentActivity() {
                                 while (true) {
                                     delay(1000)
                                     if (!isPlayerActive &&
+                                        !showSponsorPrompt &&
+                                        !showSponsorQr &&
                                         System.currentTimeMillis() - lastInteractionTime > 5 * 60 * 1000
                                     ) {
                                         isAmbientActive = true
@@ -90,30 +150,39 @@ class MainActivity : ComponentActivity() {
                                         lastInteractionTime = System.currentTimeMillis()
                                         isAmbientActive = true
                                     },
-                                    onNavigate = {
+                                    onNavigate = { destination ->
                                         lastInteractionTime = System.currentTimeMillis()
-                                        backstack.add(it)
+                                        if (destination is Destination.Player) {
+                                            isPlayerActive = true
+                                        }
+                                        backstack.add(destination)
                                     }
                                 )
                             }
                         }
                     }
 
-                    val offeredUpdate = when (val state = updateState) {
-                        is UpdateCheckState.Available -> state
-                        is UpdateCheckState.PermissionRequired -> state.update
-                        is UpdateCheckState.Downloading -> state.update
-                        else -> null
-                    }
-                    if (
-                        launchFinished &&
-                        offeredUpdate != null &&
-                        offeredUpdate.version != dismissedUpdateVersion
-                    ) {
+                    if (updateDialogVisible && offeredUpdate != null) {
                         UpdateDialog(
                             state = updateState,
                             onInstall = mainViewModel::downloadAndInstallUpdate,
                             onDismiss = { dismissedUpdateVersion = offeredUpdate.version }
+                        )
+                    } else if (showSponsorPrompt) {
+                        SponsorPromptDialog(
+                            onSponsor = {
+                                showSponsorPrompt = false
+                                showSponsorQr = true
+                            },
+                            onDismiss = { showSponsorPrompt = false }
+                        )
+                    } else if (showSponsorQr) {
+                        LinkQrDialog(
+                            title = "Sponsor XDanfr on GitHub",
+                            description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
+                            url = GITHUB_SPONSORS_URL,
+                            qrRows = GITHUB_SPONSORS_QR_ROWS,
+                            onDismiss = { showSponsorQr = false }
                         )
                     }
 
@@ -151,3 +220,5 @@ class MainActivity : ComponentActivity() {
         return super.onKeyUp(keyCode, event)
     }
 }
+
+private const val SPONSOR_PROMPT_TEST_DELAY_MS = 2_500L
