@@ -3,7 +3,6 @@ package me.xdan.aperture.ui.screen.home
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,7 +27,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -40,6 +38,7 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.MediaCard
 import me.xdan.aperture.ui.component.ArtworkFallback
+import me.xdan.aperture.ui.component.rememberFocusGlow
 import me.xdan.aperture.ui.theme.HeroGradientEnd
 import me.xdan.aperture.ui.theme.HeroGradientStart
 
@@ -222,6 +221,7 @@ private fun FeaturedCarousel(
     }
     var focusActiveSpotlight by remember { mutableStateOf(false) }
     val spotlightShape = RoundedCornerShape(if (roundedSpotlight) 32.dp else 0.dp)
+    val spotlightGlow = rememberFocusGlow(focusActiveSpotlight)
 
     LaunchedEffect(
         carouselState.activeItemIndex,
@@ -247,123 +247,130 @@ private fun FeaturedCarousel(
         }
     }
 
-    Carousel(
-        itemCount = featured.size,
-        carouselState = carouselState,
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .height(400.dp)
-            .padding(16.dp)
-            .clip(spotlightShape)
-            .then(
-                if (roundedSpotlight) {
-                    Modifier.border(
-                        width = if (focusActiveSpotlight) 3.dp else 1.dp,
-                        color = if (focusActiveSpotlight) {
-                            Color.White
-                        } else {
-                            Color.White.copy(alpha = 0.28f)
-                        },
-                        shape = spotlightShape
+            .padding(16.dp),
+        shape = spotlightShape,
+        colors = SurfaceDefaults.colors(containerColor = Color.Transparent),
+        border = if (roundedSpotlight) {
+            Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (focusActiveSpotlight) 3.dp else 1.dp,
+                    color = if (focusActiveSpotlight) {
+                        Color.White
+                    } else {
+                        Color.White.copy(alpha = 0.28f)
+                    }
+                ),
+                shape = spotlightShape
+            )
+        } else {
+            Border.None
+        },
+        glow = spotlightGlow
+    ) {
+        Carousel(
+            itemCount = featured.size,
+            carouselState = carouselState,
+            modifier = Modifier
+                .fillMaxSize()
+                .onFocusChanged { focusState ->
+                    focusActiveSpotlight = focusState.hasFocus
+                }
+        ) { index ->
+            val media = featured[index]
+            var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
+            val watchNowFocusRequester = if (
+                isContentEntry && index == carouselState.activeItemIndex
+            ) {
+                contentEntryFocusRequester
+            } else {
+                spotlightRequesters[index]
+            }
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (media.backdropPath.isNullOrBlank()) {
+                    ArtworkFallback(
+                        title = media.title,
+                        isFocused = isWatchNowFocused,
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Modifier
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(TmdbApi.IMAGE_BASE_URL + "original" + media.backdropPath)
+                            .crossfade(false)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 }
-            )
-            .onFocusChanged { focusState ->
-                focusActiveSpotlight = focusState.hasFocus
-            }
-    ) { index ->
-        val media = featured[index]
-        var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
-        val watchNowFocusRequester = if (
-            isContentEntry && index == carouselState.activeItemIndex
-        ) {
-            contentEntryFocusRequester
-        } else {
-            spotlightRequesters[index]
-        }
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (media.backdropPath.isNullOrBlank()) {
-                ArtworkFallback(
-                    title = media.title,
-                    isFocused = isWatchNowFocused,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(TmdbApi.IMAGE_BASE_URL + "original" + media.backdropPath)
-                        .crossfade(false)
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (roundedSpotlight) {
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.22f),
-                                    Color.Black.copy(alpha = 0.22f)
-                                )
-                            )
-                        } else {
-                            Brush.verticalGradient(
-                                colors = listOf(HeroGradientStart, HeroGradientEnd),
-                                startY = 0f,
-                                endY = Float.POSITIVE_INFINITY
-                            )
-                        }
-                    )
-            )
-            Column(
-                modifier = Modifier
-                    .padding(32.dp)
-                    .align(Alignment.BottomStart)
-            ) {
-                Text(
-                    text = media.title,
-                    style = MaterialTheme.typography.displayMedium,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        onMediaClick(
-                            media.id,
-                            watchNowFocusRequester,
-                            media.type == "EPISODE" && media.id in continueMediaIds
-                        )
-                    },
+                Box(
                     modifier = Modifier
-                        .then(
-                            if (drawerFocusRequester != null) {
-                                Modifier.focusProperties { left = drawerFocusRequester }
-                            } else Modifier
-                        )
-                        .focusRequester(watchNowFocusRequester)
-                        .onFocusChanged {
-                            isWatchNowFocused = it.isFocused
-                            if (it.isFocused) {
-                                onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
-                                onContentFocused(watchNowFocusRequester)
+                        .fillMaxSize()
+                        .background(
+                            if (roundedSpotlight) {
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.22f),
+                                        Color.Black.copy(alpha = 0.22f)
+                                    )
+                                )
+                            } else {
+                                Brush.verticalGradient(
+                                    colors = listOf(HeroGradientStart, HeroGradientEnd),
+                                    startY = 0f,
+                                    endY = Float.POSITIVE_INFINITY
+                                )
                             }
-                        }
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(32.dp)
+                        .align(Alignment.BottomStart)
                 ) {
-                    val progress = progressMap[media.id] ?: 0f
                     Text(
-                        when {
-                            media.id in continueMediaIds -> "Continue"
-                            progress >= 0.05f && progress < 0.95f -> "Continue"
-                            media.id in completedMediaIds -> "Rewatch"
-                            else -> "Watch Now"
-                        }
+                        text = media.title,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = Color.White
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            onMediaClick(
+                                media.id,
+                                watchNowFocusRequester,
+                                media.type == "EPISODE" && media.id in continueMediaIds
+                            )
+                        },
+                        modifier = Modifier
+                            .then(
+                                if (drawerFocusRequester != null) {
+                                    Modifier.focusProperties { left = drawerFocusRequester }
+                                } else Modifier
+                            )
+                            .focusRequester(watchNowFocusRequester)
+                            .onFocusChanged {
+                                isWatchNowFocused = it.isFocused
+                                if (it.isFocused) {
+                                    onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+                                    onContentFocused(watchNowFocusRequester)
+                                }
+                            }
+                    ) {
+                        val progress = progressMap[media.id] ?: 0f
+                        Text(
+                            when {
+                                media.id in continueMediaIds -> "Continue"
+                                progress >= 0.05f && progress < 0.95f -> "Continue"
+                                media.id in completedMediaIds -> "Rewatch"
+                                else -> "Watch Now"
+                            }
+                        )
+                    }
                 }
             }
         }

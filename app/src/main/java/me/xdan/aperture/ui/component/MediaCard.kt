@@ -92,6 +92,7 @@ fun MediaCard(
         animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
         label = "animatedScale"
     )
+    val focusGlow = rememberFocusGlow(isFocused)
 
     Surface(
         onClick = { onClick(cardFocusRequester) },
@@ -151,6 +152,11 @@ fun MediaCard(
                 border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
                 shape = RoundedCornerShape(8.dp)
             )
+        ),
+        glow = ClickableSurfaceDefaults.glow(
+            glow = focusGlow,
+            focusedGlow = focusGlow,
+            pressedGlow = focusGlow
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
