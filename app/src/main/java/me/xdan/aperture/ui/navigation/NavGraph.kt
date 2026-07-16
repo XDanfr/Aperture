@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -32,6 +31,7 @@ import me.xdan.aperture.ui.screen.library.MoviesScreen
 import me.xdan.aperture.ui.screen.library.ShowsScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.component.MediaContextMenu
+import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
@@ -249,18 +249,14 @@ fun NavGraph(
                                 modifier = Modifier.padding(bottom = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    painter = androidx.compose.ui.res.painterResource(id = me.xdan.aperture.R.mipmap.ic_launcher_foreground),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp),
-                                    tint = Color.Unspecified
-                                )
+                                ApertureBrandMark(modifier = Modifier.size(40.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Aperture",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontFamily = ApertureBrandFontFamily,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
 
