@@ -312,13 +312,38 @@ fun NavGraph(
                                 selected = currentDestination is Destination.Home,
                                 onClick = {
                                     if (currentDestination is Destination.Home) {
+                                        // Spotlight is not composed while Home is scrolled far
+                                        // enough down. Return focus to the visible origin first so
+                                        // NavigationDrawer can release its scrim; Home's refresh
+                                        // effect then scrolls to and focuses Spotlight.
+                                        val visibleHomeRequester = drawerReturnFocusRequester
+                                        requestFocusWhenReady(null)
+                                        val restoredVisibleFocus = visibleHomeRequester?.let { requester ->
+                                            runCatching { requester.requestFocus() }.getOrDefault(false)
+                                        } == true
                                         drawerState.setValue(DrawerValue.Closed)
                                         homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                                        lastFocusedRequesters["home"] = homeContentEntryRequester
+                                        if (!restoredVisibleFocus) {
+                                            requestFocusWhenReady(visibleHomeRequester)
+                                        }
                                         homeViewModel.regenerateSuggestions()
-                                        requestFocusWhenReady(homeContentEntryRequester)
                                     } else {
-                                        selectDrawerDestination(Destination.Home)
+                                        // Home remains composed underneath the other top-level
+                                        // destinations, including its previous scroll position.
+                                        // Release drawer focus through the visible page before
+                                        // revealing Home, then let Home's refresh effect return to
+                                        // Spotlight and establish its new entry focus.
+                                        val visibleOriginRequester = drawerReturnFocusRequester
+                                        requestFocusWhenReady(null)
+                                        val restoredVisibleFocus = visibleOriginRequester?.let { requester ->
+                                            runCatching { requester.requestFocus() }.getOrDefault(false)
+                                        } == true
+                                        drawerState.setValue(DrawerValue.Closed)
+                                        navigateFromDrawer(Destination.Home)
+                                        if (!restoredVisibleFocus) {
+                                            requestFocusWhenReady(homeContentEntryRequester)
+                                        }
+                                        homeViewModel.regenerateSuggestions()
                                     }
                                 },
                                 modifier = Modifier
