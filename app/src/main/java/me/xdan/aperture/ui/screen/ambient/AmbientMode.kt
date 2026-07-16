@@ -68,6 +68,7 @@ import kotlin.random.Random
 
 private const val CinematicHoldMillis = 13_000L
 private const val CinematicTransitionMillis = 1_800
+private const val CinematicFadeOutMillis = 1_200
 private const val WallSpinIntervalMillis = 30_000L
 private const val PosterColumns = 8
 private const val PosterRows = 3
@@ -105,6 +106,7 @@ private fun CinematicAmbientMode(
     var current by remember(mediaKey) { mutableStateOf(media.randomOrNull()) }
     var logoAccent by remember(mediaKey) { mutableStateOf(themeAccent) }
     var transitionKey by remember(mediaKey) { mutableIntStateOf(0) }
+    val artworkAlpha = remember(mediaKey) { Animatable(0f) }
     val animatedLogoAccent by animateColorAsState(
         targetValue = logoAccent,
         animationSpec = tween(CinematicTransitionMillis, easing = FastOutSlowInEasing),
@@ -112,20 +114,35 @@ private fun CinematicAmbientMode(
     )
 
     LaunchedEffect(mediaKey) {
+        artworkAlpha.snapTo(0f)
         current?.backdropPath?.let { path ->
             logoAccent = artworkAccent(path)?.let { Color(it) } ?: currentThemeAccent
         }
+        if (current != null) {
+            artworkAlpha.animateTo(
+                1f,
+                tween(CinematicTransitionMillis, easing = FastOutSlowInEasing)
+            )
+        }
         while (media.isNotEmpty()) {
-            delay(CinematicHoldMillis)
             val alternatives = media.filterNot { it.id == current?.id }
             val next = (alternatives.ifEmpty { media }).random()
             val nextAccent = next.backdropPath
                 ?.let { artworkAccent(it) }
                 ?.let { Color(it) }
                 ?: currentThemeAccent
+            delay(CinematicHoldMillis)
+            artworkAlpha.animateTo(
+                0f,
+                tween(CinematicFadeOutMillis, easing = FastOutSlowInEasing)
+            )
             logoAccent = nextAccent
             transitionKey += 1
             current = next
+            artworkAlpha.animateTo(
+                1f,
+                tween(CinematicTransitionMillis, easing = FastOutSlowInEasing)
+            )
         }
     }
 
@@ -134,16 +151,11 @@ private fun CinematicAmbientMode(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        AnimatedContent(
-            targetState = current,
-            transitionSpec = {
-                fadeIn(tween(CinematicTransitionMillis, easing = FastOutSlowInEasing)) togetherWith
-                    fadeOut(tween(CinematicTransitionMillis, easing = FastOutSlowInEasing))
-            },
-            contentKey = { it?.id },
-            label = "ambientCinematicArtwork"
-        ) { item ->
-            if (item != null) CinematicArtwork(item)
+        current?.let { item ->
+            CinematicArtwork(
+                media = item,
+                modifier = Modifier.graphicsLayer { alpha = artworkAlpha.value }
+            )
         }
 
         if (current == null) AmbientArtworkEmptyState()
@@ -167,26 +179,27 @@ private fun CinematicAmbientMode(
 }
 
 @Composable
-private fun CinematicArtwork(media: MediaEntity) {
-    val appearance = remember(media.id) { Animatable(0f) }
+private fun CinematicArtwork(
+    media: MediaEntity,
+    modifier: Modifier = Modifier
+) {
     val travel = remember(media.id) { Animatable(0f) }
-    val travelDistance = with(LocalDensity.current) { 58.dp.toPx() }
+    val travelDistance = with(LocalDensity.current) { 30.dp.toPx() }
     val direction = if (media.id % 2L == 0L) 1f else -1f
 
-    LaunchedEffect(media.id) {
-        appearance.animateTo(1f, tween(CinematicTransitionMillis, easing = FastOutSlowInEasing))
-    }
     LaunchedEffect(media.id) {
         travel.animateTo(
             targetValue = 1f,
             animationSpec = tween(
-                durationMillis = (CinematicHoldMillis + CinematicTransitionMillis).toInt(),
+                durationMillis = (CinematicHoldMillis +
+                    CinematicTransitionMillis +
+                    CinematicFadeOutMillis).toInt(),
                 easing = LinearEasing
             )
         )
     }
 
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = appearance.value }) {
+    Box(modifier.fillMaxSize()) {
         AsyncImage(
             model = TmdbApi.IMAGE_BASE_URL + "w1280" + media.backdropPath,
             contentDescription = null,
@@ -194,8 +207,8 @@ private fun CinematicArtwork(media: MediaEntity) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = 1.08f
-                    scaleY = 1.08f
+                    scaleX = 1.12f
+                    scaleY = 1.12f
                     translationX = ((travel.value * 2f) - 1f) * travelDistance * direction
                 }
         )
