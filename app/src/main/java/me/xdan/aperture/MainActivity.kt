@@ -39,6 +39,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var sponsorVerificationManager: SponsorVerificationManager
+    private var sponsorPromptLaunchNumber: Int = 0
     
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
     private var isAmbientActive by mutableStateOf(false)
@@ -47,6 +48,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val launchPreferences = getSharedPreferences("sponsor_prompt", MODE_PRIVATE)
+        sponsorPromptLaunchNumber = launchPreferences.getInt(KEY_LAUNCH_COUNT, 0) + 1
+        launchPreferences.edit().putInt(KEY_LAUNCH_COUNT, sponsorPromptLaunchNumber).apply()
         enableEdgeToEdge()
         setContent {
             val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
@@ -99,6 +103,7 @@ class MainActivity : ComponentActivity() {
                 !isPlayerActive &&
                 !isAmbientActive &&
                 !sponsorVerified &&
+                sponsorPromptLaunchNumber % SPONSOR_PROMPT_LAUNCH_INTERVAL == 0 &&
                 !updateBlocksSponsorPrompt
 
             LaunchedEffect(sponsorPromptEligible, sponsorPromptHandledThisLaunch) {
@@ -259,3 +264,5 @@ class MainActivity : ComponentActivity() {
 }
 
 private const val SPONSOR_PROMPT_TEST_DELAY_MS = 2_500L
+private const val SPONSOR_PROMPT_LAUNCH_INTERVAL = 10
+private const val KEY_LAUNCH_COUNT = "launch_count"
