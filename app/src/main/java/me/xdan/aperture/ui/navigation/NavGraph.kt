@@ -34,6 +34,7 @@ import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.component.MediaContextMenu
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
+import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -258,7 +259,8 @@ fun NavGraph(
                                 Text(
                                     "Aperture",
                                     style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontFamily = ApertureBrandFontFamily,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                                 )
                             }
 
