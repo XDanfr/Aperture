@@ -20,9 +20,12 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.rememberNavBackStack
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import me.xdan.aperture.data.sponsor.SponsorVerificationManager
 import me.xdan.aperture.ui.navigation.Destination
 import me.xdan.aperture.ui.navigation.NavGraph
 import me.xdan.aperture.ui.component.SponsorPromptDialog
+import me.xdan.aperture.ui.component.SponsorVerificationDialog
 import me.xdan.aperture.ui.screen.ambient.AmbientMode
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.ui.screen.launch.ApertureLaunchAnimation
@@ -31,9 +34,11 @@ import me.xdan.aperture.ui.screen.settings.GITHUB_SPONSORS_URL
 import me.xdan.aperture.ui.screen.settings.LinkQrDialog
 import me.xdan.aperture.ui.screen.settings.UpdateDialog
 import me.xdan.aperture.ui.theme.ApertureTheme
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var sponsorVerificationManager: SponsorVerificationManager
     
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
     private var isAmbientActive by mutableStateOf(false)
@@ -50,12 +55,16 @@ class MainActivity : ComponentActivity() {
             val updateState by mainViewModel.updateState.collectAsState()
             val onboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
             val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
+            val sponsorVerified by sponsorVerificationManager.isVerified.collectAsState()
+            val sponsorVerificationState by sponsorVerificationManager.state.collectAsState()
+            val scope = rememberCoroutineScope()
             var dismissedUpdateVersion by rememberSaveable { mutableStateOf<String?>(null) }
             var launchFinished by rememberSaveable { mutableStateOf(false) }
             var sponsorPromptHandledThisLaunch by rememberSaveable { mutableStateOf(false) }
             var sponsorPromptDelayElapsed by remember { mutableStateOf(false) }
             var showSponsorPrompt by rememberSaveable { mutableStateOf(false) }
             var showSponsorQr by rememberSaveable { mutableStateOf(false) }
+            var showSponsorVerification by rememberSaveable { mutableStateOf(false) }
             val offeredUpdate = when (val state = updateState) {
                 is UpdateCheckState.Available -> state
                 is UpdateCheckState.PermissionRequired -> state.update
@@ -88,6 +97,7 @@ class MainActivity : ComponentActivity() {
                 !tutorialRequired &&
                 !isPlayerActive &&
                 !isAmbientActive &&
+                !sponsorVerified &&
                 !updateBlocksSponsorPrompt
 
             LaunchedEffect(sponsorPromptEligible, sponsorPromptHandledThisLaunch) {
@@ -101,7 +111,12 @@ class MainActivity : ComponentActivity() {
                 if (updateDialogVisible) {
                     showSponsorPrompt = false
                     showSponsorQr = false
+                    showSponsorVerification = false
                 }
+            }
+
+            LaunchedEffect(sponsorVerified) {
+                if (sponsorVerified) showSponsorPrompt = false
             }
 
             ApertureTheme(
@@ -128,6 +143,7 @@ class MainActivity : ComponentActivity() {
                                     if (!isPlayerActive &&
                                         !showSponsorPrompt &&
                                         !showSponsorQr &&
+                                        !showSponsorVerification &&
                                         System.currentTimeMillis() - lastInteractionTime > 5 * 60 * 1000
                                     ) {
                                         isAmbientActive = true
@@ -174,7 +190,21 @@ class MainActivity : ComponentActivity() {
                                 showSponsorPrompt = false
                                 showSponsorQr = true
                             },
+                            onVerify = {
+                                showSponsorPrompt = false
+                                showSponsorVerification = true
+                                scope.launch { sponsorVerificationManager.verify() }
+                            },
                             onDismiss = { showSponsorPrompt = false }
+                        )
+                    } else if (showSponsorVerification) {
+                        SponsorVerificationDialog(
+                            state = sponsorVerificationState,
+                            onRetry = { scope.launch { sponsorVerificationManager.verify() } },
+                            onDismiss = {
+                                showSponsorVerification = false
+                                sponsorVerificationManager.resetState()
+                            }
                         )
                     } else if (showSponsorQr) {
                         LinkQrDialog(

@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun SponsorPromptDialog(
     onSponsor: () -> Unit,
+    onVerify: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val dismissRequester = remember { FocusRequester() }
@@ -98,6 +99,10 @@ fun SponsorPromptDialog(
                         modifier = Modifier.focusRequester(dismissRequester)
                     ) {
                         Text("Not now")
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedButton(onClick = onVerify) {
+                        Text("I already sponsor")
                     }
                     Spacer(Modifier.width(12.dp))
                     Button(onClick = onSponsor) {
