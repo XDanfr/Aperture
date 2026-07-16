@@ -24,12 +24,12 @@
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="screenshots/Home.png" alt="Aperture home screen with Spotlight and Recently Added media" />
+  <img src="screenshots/RoundSpotlight.png" alt="Aperture home screen with Spotlight and Recently Added media" />
 </p>
 
 <p align="center">
-  <img src="screenshots/Movies.png" width="49%" alt="Aperture Movies library" />
-  <img src="screenshots/TVShows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
+  <img src="screenshots/OutfitMovies.png" width="49%" alt="Aperture Movies library" />
+  <img src="screenshots/OutfitShows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
 </p>
 
 <p align="center">
@@ -38,8 +38,8 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/Searchv0.4.png" width="49%" alt="Aperture media search" />
-  <img src="screenshots/MetaReplace.png" width="49%" alt="Aperture manual artwork and metadata selection" />
+  <img src="screenshots/OutfitSearch.png" width="49%" alt="Aperture media search" />
+  <img src="screenshots/MetaSearch.png" width="49%" alt="Aperture manual artwork and metadata selection" />
 </p>
 
 ## ✨ Features
