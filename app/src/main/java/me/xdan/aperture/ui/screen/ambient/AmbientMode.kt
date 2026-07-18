@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -77,8 +79,18 @@ private const val PosterRows = 3
 fun AmbientMode(
     viewModel: AmbientViewModel = viewModel()
 ) {
+    val hostView = LocalView.current
     val allMedia by viewModel.media.collectAsState()
     val settings by viewModel.settings.collectAsState()
+
+    // Ambient Mode is Aperture's own idle experience, so Android's native
+    // dream/screensaver must not replace it while the mode is visible. Restore
+    // the previous value when the user dismisses Ambient Mode.
+    DisposableEffect(hostView) {
+        val wasKeepingScreenOn = hostView.keepScreenOn
+        hostView.keepScreenOn = true
+        onDispose { hostView.keepScreenOn = wasKeepingScreenOn }
+    }
 
     when (settings.mode) {
         AmbientModeType.CINEMATIC -> CinematicAmbientMode(
