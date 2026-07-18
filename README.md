@@ -64,6 +64,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Default audio track selection**: accessible in settings
 #### Further Out
 - [ ] **Support for NAS types, Jellyfin and Plex**
+- [ ] **Support for 3D TVs**
 
 ## 🚀 Getting Started
 
