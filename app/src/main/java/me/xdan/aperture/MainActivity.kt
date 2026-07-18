@@ -51,6 +51,18 @@ class MainActivity : ComponentActivity() {
         val launchPreferences = getSharedPreferences("sponsor_prompt", MODE_PRIVATE)
         sponsorPromptLaunchNumber = launchPreferences.getInt(KEY_LAUNCH_COUNT, 0) + 1
         launchPreferences.edit().putInt(KEY_LAUNCH_COUNT, sponsorPromptLaunchNumber).apply()
+
+        // Establish a durable version baseline now. The first version that
+        // ships a What's New surface can compare this value before replacing it
+        // after the user has dismissed the notes. Do not overwrite an existing
+        // value here: it belongs to the version the user last acknowledged.
+        val appVersionPreferences = getSharedPreferences(APP_VERSION_PREFERENCES, MODE_PRIVATE)
+        if (!appVersionPreferences.contains(KEY_LAST_SEEN_VERSION_CODE)) {
+            appVersionPreferences.edit()
+                .putInt(KEY_LAST_SEEN_VERSION_CODE, BuildConfig.VERSION_CODE)
+                .apply()
+        }
+
         enableEdgeToEdge()
         setContent {
             val mainViewModel: me.xdan.aperture.ui.MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
@@ -266,3 +278,5 @@ class MainActivity : ComponentActivity() {
 private const val SPONSOR_PROMPT_TEST_DELAY_MS = 2_500L
 private const val SPONSOR_PROMPT_LAUNCH_INTERVAL = 10
 private const val KEY_LAUNCH_COUNT = "launch_count"
+private const val APP_VERSION_PREFERENCES = "app_version"
+private const val KEY_LAST_SEEN_VERSION_CODE = "last_seen_version_code"
