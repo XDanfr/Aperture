@@ -34,6 +34,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -71,6 +72,7 @@ fun PlayerScreen(
     val playbackFailure by viewModel.playbackFailure.collectAsState()
     val subtitleDelayMs by viewModel.subtitleDelayMs.collectAsState()
     val player = viewModel.player
+    val hostView = LocalView.current
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
     var playbackState by remember(player) { mutableIntStateOf(player.playbackState) }
@@ -95,7 +97,14 @@ fun PlayerScreen(
     }
 
     DisposableEffect(Unit) {
+        // A TV can otherwise enter the system dream/screensaver while a film is
+        // playing without remote input. View.keepScreenOn maps to Android's
+        // FLAG_KEEP_SCREEN_ON and is cleared as soon as this player route leaves
+        // composition, so normal idle behaviour resumes elsewhere in Aperture.
+        val wasKeepingScreenOn = hostView.keepScreenOn
+        hostView.keepScreenOn = true
         onDispose {
+            hostView.keepScreenOn = wasKeepingScreenOn
             player.stop()
         }
     }
