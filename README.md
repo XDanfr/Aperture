@@ -56,14 +56,15 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 
 ### Planned Features
 
-- [ ] **Press Back for Sidebar Navigation**
-- [ ] **Branding updates**
-- [ ] **App launch animation**
+- [X] **Press Back for Sidebar Navigation**
+- [X] **Branding updates**
+- [X] **App launch animation**
 - [ ] **Complete OpenSubtitles Integration**
 - [ ] **Proper audio synchronisation**: Forwards and backwards
 - [ ] **Default audio track selection**: accessible in settings
 #### Further Out
 - [ ] **Support for NAS types, Jellyfin and Plex**
+- [ ] **Support for 3D TVs**
 
 ## 🚀 Getting Started
 
