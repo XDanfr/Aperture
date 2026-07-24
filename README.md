@@ -109,5 +109,7 @@ Contributions are what make the open-source community such an amazing place! Wan
 **A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand!
 
 ---
+## 💜 Sponsors
+Aperture wouldn’t have active development without sponsors. Special thanks to kurohigex for keeping the app running :)
 
 <p align="center"><sub>If you like Aperture, please consider <a href="https://github.com/sponsors/XDanfr">supporting its development on GitHub Sponsors</a> 💜</sub></p>
