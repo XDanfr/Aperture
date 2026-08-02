@@ -1,16 +1,30 @@
+# Android / Gradle build outputs
+*.apk
+*.aab
+*.apks
+*.dm
+*.hprof
 *.iml
-.gradle
+*.keystore
+*.jks
+*.pem
+*.p12
+*.properties.local
+*.swp
+*.tmp
+/build/
+/app/build/
+/app/debug/
+/app/release/
+/.gradle/
+
+# Android Studio / IntelliJ project state
+/.idea/
+/captures/
+/.externalNativeBuild/
+/.cxx/
+
+# Local machine configuration and OS metadata
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-.agent
+.agent/
