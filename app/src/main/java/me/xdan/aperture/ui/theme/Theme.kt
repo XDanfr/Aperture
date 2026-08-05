@@ -1,11 +1,16 @@
 package me.xdan.aperture.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
+import androidx.tv.material3.ColorScheme
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import me.xdan.aperture.ui.theme.tokens.*
 
 data class ApertureThemeOption(val id: String, val label: String, val preview: Color)
 
@@ -75,9 +80,69 @@ fun ApertureTheme(
         surfaceVariant = Color(0xFF252229),
         onSurfaceVariant = Color(0xFFE6E0E8)
     )
-    MaterialTheme(
-        colorScheme = scheme,
-        typography = Typography,
-        content = content
+
+    val apertureColorScheme = remember(scheme) {
+        scheme.toApertureColorScheme()
+    }
+
+    val tokens = remember(apertureColorScheme) {
+        ApertureTokens(
+            colorScheme = apertureColorScheme,
+            typography = Typography,
+            shapes = ApertureShapes(),
+            motion = ApertureMotion(),
+            spacing = ApertureSpacing(),
+            elevation = ApertureElevation()
+        )
+    }
+
+    CompositionLocalProvider(LocalApertureTokens provides tokens) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = Typography,
+            content = content
+        )
+    }
+}
+
+/**
+ * Accessor for Aperture expressive tokens.
+ */
+object ApertureTheme {
+    val tokens: ApertureTokens
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current
+}
+
+/**
+ * Maps standard TV Material 3 color scheme to Aperture's expressive semantic roles.
+ */
+private fun ColorScheme.toApertureColorScheme(): ApertureColorScheme {
+    return ApertureColorScheme(
+        // Expressive base roles (approximated for Phase 1)
+        surfaceBright = surfaceVariant,
+        surfaceDim = surface,
+        surfaceContainer = surfaceVariant,
+        surfaceContainerLow = surface,
+        surfaceContainerHigh = surfaceVariant,
+        surfaceContainerHighest = surfaceVariant,
+
+        // Semantic roles
+        mediaCardBackground = surfaceVariant,
+        focusedMediaCardBackground = primaryContainer,
+        heroBackground = surface,
+        playbackOverlay = background.copy(alpha = 0.8f),
+        metadataBackground = surface.copy(alpha = 0.6f),
+        shelfBackground = Color.Transparent,
+
+        // Core brand
+        primary = primary,
+        onPrimary = onPrimary,
+        secondary = secondary,
+        background = background,
+        onBackground = onBackground,
+        surface = surface,
+        onSurface = onSurface
     )
 }
