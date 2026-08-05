@@ -142,7 +142,8 @@ fun MediaCard(
                 if (it.isFocused) onFocused(cardFocusRequester)
             }
             .aspectRatio(aspectRatio)
-            .padding(ApertureTheme.spacing.extraSmall),
+            .padding(ApertureTheme.spacing.extraSmall)
+            .scale(animatedScale),
         shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = androidx.tv.material3.Border(
@@ -159,7 +160,6 @@ fun MediaCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .scale(animatedScale)
                 .background(ApertureTheme.colorScheme.mediaCardBackground)
         ) {
             if (artworkPath.isNullOrBlank()) {
