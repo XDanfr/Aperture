@@ -1,12 +1,10 @@
 package me.xdan.aperture.ui.component
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,12 +28,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.ui.theme.ApertureTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -49,7 +47,7 @@ fun MediaCard(
     aspectRatio: Float = 2f / 3f,
     preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
-    focusScale: Float = 1.05f,
+    focusScale: Float = 1.1f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
@@ -89,7 +87,7 @@ fun MediaCard(
             isFocused -> focusScale
             else -> 1f
         },
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+        animationSpec = ApertureTheme.motion.focus(),
         label = "animatedScale"
     )
     val focusGlow = rememberFocusGlow(isFocused)
@@ -143,14 +141,13 @@ fun MediaCard(
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused(cardFocusRequester)
             }
-            .scale(animatedScale)
             .aspectRatio(aspectRatio)
-            .padding(4.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+            .padding(ApertureTheme.spacing.extraSmall),
+        shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = androidx.tv.material3.Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
-                shape = RoundedCornerShape(8.dp)
+                border = androidx.compose.foundation.BorderStroke(2.dp, ApertureTheme.colorScheme.border),
+                shape = ApertureTheme.shapes.poster
             )
         ),
         glow = ClickableSurfaceDefaults.glow(
@@ -159,7 +156,12 @@ fun MediaCard(
             pressedGlow = focusGlow
         )
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(animatedScale)
+                .background(ApertureTheme.colorScheme.mediaCardBackground)
+        ) {
             if (artworkPath.isNullOrBlank()) {
                 ArtworkFallback(
                     title = fallbackTitle,
@@ -182,9 +184,9 @@ fun MediaCard(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 10.dp)
+                        .padding(horizontal = ApertureTheme.spacing.small, vertical = ApertureTheme.spacing.small)
                         .height(if (isFocused) 8.dp else 6.dp)
-                        .clip(RoundedCornerShape(99.dp))
+                        .clip(ApertureTheme.shapes.button)
                         .background(Color.Black.copy(alpha = 0.82f))
                 ) {
                     Box(
@@ -193,9 +195,9 @@ fun MediaCard(
                             .fillMaxHeight()
                             .background(
                                 if (isFocused) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                    ApertureTheme.colorScheme.onPrimary
                                 } else {
-                                    MaterialTheme.colorScheme.primary
+                                    ApertureTheme.colorScheme.primary
                                 }
                             )
                     )

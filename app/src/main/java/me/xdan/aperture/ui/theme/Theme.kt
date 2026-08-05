@@ -1,15 +1,15 @@
 package me.xdan.aperture.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.ColorScheme
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
-import androidx.compose.ui.graphics.Color
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import me.xdan.aperture.ui.theme.tokens.*
 
 data class ApertureThemeOption(val id: String, val label: String, val preview: Color)
@@ -81,14 +81,17 @@ fun ApertureTheme(
         onSurfaceVariant = Color(0xFFE6E0E8)
     )
 
-    val apertureColorScheme = remember(scheme) {
+    val apertureColorScheme = remember {
         scheme.toApertureColorScheme()
     }
+    
+    // Efficiently update semantic roles when the base Material scheme changes
+    apertureColorScheme.updateFrom(scheme.toApertureColorScheme())
 
     val tokens = remember(apertureColorScheme) {
         ApertureTokens(
             colorScheme = apertureColorScheme,
-            typography = Typography,
+            typography = ApertureTypography(Typography),
             shapes = ApertureShapes(),
             motion = ApertureMotion(),
             spacing = ApertureSpacing(),
@@ -109,10 +112,35 @@ fun ApertureTheme(
  * Accessor for Aperture expressive tokens.
  */
 object ApertureTheme {
-    val tokens: ApertureTokens
+    val colorScheme: ApertureColorScheme
         @Composable
         @ReadOnlyComposable
-        get() = LocalApertureTokens.current
+        get() = LocalApertureTokens.current.colorScheme
+
+    val shapes: ApertureShapes
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.shapes
+
+    val motion: ApertureMotion
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.motion
+
+    val spacing: ApertureSpacing
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.spacing
+
+    val elevation: ApertureElevation
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.elevation
+
+    val typography: ApertureTypography
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.typography
 }
 
 /**
@@ -143,6 +171,8 @@ private fun ColorScheme.toApertureColorScheme(): ApertureColorScheme {
         background = background,
         onBackground = onBackground,
         surface = surface,
-        onSurface = onSurface
+        onSurface = onSurface,
+        border = border,
+        borderVariant = borderVariant
     )
 }

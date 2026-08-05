@@ -11,44 +11,53 @@ import androidx.compose.animation.core.tween
  * Motion in Aperture is physics-based (Springs) for focus interactions
  * and precise (Tweens) for playback controls.
  */
-data class ApertureMotion(
+class ApertureMotion(
+    private val focusStiffness: Float = Spring.StiffnessLow,
+    private val focusDamping: Float = Spring.DampingRatioMediumBouncy,
+    private val heroStiffness: Float = Spring.StiffnessLow,
+    private val heroDamping: Float = Spring.DampingRatioNoBouncy,
+    private val enterStiffness: Float = Spring.StiffnessMedium,
+    private val enterDamping: Float = Spring.DampingRatioNoBouncy,
+    private val playbackOverlayDuration: Int = 300,
+    private val playbackProgressDuration: Int = 150,
+    private val exitDuration: Int = 200
+) {
     /**
      * Fluid spring for scaling components on focus.
-     * Low stiffness and medium damping provide a natural "pop".
      */
-    val focus: AnimationSpec<Float> = spring(
-        dampingRatio = Spring.DampingRatioLowBouncy,
-        stiffness = Spring.StiffnessMediumLow
-    ),
+    fun <T> focus(): AnimationSpec<T> = spring(
+        dampingRatio = focusDamping,
+        stiffness = focusStiffness
+    )
 
     /**
      * Responsive spring for large hero content transitions.
      */
-    val hero: AnimationSpec<Float> = spring(
-        dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessLow
-    ),
+    fun <T> hero(): AnimationSpec<T> = spring(
+        dampingRatio = heroDamping,
+        stiffness = heroStiffness
+    )
 
     /**
      * Standard tween for playback overlay visibility.
      */
-    val playbackOverlay: AnimationSpec<Float> = tween(durationMillis = 300),
+    fun <T> playbackOverlay(): AnimationSpec<T> = tween(durationMillis = playbackOverlayDuration)
 
     /**
      * Precise tween for seek bars and progress indicators.
      */
-    val playbackProgress: AnimationSpec<Float> = tween(durationMillis = 150),
+    fun <T> playbackProgress(): AnimationSpec<T> = tween(durationMillis = playbackProgressDuration)
 
     /**
      * Expressive enter transition for new screens or dialogs.
      */
-    val enter: AnimationSpec<Float> = spring(
-        dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessMedium
-    ),
+    fun <T> enter(): AnimationSpec<T> = spring(
+        dampingRatio = enterDamping,
+        stiffness = enterStiffness
+    )
 
     /**
      * Smooth exit transition for dismissing content.
      */
-    val exit: AnimationSpec<Float> = tween(durationMillis = 200)
-)
+    fun <T> exit(): AnimationSpec<T> = tween(durationMillis = exitDuration)
+}

@@ -17,7 +17,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
 /**
- * A comprehensive showcase of Aperture's Material 3 Expressive token layer.
+ * A comprehensive showcase of Aperture's Material 3 Expressive design system.
  *
  * This preview serves as the "design system homepage", allowing developers
  * to verify visual balance and token relationships at a glance.
@@ -26,19 +26,17 @@ import androidx.tv.material3.Text
 @Composable
 fun ExpressiveShowcasePreview() {
     ApertureTheme {
-        val tokens = ApertureTheme.tokens
-        
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(tokens.colorScheme.background)
-                .padding(tokens.spacing.huge),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.large)
+                .background(ApertureTheme.colorScheme.background)
+                .padding(ApertureTheme.spacing.huge),
+            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
         ) {
             Text(
                 text = "Aperture Expressive Design System",
                 style = MaterialTheme.typography.displayMedium,
-                color = tokens.colorScheme.onBackground
+                color = ApertureTheme.colorScheme.onBackground
             )
 
             // Hero Section
@@ -46,15 +44,15 @@ fun ExpressiveShowcasePreview() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
-                    .clip(tokens.shapes.hero)
-                    .background(tokens.colorScheme.heroBackground)
-                    .border(1.dp, Color.White.copy(alpha = 0.1f), tokens.shapes.hero),
+                    .clip(ApertureTheme.shapes.hero)
+                    .background(ApertureTheme.colorScheme.heroBackground)
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), ApertureTheme.shapes.hero),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Hero Banner Token",
                     style = MaterialTheme.typography.headlineLarge,
-                    color = tokens.colorScheme.onSurface
+                    color = ApertureTheme.colorScheme.onSurface
                 )
             }
 
@@ -62,25 +60,25 @@ fun ExpressiveShowcasePreview() {
             Text(
                 text = "Continue Watching",
                 style = MaterialTheme.typography.titleLarge,
-                color = tokens.colorScheme.onBackground
+                color = ApertureTheme.colorScheme.onBackground
             )
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.medium)
+                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
             ) {
                 items(5) { index ->
-                    Column(verticalArrangement = Arrangement.spacedBy(tokens.spacing.small)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
                         Box(
                             modifier = Modifier
                                 .width(160.dp)
                                 .height(240.dp)
-                                .shadow(tokens.elevation.card, tokens.shapes.poster)
-                                .clip(tokens.shapes.poster)
-                                .background(if (index == 0) tokens.colorScheme.focusedMediaCardBackground else tokens.colorScheme.mediaCardBackground)
+                                .shadow(ApertureTheme.elevation.card, ApertureTheme.shapes.poster)
+                                .clip(ApertureTheme.shapes.poster)
+                                .background(if (index == 0) ApertureTheme.colorScheme.focusedMediaCardBackground else ApertureTheme.colorScheme.mediaCardBackground)
                         )
                         Text(
                             text = "Media Item $index",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = tokens.colorScheme.onBackground
+                            color = ApertureTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -89,21 +87,21 @@ fun ExpressiveShowcasePreview() {
             // Controls & Dialog mockup
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.large),
+                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Button
                 Box(
                     modifier = Modifier
                         .height(48.dp)
-                        .padding(horizontal = tokens.spacing.large)
-                        .clip(tokens.shapes.button)
-                        .background(tokens.colorScheme.primary),
+                        .padding(horizontal = ApertureTheme.spacing.large)
+                        .clip(ApertureTheme.shapes.button)
+                        .background(ApertureTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "Expressive Button",
-                        color = tokens.colorScheme.onPrimary,
+                        color = ApertureTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -112,13 +110,13 @@ fun ExpressiveShowcasePreview() {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .border(4.dp, tokens.colorScheme.secondary.copy(alpha = 0.2f), CircleShape)
+                        .border(4.dp, ApertureTheme.colorScheme.secondary.copy(alpha = 0.2f), CircleShape)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize(0.25f)
                             .align(Alignment.TopCenter)
-                            .background(tokens.colorScheme.secondary, CircleShape)
+                            .background(ApertureTheme.colorScheme.secondary, CircleShape)
                     )
                 }
             }
@@ -128,14 +126,14 @@ fun ExpressiveShowcasePreview() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(80.dp)
-                    .clip(tokens.shapes.poster)
-                    .background(tokens.colorScheme.playbackOverlay)
-                    .padding(tokens.spacing.medium),
+                    .clip(ApertureTheme.shapes.poster)
+                    .background(ApertureTheme.colorScheme.playbackOverlay)
+                    .padding(ApertureTheme.spacing.medium),
                 contentAlignment = Alignment.CenterStart
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokens.spacing.medium)) {
-                    Box(modifier = Modifier.size(40.dp).background(tokens.colorScheme.primary, CircleShape))
-                    Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).background(tokens.colorScheme.onSurface.copy(alpha = 0.3f)))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                    Box(modifier = Modifier.size(40.dp).background(ApertureTheme.colorScheme.primary, CircleShape))
+                    Box(modifier = Modifier.fillMaxWidth(0.6f).height(4.dp).background(ApertureTheme.colorScheme.onSurface.copy(alpha = 0.3f)))
                 }
             }
         }

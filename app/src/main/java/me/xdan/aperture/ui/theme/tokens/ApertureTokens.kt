@@ -1,10 +1,8 @@
 package me.xdan.aperture.ui.theme.tokens
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Typography
 
 /**
@@ -15,7 +13,7 @@ import androidx.tv.material3.Typography
  */
 data class ApertureTokens(
     val colorScheme: ApertureColorScheme,
-    val typography: Typography,
+    val typography: ApertureTypography,
     val shapes: ApertureShapes,
     val motion: ApertureMotion,
     val spacing: ApertureSpacing,
