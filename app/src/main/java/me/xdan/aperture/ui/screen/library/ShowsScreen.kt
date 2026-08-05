@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -82,7 +83,7 @@ private fun GroupedShowsGrid(
             val columnCount = ((maxWidth - 16.dp) / 182.dp).toInt().coerceAtLeast(1)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columnCount),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
                 contentPadding = PaddingValues(8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -123,7 +124,7 @@ private fun EpisodeRows(
 ) {
     val firstEpisode = groups.first().episodes.first()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
         contentPadding = PaddingValues(horizontal = 32.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
@@ -141,6 +142,7 @@ private fun EpisodeRows(
                             LazyRow(
                                 // Cards scale when focused; keep that scale inside the
                                 // viewport at both ends of every episode row.
+                                modifier = Modifier.graphicsLayer { clip = false },
                                 contentPadding = PaddingValues(horizontal = 14.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {

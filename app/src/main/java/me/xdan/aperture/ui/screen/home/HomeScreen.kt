@@ -158,7 +158,10 @@ private fun HomeContent(
     }
     
     LazyColumn(
-        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = refreshAlpha.value },
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            alpha = refreshAlpha.value
+            clip = false
+        },
         state = listState,
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
@@ -403,7 +406,7 @@ private fun HomeMediaRow(
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
         LazyRow(
-            modifier = Modifier.height(270.dp),
+            modifier = Modifier.height(270.dp).graphicsLayer { clip = false },
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically

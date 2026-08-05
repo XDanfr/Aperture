@@ -13,7 +13,7 @@ import androidx.compose.animation.core.tween
  */
 class ApertureMotion(
     private val focusStiffness: Float = 300f,
-    private val focusDamping: Float = 0.7f,
+    private val focusDamping: Float = 0.68f,
     private val heroStiffness: Float = Spring.StiffnessLow,
     private val heroDamping: Float = Spring.DampingRatioNoBouncy,
     private val enterStiffness: Float = Spring.StiffnessMedium,

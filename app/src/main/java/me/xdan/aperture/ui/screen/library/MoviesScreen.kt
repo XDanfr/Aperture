@@ -19,6 +19,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -48,7 +49,7 @@ fun MoviesScreen(
             val columnCount = ((maxWidth - 16.dp) / 182.dp).toInt().coerceAtLeast(1)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columnCount),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
                 contentPadding = PaddingValues(8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
