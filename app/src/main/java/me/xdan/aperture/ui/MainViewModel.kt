@@ -55,7 +55,7 @@ class MainViewModel @Inject constructor(
 
     private val _dynamicAccentArgb = MutableStateFlow<Int?>(null)
     val dynamicAccentArgb: StateFlow<Int?> = _dynamicAccentArgb
-    private val artworkAccentCache = mutableMapOf<Long, Int>()
+    private val artworkAccentCache = mutableMapOf<String, Int>()
     private var requestedActiveMediaId: Long? = null
     private var dynamicThemeJob: Job? = null
 
@@ -122,29 +122,36 @@ class MainViewModel @Inject constructor(
         if (themeId.value != "dynamic") return
         requestedActiveMediaId = mediaId
         dynamicThemeJob?.cancel()
-        artworkAccentCache[mediaId]?.let {
-            _dynamicAccentArgb.value = it
-            return
-        }
-        dynamicThemeJob = viewModelScope.launch {
-            // Avoid recolouring the whole app while the user is rapidly
-            // traversing a row; settle briefly on the focused card first.
-            kotlinx.coroutines.delay(140)
-            if (requestedActiveMediaId != mediaId) return@launch
+
+        viewModelScope.launch {
             val media = mediaRepository.getMediaById(mediaId) ?: return@launch
             val artworkPath = media.backdropPath ?: media.posterPath ?: return@launch
-            val url = TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath
-            val accent = withContext(Dispatchers.IO) {
-                runCatching {
-                    val result = context.imageLoader.execute(
-                        ImageRequest.Builder(context).data(url).allowHardware(false).build()
-                    )
-                    result.drawable?.toBitmap()?.let(::extractArtworkAccent)
-                }.getOrNull()
+            val cacheKey = "$mediaId:$artworkPath"
+
+            artworkAccentCache[cacheKey]?.let {
+                _dynamicAccentArgb.value = it
+                return@launch
             }
-            if (accent != null) {
-                artworkAccentCache[mediaId] = accent
-                if (requestedActiveMediaId == mediaId) _dynamicAccentArgb.value = accent
+
+            dynamicThemeJob = viewModelScope.launch {
+                // Avoid recolouring the whole app while the user is rapidly
+                // traversing a row; settle briefly on the focused card first.
+                kotlinx.coroutines.delay(140)
+                if (requestedActiveMediaId != mediaId) return@launch
+                
+                val url = TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath
+                val accent = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val result = context.imageLoader.execute(
+                            ImageRequest.Builder(context).data(url).allowHardware(false).build()
+                        )
+                        result.drawable?.toBitmap()?.let(::extractArtworkAccent)
+                    }.getOrNull()
+                }
+                if (accent != null) {
+                    artworkAccentCache[cacheKey] = accent
+                    if (requestedActiveMediaId == mediaId) _dynamicAccentArgb.value = accent
+                }
             }
         }
     }

@@ -420,11 +420,6 @@ private fun HomeMediaRow(
                         )
                     },
                     modifier = Modifier.width(150.dp),
-                    // This row is nested inside Home's vertical LazyColumn. Scaling
-                    // its focus target makes Compose's bring-into-view logic chase
-                    // animated bounds and produces the vertical "wobble". The TV
-                    // focus border remains, while press feedback still scales down.
-                    focusScale = 1f,
                     focusRequester = contentEntryFocusRequester.takeIf {
                         restoreFocusKey == focusKey
                     },
