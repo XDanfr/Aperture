@@ -12,8 +12,8 @@ import androidx.compose.animation.core.tween
  * and precise (Tweens) for playback controls.
  */
 class ApertureMotion(
-    private val focusStiffness: Float = 300f,
-    private val focusDamping: Float = 0.68f,
+    private val focusStiffness: Float = 400f,
+    private val focusDamping: Float = 0.75f,
     private val heroStiffness: Float = Spring.StiffnessLow,
     private val heroDamping: Float = Spring.DampingRatioNoBouncy,
     private val enterStiffness: Float = Spring.StiffnessMedium,
