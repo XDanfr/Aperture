@@ -2,11 +2,13 @@ package me.xdan.aperture.ui.screen.mylist
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -18,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
@@ -30,10 +33,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.data.local.entity.MediaEntity
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -72,35 +77,39 @@ fun MyListScreen(
         return
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 24.dp)
-    ) {
-        val columnCount = ((maxWidth - 16.dp) / 182.dp).toInt().coerceAtLeast(1)
+    Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(columnCount),
+            columns = GridCells.Fixed(6),
             modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(top = ApertureTheme.spacing.huge, bottom = ApertureTheme.spacing.large, start = 32.dp, end = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+            horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
         ) {
             itemsIndexed(media, key = { _, item -> item.id }) { index, item ->
                 var visible by remember(item.id) { mutableStateOf(false) }
+                var isFocused by remember { mutableStateOf(false) }
                 LaunchedEffect(item.id) { visible = true }
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
-                ) {
-                    MediaCard(
-                        media = item,
-                        onClick = { requester -> onMediaClick(item.id, requester) },
-                        modifier = Modifier.fillMaxWidth(),
-                        focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
-                        drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
-                        onFocused = onContentFocused,
-                        onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
-                    )
+                Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
+                    ) {
+                        MediaCard(
+                            media = item,
+                            onClick = { requester -> onMediaClick(item.id, requester) },
+                            modifier = Modifier.fillMaxWidth(),
+                            focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
+                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 6 == 0 },
+                            onFocused = {
+                                isFocused = true
+                                onContentFocused(it)
+                            },
+                            onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
+                        )
+                    }
+                }
+                DisposableEffect(Unit) {
+                    onDispose { isFocused = false }
                 }
             }
         }

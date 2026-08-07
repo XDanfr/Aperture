@@ -39,6 +39,7 @@ import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.MediaCard
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.component.rememberFocusGlow
+import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.HeroGradientEnd
 import me.xdan.aperture.ui.theme.HeroGradientStart
 
@@ -144,7 +145,15 @@ private fun HomeContent(
         }
     }
     val allowUnfocusedSpotlightUpdates = isAtSpotlight &&
-        (entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
+        (restoreFocusKey == null || restoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
+
+    LaunchedEffect(restoreFocusKey) {
+        if (restoreFocusKey != null && restoreFocusKey != HOME_SPOTLIGHT_FOCUS_KEY) {
+            // If we've restored focus to a row, ensure the theme color matches it immediately
+            val mediaId = restoreFocusKey.substringAfterLast(":").toLongOrNull()
+            mediaId?.let { onActiveMediaChanged(it) }
+        }
+    }
 
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
@@ -408,7 +417,7 @@ private fun HomeMediaRow(
         LazyRow(
             modifier = Modifier.height(270.dp).graphicsLayer { clip = false },
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
             verticalAlignment = Alignment.CenterVertically
         ) {
             itemsIndexed(row.items, key = { _, media -> media.id }) { index, media ->

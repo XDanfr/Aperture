@@ -14,12 +14,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 fun ShowsScreen(
@@ -43,26 +46,29 @@ fun ShowsScreen(
             .map { (title, items) -> ShowGroup(title, items) }
             .sortedBy { it.title.lowercase() }
     }
-    if (presentationMode == "episodes") {
-        EpisodeRows(
-            groups = groups,
-            onMediaClick = onMediaClick,
-            onMediaLongClick = onMediaLongClick,
-            drawerFocusRequester = drawerFocusRequester,
-            contentEntryFocusRequester = contentEntryFocusRequester,
-            onContentFocused = onContentFocused,
-            onActiveMediaChanged = onActiveMediaChanged
-        )
-    } else {
-        GroupedShowsGrid(
-            groups = groups,
-            onMediaClick = onMediaClick,
-            onMediaLongClick = onMediaLongClick,
-            drawerFocusRequester = drawerFocusRequester,
-            contentEntryFocusRequester = contentEntryFocusRequester,
-            onContentFocused = onContentFocused,
-            onActiveMediaChanged = onActiveMediaChanged
-        )
+
+    Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
+        if (presentationMode == "episodes") {
+            EpisodeRows(
+                groups = groups,
+                onMediaClick = onMediaClick,
+                onMediaLongClick = onMediaLongClick,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged
+            )
+        } else {
+            GroupedShowsGrid(
+                groups = groups,
+                onMediaClick = onMediaClick,
+                onMediaLongClick = onMediaLongClick,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged
+            )
+        }
     }
 }
 
@@ -76,35 +82,41 @@ private fun GroupedShowsGrid(
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp).graphicsLayer { clip = false }) {
         Text("TV Shows", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(20.dp))
-        BoxWithConstraints(Modifier.weight(1f)) {
-            val columnCount = ((maxWidth - 16.dp) / 182.dp).toInt().coerceAtLeast(1)
+        Spacer(Modifier.height(ApertureTheme.spacing.large))
+        Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(columnCount),
+                columns = GridCells.Fixed(6),
                 modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
+                verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
             ) {
                 itemsIndexed(groups, key = { _, group -> group.title }) { index, group ->
                     val media = group.representative
-                    AnimatedLibraryCard(media.id) {
-                        MediaCard(
-                            media = media,
-                            onClick = { onMediaClick(media.id, it, false) },
-                            modifier = Modifier.fillMaxWidth(),
-                            focusRequester = contentEntryFocusRequester.takeIf { index == 0 },
-                            drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
-                            onFocused = { requester ->
-                                onContentFocused(requester)
-                                onActiveMediaChanged(media.id)
-                            },
-                            onLongClick = { requester, opensToRight ->
-                                onMediaLongClick(media, requester, false, opensToRight)
-                            }
-                        )
+                    var isFocused by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                        AnimatedLibraryCard(media.id) {
+                            MediaCard(
+                                media = media,
+                                onClick = { onMediaClick(media.id, it, false) },
+                                modifier = Modifier.fillMaxWidth(),
+                                focusRequester = contentEntryFocusRequester.takeIf { index == 0 },
+                                drawerFocusRequester = drawerFocusRequester.takeIf { index % 6 == 0 },
+                                onFocused = { requester ->
+                                    isFocused = true
+                                    onContentFocused(requester)
+                                    onActiveMediaChanged(media.id)
+                                },
+                                onLongClick = { requester, opensToRight ->
+                                    onMediaLongClick(media, requester, false, opensToRight)
+                                }
+                            )
+                        }
+                    }
+                    DisposableEffect(Unit) {
+                        onDispose { isFocused = false }
                     }
                 }
             }
@@ -131,7 +143,10 @@ private fun EpisodeRows(
         item { Text("TV Shows", style = MaterialTheme.typography.headlineLarge) }
         groups.forEach { group ->
             item(key = "show:${group.title}") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.graphicsLayer { clip = false },
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(group.title, style = MaterialTheme.typography.headlineSmall)
                     group.episodes.groupBy { it.seasonNumber ?: 0 }.toSortedMap()
                         .forEach { (season, seasonEpisodes) ->
@@ -140,40 +155,45 @@ private fun EpisodeRows(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             LazyRow(
-                                // Cards scale when focused; keep that scale inside the
-                                // viewport at both ends of every episode row.
                                 modifier = Modifier.graphicsLayer { clip = false },
                                 contentPadding = PaddingValues(horizontal = 14.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
                             ) {
                                 itemsIndexed(seasonEpisodes, key = { _, episode -> episode.id }) { index, episode ->
-                                    AnimatedLibraryCard(episode.id) {
-                                        Column(Modifier.width(220.dp)) {
-                                            MediaCard(
-                                                media = episode,
-                                                onClick = { onMediaClick(episode.id, it, true) },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                aspectRatio = 16f / 9f,
-                                                preferEpisodeStill = true,
-                                                focusRequester = contentEntryFocusRequester.takeIf {
-                                                    episode.id == firstEpisode.id
-                                                },
-                                                drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
-                                                onFocused = { requester ->
-                                                    onContentFocused(requester)
-                                                    onActiveMediaChanged(episode.id)
-                                                },
-                                                onLongClick = { requester, opensToRight ->
-                                                    onMediaLongClick(episode, requester, false, opensToRight)
-                                                }
-                                            )
-                                            Spacer(Modifier.height(6.dp))
-                                            Text(
-                                                episodeLabel(episode),
-                                                style = MaterialTheme.typography.labelLarge,
-                                                maxLines = 1
-                                            )
+                                    var isFocused by remember { mutableStateOf(false) }
+                                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f).graphicsLayer { clip = false }) {
+                                        AnimatedLibraryCard(episode.id) {
+                                            Column(Modifier.width(260.dp).graphicsLayer { clip = false }) {
+                                                MediaCard(
+                                                    media = episode,
+                                                    onClick = { onMediaClick(episode.id, it, true) },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    aspectRatio = 16f / 9f,
+                                                    preferEpisodeStill = true,
+                                                    focusRequester = contentEntryFocusRequester.takeIf {
+                                                        episode.id == firstEpisode.id
+                                                    },
+                                                    drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
+                                                    onFocused = { requester ->
+                                                        isFocused = true
+                                                        onContentFocused(requester)
+                                                        onActiveMediaChanged(episode.id)
+                                                    },
+                                                    onLongClick = { requester, opensToRight ->
+                                                        onMediaLongClick(episode, requester, false, opensToRight)
+                                                    }
+                                                )
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(
+                                                    episodeLabel(episode),
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    maxLines = 1
+                                                )
+                                            }
                                         }
+                                    }
+                                    DisposableEffect(Unit) {
+                                        onDispose { isFocused = false }
                                     }
                                 }
                             }

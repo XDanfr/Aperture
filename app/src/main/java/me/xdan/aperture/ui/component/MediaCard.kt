@@ -2,6 +2,7 @@ package me.xdan.aperture.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
@@ -47,7 +49,7 @@ fun MediaCard(
     aspectRatio: Float = 2f / 3f,
     preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
-    focusScale: Float = 1.15f,
+    focusScale: Float = 1.12f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
@@ -77,114 +79,121 @@ fun MediaCard(
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val opensToRight = remember { booleanArrayOf(true) }
 
-    Surface(
-        onClick = { onClick(cardFocusRequester) },
-        interactionSource = interactionSource,
-        scale = ClickableSurfaceDefaults.scale(
-            focusedScale = focusScale
-        ),
+    Box(
         modifier = modifier
-            .onPreviewKeyEvent { event ->
-                if (onLongClick == null) return@onPreviewKeyEvent false
-                val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter
-                if (!isSelect) return@onPreviewKeyEvent false
-                when (event.type) {
-                    KeyEventType.KeyDown -> {
-                        if (holdJob == null && !longClickTriggered) {
-                            longClickTriggered = false
-                            holdJob = scope.launch {
-                                delay(550)
-                                longClickTriggered = true
-                                onLongClick(cardFocusRequester, opensToRight[0])
-                            }
-                        }
-                        longClickTriggered
-                    }
-                    KeyEventType.KeyUp -> {
-                        holdJob?.cancel()
-                        holdJob = null
-                        val consume = longClickTriggered
-                        longClickTriggered = false
-                        consume
-                    }
-                    else -> false
-                }
-            }
+            .aspectRatio(aspectRatio)
             .onGloballyPositioned { coordinates ->
                 opensToRight[0] = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
             }
-            .then(
-                if (drawerFocusRequester != null) {
-                    Modifier.focusProperties { left = drawerFocusRequester }
-                } else {
-                    Modifier
-                }
-            )
-            .focusRequester(cardFocusRequester)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) onFocused(cardFocusRequester)
-            }
-            .aspectRatio(aspectRatio)
-            .graphicsLayer { clip = false },
-        shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = ApertureTheme.colorScheme.mediaCardBackground,
-            focusedContainerColor = ApertureTheme.colorScheme.focusedMediaCardBackground
-        ),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, ApertureTheme.colorScheme.border),
-                shape = ApertureTheme.shapes.poster
-            )
-        ),
-        glow = ClickableSurfaceDefaults.glow(
-            focusedGlow = Glow(
-                elevationColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.5f),
-                elevation = 16.dp
-            )
-        )
+            .zIndex(if (isFocused) 1f else 0f)
+            .graphicsLayer { clip = false }
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (artworkPath.isNullOrBlank()) {
-                ArtworkFallback(
-                    title = fallbackTitle,
-                    isFocused = isFocused
+        Surface(
+            onClick = { onClick(cardFocusRequester) },
+            interactionSource = interactionSource,
+            scale = ClickableSurfaceDefaults.scale(
+                focusedScale = focusScale
+            ),
+            modifier = Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    if (onLongClick == null) return@onPreviewKeyEvent false
+                    val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter
+                    if (!isSelect) return@onPreviewKeyEvent false
+                    when (event.type) {
+                        KeyEventType.KeyDown -> {
+                            if (holdJob == null && !longClickTriggered) {
+                                longClickTriggered = false
+                                holdJob = scope.launch {
+                                    delay(550)
+                                    longClickTriggered = true
+                                    onLongClick(cardFocusRequester, opensToRight[0])
+                                }
+                            }
+                            longClickTriggered
+                        }
+                        KeyEventType.KeyUp -> {
+                            holdJob?.cancel()
+                            holdJob = null
+                            val consume = longClickTriggered
+                            longClickTriggered = false
+                            consume
+                        }
+                        else -> false
+                    }
+                }
+                .then(
+                    if (drawerFocusRequester != null) {
+                        Modifier.focusProperties { left = drawerFocusRequester }
+                    } else {
+                        Modifier
+                    }
                 )
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(TmdbApi.IMAGE_BASE_URL + "w500" + artworkPath)
-                        .crossfade(false)
-                        .build(),
-                    contentDescription = fallbackTitle,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                .focusRequester(cardFocusRequester)
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    if (it.isFocused) onFocused(cardFocusRequester)
+                }
+                .graphicsLayer { clip = false },
+            shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = ApertureTheme.colorScheme.mediaCardBackground,
+                focusedContainerColor = ApertureTheme.colorScheme.focusedMediaCardBackground
+            ),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(2.dp, ApertureTheme.colorScheme.border),
+                    shape = ApertureTheme.shapes.poster
                 )
-            }
+            ),
+            glow = ClickableSurfaceDefaults.glow(
+                focusedGlow = Glow(
+                    elevationColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    elevation = 16.dp
+                )
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (artworkPath.isNullOrBlank()) {
+                    ArtworkFallback(
+                        title = fallbackTitle,
+                        isFocused = isFocused
+                    )
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(TmdbApi.IMAGE_BASE_URL + "w500" + artworkPath)
+                            .crossfade(false)
+                            .build(),
+                        contentDescription = fallbackTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
-            if (progress > 0f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = ApertureTheme.spacing.small, vertical = ApertureTheme.spacing.small)
-                        .height(if (isFocused) 8.dp else 6.dp)
-                        .clip(ApertureTheme.shapes.button)
-                        .background(Color.Black.copy(alpha = 0.82f))
-                ) {
+                if (progress > 0f) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progress.coerceIn(0f, 1f))
-                            .fillMaxHeight()
-                            .background(
-                                if (isFocused) {
-                                    ApertureTheme.colorScheme.onPrimary
-                                } else {
-                                    ApertureTheme.colorScheme.primary
-                                }
-                            )
-                    )
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = ApertureTheme.spacing.small, vertical = ApertureTheme.spacing.small)
+                            .height(if (isFocused) 8.dp else 6.dp)
+                            .clip(ApertureTheme.shapes.button)
+                            .background(Color.Black.copy(alpha = 0.82f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(
+                                    if (isFocused) {
+                                        ApertureTheme.colorScheme.onPrimary
+                                    } else {
+                                        ApertureTheme.colorScheme.primary
+                                    }
+                                )
+                        )
+                    }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.screen.search
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -14,8 +15,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
 import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.data.local.entity.MediaEntity
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -35,6 +38,7 @@ fun SearchScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .graphicsLayer { clip = false }
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -66,26 +70,32 @@ fun SearchScreen(
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(ApertureTheme.spacing.large))
         
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val columnCount = ((maxWidth - 16.dp) / 158.dp).toInt().coerceAtLeast(1)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(columnCount),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }
-            ) {
-                itemsIndexed(results, key = { _, media -> media.id }) { index, media ->
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(6),
+            contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
+            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
+            horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
+            modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }
+        ) {
+            itemsIndexed(results, key = { _, media -> media.id }) { index, media ->
+                var isFocused by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                     MediaCard(
                         media = media,
                         onClick = { requester -> onMediaClick(media.id, requester) },
                         modifier = Modifier.fillMaxWidth(),
-                        drawerFocusRequester = drawerFocusRequester.takeIf { index % columnCount == 0 },
-                        onFocused = onContentFocused,
+                        drawerFocusRequester = drawerFocusRequester.takeIf { index % 6 == 0 },
+                        onFocused = {
+                            isFocused = true
+                            onContentFocused(it)
+                        },
                         onLongClick = { requester, opensToRight -> onMediaLongClick(media, requester, false, opensToRight) }
                     )
+                }
+                DisposableEffect(Unit) {
+                    onDispose { isFocused = false }
                 }
             }
         }

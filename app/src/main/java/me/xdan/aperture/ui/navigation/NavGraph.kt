@@ -110,12 +110,12 @@ fun NavGraph(
         pendingFocusJob[0]?.cancel()
         if (requester == null) return
         pendingFocusJob[0] = focusScope.launch {
-            delay(80)
-            repeat(4) {
+            delay(150)
+            repeat(10) {
                 if (runCatching { requester.requestFocus() }.getOrDefault(false)) {
                     return@launch
                 }
-                delay(60)
+                delay(100)
             }
         }
     }
@@ -425,10 +425,7 @@ fun NavGraph(
                         contentEntryRequesters = contentEntryRequesters,
                         homeRestoreFocusKey = homeRestoreFocusKey,
                         settingsRestoreFocusKey = settingsRestoreFocusKey,
-                        // Card-to-card focus is already held by lastFocusedRequesters.
-                        // Updating navigation state for every DPAD move causes Home's
-                        // parent LazyColumn to recompose and visibly wobble.
-                        onHomeFocusKeyChanged = {},
+                        onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
