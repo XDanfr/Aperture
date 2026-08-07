@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -48,6 +49,14 @@ fun ShowsScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
+        // Focus Anchor
+        Box(
+            modifier = Modifier
+                .size(1.dp)
+                .focusRequester(contentEntryFocusRequester)
+                .focusable()
+        )
+
         if (presentationMode == "episodes") {
             EpisodeRows(
                 groups = groups,
@@ -163,7 +172,7 @@ private fun EpisodeRows(
                                     var isFocused by remember { mutableStateOf(false) }
                                     Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f).graphicsLayer { clip = false }) {
                                         AnimatedLibraryCard(episode.id) {
-                                            Column(Modifier.width(260.dp).graphicsLayer { clip = false }) {
+                                            Column(Modifier.width(220.dp).graphicsLayer { clip = false }) {
                                                 MediaCard(
                                                     media = episode,
                                                     onClick = { onMediaClick(episode.id, it, true) },

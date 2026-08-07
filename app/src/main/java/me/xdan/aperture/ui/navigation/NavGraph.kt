@@ -184,6 +184,8 @@ fun NavGraph(
             return@selectDestination
         }
 
+        // Clear focus from current drawer item to prevent auto-reopening
+        requestFocusWhenReady(null)
         drawerState.setValue(DrawerValue.Closed)
         navigateFromDrawer(destination)
         requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get))

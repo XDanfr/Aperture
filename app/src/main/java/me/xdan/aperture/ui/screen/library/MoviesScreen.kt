@@ -45,42 +45,52 @@ fun MoviesScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 24.dp)
-            .graphicsLayer { clip = false }
-    ) {
-        Text("Movies", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(ApertureTheme.spacing.large))
-        Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(6),
-                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
-                contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
-                verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
-                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
-            ) {
-                itemsIndexed(movies, key = { _, item -> item.id }) { index, item ->
-                    var isFocused by remember { mutableStateOf(false) }
-                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                        AnimatedMovieCard(
-                            media = item,
-                            isFirst = item.id == movies.first().id,
-                            isLeftmost = index % 6 == 0,
-                            onMediaClick = onMediaClick,
-                            onMediaLongClick = onMediaLongClick,
-                            drawerFocusRequester = drawerFocusRequester,
-                            contentEntryFocusRequester = contentEntryFocusRequester,
-                            onContentFocused = {
-                                isFocused = true
-                                onContentFocused(it)
-                            },
-                            onActiveMediaChanged = onActiveMediaChanged
-                        )
-                    }
-                    DisposableEffect(Unit) {
-                        onDispose { isFocused = false }
+    Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
+        // Focus Anchor: Ensures focus has a home immediately on composition
+        Box(
+            modifier = Modifier
+                .size(1.dp)
+                .focusRequester(contentEntryFocusRequester)
+                .focusable()
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 24.dp)
+                .graphicsLayer { clip = false }
+        ) {
+            Text("Movies", style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(ApertureTheme.spacing.large))
+            Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(6),
+                    modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
+                    contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
+                ) {
+                    itemsIndexed(movies, key = { _, item -> item.id }) { index, item ->
+                        var isFocused by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                            AnimatedMovieCard(
+                                media = item,
+                                isFirst = item.id == movies.first().id,
+                                isLeftmost = index % 6 == 0,
+                                onMediaClick = onMediaClick,
+                                onMediaLongClick = onMediaLongClick,
+                                drawerFocusRequester = drawerFocusRequester,
+                                contentEntryFocusRequester = contentEntryFocusRequester,
+                                onContentFocused = {
+                                    isFocused = true
+                                    onContentFocused(it)
+                                },
+                                onActiveMediaChanged = onActiveMediaChanged
+                            )
+                        }
+                        DisposableEffect(Unit) {
+                            onDispose { isFocused = false }
+                        }
                     }
                 }
             }
