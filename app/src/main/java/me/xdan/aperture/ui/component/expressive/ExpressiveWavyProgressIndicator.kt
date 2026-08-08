@@ -18,13 +18,13 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * A high-fidelity Material 3 Expressive wavy progress indicator.
+ * A 1:1 high-fidelity Material 3 Expressive wavy progress indicator.
  *
  * Matches official specifications:
  * - Wavelength: 40dp
  * - Amplitude: 3dp
  * - Speed: 40dp/s
- * - Indeterminate Motion: Extended high-velocity phase with 50% segment width.
+ * - Indeterminate Motion: Dual-segment staggered animation with official M3 keyframes.
  */
 @Composable
 fun ExpressiveWavyProgressIndicator(
@@ -47,22 +47,63 @@ fun ExpressiveWavyProgressIndicator(
         label = "wavePhase"
     )
 
-    // 2. Indeterminate Pulse (Extended high-velocity phase)
-    // We use a 2000ms cycle with a keyframe that maintains high speed for longer.
-    val pulseProgress by infiniteTransition.animateFloat(
+    // 2. Official Indeterminate Head/Tail Keyframes (1800ms cycle)
+    val headEasing = CubicBezierEasing(0.2f, 0.0f, 0.8f, 1.0f)
+    val tailEasing = CubicBezierEasing(0.4f, 0.0f, 1.0f, 1.0f)
+
+    val firstLineHead by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
-                durationMillis = 2000
-                0f at 0
-                0.2f at 400
-                0.8f at 1600
-                1f at 2000
-            },
-            repeatMode = RepeatMode.Restart
+                durationMillis = 1800
+                0f at 0 using headEasing
+                1f at 750
+                1f at 1800
+            }
         ),
-        label = "pulseProgress"
+        label = "line1Head"
+    )
+    val firstLineTail by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 1800
+                0f at 0
+                0f at 333 using tailEasing
+                1f at 1183
+                1f at 1800
+            }
+        ),
+        label = "line1Tail"
+    )
+    val secondLineHead by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 1800
+                0f at 0
+                0f at 1000 using headEasing
+                1f at 1567
+                1f at 1800
+            }
+        ),
+        label = "line2Head"
+    )
+    val secondLineTail by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 1800
+                0f at 0
+                0f at 1267 using tailEasing
+                1f at 1800
+            }
+        ),
+        label = "line2Tail"
     )
 
     // 3. Determinate Progress Animation
@@ -116,19 +157,24 @@ fun ExpressiveWavyProgressIndicator(
             style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
         )
 
-        // B. Draw the active segment
+        // B. Draw the active segments
         if (progress == null) {
-            // Indeterminate: segment of fixed width (50%) with a velocity plateau
-            val segmentWidth = widthPx * 0.5f
-            val totalTravel = widthPx + segmentWidth * 2
-            val currentStart = (pulseProgress * totalTravel) - segmentWidth
-            
-            val clampedStart = currentStart.coerceIn(0f, widthPx)
-            val clampedEnd = (currentStart + segmentWidth).coerceIn(0f, widthPx)
-            
-            if (clampedEnd > clampedStart) {
+            // Indeterminate: Draw both line segments
+            val l1Start = firstLineTail * widthPx
+            val l1End = firstLineHead * widthPx
+            if (l1End > l1Start) {
                 drawPath(
-                    path = generateWavePath(clampedStart, clampedEnd),
+                    path = generateWavePath(l1Start, l1End),
+                    color = color,
+                    style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                )
+            }
+
+            val l2Start = secondLineTail * widthPx
+            val l2End = secondLineHead * widthPx
+            if (l2End > l2Start) {
+                drawPath(
+                    path = generateWavePath(l2Start, l2End),
                     color = color,
                     style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
                 )
