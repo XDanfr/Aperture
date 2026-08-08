@@ -52,6 +52,7 @@ import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -362,9 +363,9 @@ private fun BufferingOverlay(media: MediaEntity?) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            androidx.compose.material3.CircularProgressIndicator(
+            ExpressiveLoadingIndicator(
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(52.dp)
+                size = 52.dp
             )
             Text(
                 text = media?.title ?: "Preparing playback…",

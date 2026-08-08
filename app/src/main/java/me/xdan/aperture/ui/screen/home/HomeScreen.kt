@@ -114,6 +114,9 @@ private fun HomeContent(
             row.items.any { media -> key == "row:${row.title}:${media.id}" }
         }
     }
+    // The entry requester must stay attached to the item Home was entered on.
+    // Moving it to every newly focused card mutates the focus tree mid-scroll and
+    // makes the containing LazyColumn perform small vertical corrections.
     val entryFocusKey = remember(state.suggestionGeneration) { resolvedRestoreFocusKey }
 
     LaunchedEffect(Unit) {

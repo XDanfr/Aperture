@@ -32,6 +32,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 fun SponsorPromptDialog(
@@ -51,12 +52,12 @@ fun SponsorPromptDialog(
     ) {
         Surface(
             modifier = Modifier.width(620.dp),
-            shape = RoundedCornerShape(28.dp),
+            shape = ApertureTheme.shapes.dialog,
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
-                modifier = Modifier.padding(34.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                modifier = Modifier.padding(ApertureTheme.spacing.large),
+                verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -71,7 +72,7 @@ fun SponsorPromptDialog(
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
-                    Spacer(Modifier.width(18.dp))
+                    Spacer(Modifier.width(ApertureTheme.spacing.medium))
                     Column {
                         Text("Enjoying Aperture?", style = MaterialTheme.typography.headlineSmall)
                         Text(
@@ -101,11 +102,11 @@ fun SponsorPromptDialog(
                     ) {
                         Text("Not now")
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ApertureTheme.spacing.small))
                     OutlinedButton(onClick = onVerify) {
                         Text("I already sponsor")
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ApertureTheme.spacing.small))
                     Button(onClick = onSponsor) {
                         Text("Sponsor on GitHub")
                     }

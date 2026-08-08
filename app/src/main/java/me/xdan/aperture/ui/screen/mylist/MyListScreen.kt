@@ -53,6 +53,13 @@ fun MyListScreen(
 ) {
     val media by viewModel.media.collectAsState()
 
+    // Focus Pull
+    LaunchedEffect(media.isNotEmpty()) {
+        if (media.isNotEmpty()) {
+            contentEntryFocusRequester.requestFocus()
+        }
+    }
+
     if (media.isEmpty()) {
         Box(
             modifier = Modifier

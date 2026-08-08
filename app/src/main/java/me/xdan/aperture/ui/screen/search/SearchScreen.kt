@@ -34,6 +34,13 @@ fun SearchScreen(
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
 
+    // Focus Pull
+    LaunchedEffect(results.isNotEmpty()) {
+        if (results.isNotEmpty()) {
+            contentEntryFocusRequester.requestFocus()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

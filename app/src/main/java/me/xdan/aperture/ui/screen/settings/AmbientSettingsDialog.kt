@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -40,6 +41,8 @@ import kotlinx.coroutines.delay
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.domain.model.AmbientSettings
+import me.xdan.aperture.ui.component.expressive.ExpressiveToggle
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 internal fun AmbientSettingsDialog(
@@ -68,12 +71,12 @@ internal fun AmbientSettingsDialog(
         ) {
             Surface(
                 modifier = Modifier.width(700.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
-                    modifier = Modifier.padding(36.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    modifier = Modifier.padding(ApertureTheme.spacing.huge),
+                    verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                 ) {
                     Text("Ambient mode", style = MaterialTheme.typography.headlineSmall)
                     Text(
@@ -82,7 +85,7 @@ internal fun AmbientSettingsDialog(
                     )
 
                     Text("Style", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
                         AmbientChoice(
                             label = "Cinematic",
                             selected = settings.mode == AmbientModeType.CINEMATIC,
@@ -99,7 +102,7 @@ internal fun AmbientSettingsDialog(
 
                     if (settings.mode == AmbientModeType.POSTER_WALL) {
                         Text("Brand placement", style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
                             AmbientChoice(
                                 label = "Top left logo",
                                 selected = settings.wallBrandPlacement == AmbientBrandPlacement.TOP_LEFT,
@@ -123,9 +126,12 @@ internal fun AmbientSettingsDialog(
                         }
                     }
 
+                    var isClockFocused by remember { mutableStateOf(false) }
                     Surface(
                         onClick = { settings = settings.copy(showClock = !settings.showClock) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isClockFocused = it.isFocused },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
                         colors = ClickableSurfaceDefaults.colors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -147,23 +153,18 @@ internal fun AmbientSettingsDialog(
                                     modifier = Modifier.alpha(0.68f)
                                 )
                             }
-                            androidx.compose.material3.Switch(
+                            ExpressiveToggle(
                                 checked = settings.showClock,
                                 onCheckedChange = null,
-                                colors = androidx.compose.material3.SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
+                                isFocused = isClockFocused
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.small))
                     Row(
                         modifier = Modifier.align(Alignment.End),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)
                     ) {
                         OutlinedButton(onClick = onDismiss) { Text("Cancel") }
                         OutlinedButton(onClick = { onPreview(settings) }) { Text("Preview") }
@@ -192,12 +193,14 @@ private fun AmbientChoice(
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
-        )
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 15.dp)
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = ApertureTheme.spacing.medium),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }

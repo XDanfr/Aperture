@@ -59,6 +59,9 @@ import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
+import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveProgressIndicator
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -141,12 +144,12 @@ private fun PermissionPanel(
 ) {
     Surface(
         colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.72f)),
-        shape = RoundedCornerShape(24.dp),
+        shape = ApertureTheme.shapes.dialog,
         modifier = modifier.width(540.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(48.dp)
+            modifier = Modifier.padding(ApertureTheme.spacing.huge)
         ) {
             androidx.compose.material3.Icon(
                 painter = painterResource(id = R.drawable.ic_banner_foreground),
@@ -201,10 +204,10 @@ private fun PreparationPanel(
         colors = SurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
         ),
-        shape = RoundedCornerShape(28.dp),
+        shape = ApertureTheme.shapes.dialog,
         modifier = modifier.width(620.dp)
     ) {
-        Column(modifier = Modifier.padding(44.dp)) {
+        Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
             Text(
                 text = when {
                     isError -> "We hit a snag"
@@ -215,7 +218,7 @@ private fun PreparationPanel(
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
             Text(
                 text = when {
                     isError -> progress.errorMessage ?: "Aperture could not finish matching metadata."
@@ -228,42 +231,40 @@ private fun PreparationPanel(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f)
             )
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.large))
             ProgressLabel(
                 label = "Total progress",
                 value = if (isDiscovering) "Scanning" else "${progress.completedItems} / ${progress.totalItems}"
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
             if (isDiscovering) {
-                androidx.compose.material3.LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp))
-                )
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    ExpressiveLoadingIndicator(size = 40.dp)
+                }
             } else {
-                androidx.compose.material3.LinearProgressIndicator(
-                    progress = { progress.totalProgress.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp))
+                ExpressiveProgressIndicator(
+                    progress = progress.totalProgress.coerceIn(0f, 1f)
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.medium))
             ProgressLabel(
                 label = progress.currentTitle ?: if (isComplete) "Finished" else "Current title",
                 value = if (progress.currentTitle == null) "" else "${(progress.currentItemProgress * 100).toInt()}%"
             )
-            Spacer(Modifier.height(8.dp))
-            androidx.compose.material3.LinearProgressIndicator(
-                progress = { progress.currentItemProgress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
+            ExpressiveProgressIndicator(
+                progress = progress.currentItemProgress.coerceIn(0f, 1f)
             )
 
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(ApertureTheme.spacing.huge))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
                 if (isError) {
                     OutlinedButton(onClick = onRetry) { Text("Try again") }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ApertureTheme.spacing.medium))
                 }
                 if (!isComplete && !rescanMode) {
                     Button(

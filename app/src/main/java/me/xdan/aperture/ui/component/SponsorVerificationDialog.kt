@@ -22,6 +22,7 @@ import androidx.tv.material3.Text
 import me.xdan.aperture.data.sponsor.SponsorVerificationState
 import me.xdan.aperture.ui.screen.settings.GITHUB_DEVICE_QR_ROWS
 import me.xdan.aperture.ui.screen.settings.ThemedQrCode
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 fun SponsorVerificationDialog(
@@ -32,11 +33,11 @@ fun SponsorVerificationDialog(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             modifier = Modifier.width(760.dp),
-            shape = RoundedCornerShape(28.dp),
+            shape = ApertureTheme.shapes.dialog,
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
-                modifier = Modifier.padding(34.dp),
+                modifier = Modifier.padding(ApertureTheme.spacing.huge),
                 horizontalArrangement = Arrangement.spacedBy(30.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -45,7 +46,7 @@ fun SponsorVerificationDialog(
                 }
                 Column(
                     modifier = Modifier.width(if (state is SponsorVerificationState.AwaitingAuthorization) 400.dp else 680.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                 ) {
                     Text("Verify GitHub sponsorship", style = MaterialTheme.typography.headlineSmall)
                     when (state) {

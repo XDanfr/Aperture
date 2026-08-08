@@ -15,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveToggle
 
 /**
  * A comprehensive showcase of Aperture's Material 3 Expressive design system.
@@ -106,19 +108,14 @@ fun ExpressiveShowcasePreview() {
                     )
                 }
 
-                // Loading indicator mockup
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .border(4.dp, ApertureTheme.colorScheme.secondary.copy(alpha = 0.2f), CircleShape)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(0.25f)
-                            .align(Alignment.TopCenter)
-                            .background(ApertureTheme.colorScheme.secondary, CircleShape)
-                    )
+                // Expressive Toggle
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ExpressiveToggle(checked = true, onCheckedChange = null)
+                    Text("Expressive Toggle", style = MaterialTheme.typography.labelLarge)
                 }
+
+                // Loading indicator
+                ExpressiveLoadingIndicator()
             }
             
             // Playback Overlay mockup

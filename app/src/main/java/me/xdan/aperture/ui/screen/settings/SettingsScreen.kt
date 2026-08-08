@@ -78,11 +78,17 @@ import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
+import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveProgressIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveSlider
+import me.xdan.aperture.ui.component.expressive.ExpressiveToggle
+import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
 import me.xdan.aperture.domain.repository.MediaFolder
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.SponsorVerificationDialog
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -274,15 +280,10 @@ fun SettingsScreen(
                         viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
                     },
                     trailingContent = {
-                        androidx.compose.material3.Switch(
+                        ExpressiveToggle(
                             checked = spotlightSettings.roundedSpotlight,
                             onCheckedChange = null,
-                            colors = androidx.compose.material3.SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            isFocused = false // Managed by parent item
                         )
                     }
                 )
@@ -311,15 +312,10 @@ fun SettingsScreen(
                         )
                     },
                     trailingContent = {
-                        androidx.compose.material3.Switch(
+                        ExpressiveToggle(
                             checked = spotlightSettings.hideFinishedFromSpotlight,
                             onCheckedChange = null,
-                            colors = androidx.compose.material3.SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            isFocused = false
                         )
                     }
                 )
@@ -757,40 +753,40 @@ private fun MediaFoldersDialog(
         ) {
             Surface(
                 modifier = Modifier.width(760.dp),
-                shape = RoundedCornerShape(28.dp),
+                shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(38.dp)) {
+                Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Media folders", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.small))
                     Text(
                         "Choose folders on USB drives or other storage. Aperture keeps read access after a restart.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     if (!pickerAvailable) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
                         Text(
                             "This device does not include Android's system folder picker. Aperture will still scan any USB media that Android adds to its media library.",
                             color = MaterialTheme.colorScheme.error
                         )
                     }
                     if (message != null) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
                         Text(message, color = MaterialTheme.colorScheme.primary)
                     }
-                    Spacer(Modifier.height(22.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
 
                     if (folders.isEmpty()) {
                         Text(
                             "No extra folders selected. Internal media scanning still works as before.",
-                            modifier = Modifier.padding(vertical = 24.dp),
+                            modifier = Modifier.padding(vertical = ApertureTheme.spacing.large),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                         )
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)
                         ) {
                             items(folders, key = { it.uri }) { folder ->
                                 Surface(
@@ -825,10 +821,10 @@ private fun MediaFoldersDialog(
                         }
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Row(
                         modifier = Modifier.align(Alignment.End),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
                         Button(
                             onClick = onAdd,
@@ -836,7 +832,7 @@ private fun MediaFoldersDialog(
                             modifier = Modifier.focusRequester(addFocusRequester)
                         ) {
                             Icon(Icons.Rounded.FolderOpen, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ApertureTheme.spacing.small))
                             Text("Add folder")
                         }
                         OutlinedButton(
@@ -859,8 +855,8 @@ private fun ShowLayoutDialog(
     val firstRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.width(560.dp).padding(32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
                 Text("TV show layout", style = MaterialTheme.typography.headlineSmall)
                 Text("You can switch layouts without rescanning your library.")
                 listOf(
@@ -904,24 +900,25 @@ private fun SubtitleAppearanceDialog(
     LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
-            modifier = Modifier.width(840.dp).heightIn(max = 920.dp),
+            modifier = Modifier.width(840.dp).heightIn(max = 820.dp),
             shape = RoundedCornerShape(24.dp)
         ) {
-            Column(Modifier.padding(34.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Column(Modifier.padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
                 Text("Subtitle Appearance", style = MaterialTheme.typography.headlineSmall)
-                Text("Aperture uses a readable system sans-serif typeface with a translucent dark background.")
-                PreferenceStepper(
+                PreferenceSlider(
                     title = "Text size",
-                    value = "${(settings.textScale * 100).toInt()}%",
-                    onDecrease = { settings = settings.copy(textScale = (settings.textScale - 0.1f).coerceAtLeast(0.7f)) },
-                    onIncrease = { settings = settings.copy(textScale = (settings.textScale + 0.1f).coerceAtMost(1.6f)) },
+                    value = settings.textScale,
+                    onValueChange = { settings = settings.copy(textScale = it) },
+                    valueRange = 0.7f..1.6f,
+                    valueText = "${(settings.textScale * 100).toInt()}%",
                     focusRequester = firstRequester
                 )
-                PreferenceStepper(
+                PreferenceSlider(
                     title = "Background opacity",
-                    value = "${(settings.backgroundOpacity * 100).toInt()}%",
-                    onDecrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity - 0.1f).coerceAtLeast(0f)) },
-                    onIncrease = { settings = settings.copy(backgroundOpacity = (settings.backgroundOpacity + 0.1f).coerceAtMost(0.9f)) }
+                    value = settings.backgroundOpacity,
+                    onValueChange = { settings = settings.copy(backgroundOpacity = it) },
+                    valueRange = 0f..0.9f,
+                    valueText = "${(settings.backgroundOpacity * 100).toInt()}%"
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -973,12 +970,12 @@ private fun SubtitleAppearanceDialog(
                     }
                 }
                 Surface(
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = SurfaceDefaults.colors(containerColor = Color(0xFF17171B))
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(22.dp),
+                        modifier = Modifier.fillMaxSize().padding(ApertureTheme.spacing.small),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -1000,7 +997,10 @@ private fun SubtitleAppearanceDialog(
                         )
                     }
                 }
-                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.align(Alignment.End).padding(top = ApertureTheme.spacing.small),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                ) {
                     OutlinedButton(onClick = onDismiss) { Text("Cancel") }
                     Button(onClick = { onSave(settings) }) { Text("Save") }
                 }
@@ -1010,30 +1010,39 @@ private fun SubtitleAppearanceDialog(
 }
 
 @Composable
-private fun PreferenceStepper(
+private fun PreferenceSlider(
     title: String,
-    value: String,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    valueText: String,
     focusRequester: FocusRequester? = null
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        Button(
-            onClick = onDecrease,
-            modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
-        ) { Text("−") }
-        Text(
-            value,
-            modifier = Modifier.width(90.dp),
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center
-        )
-        Button(onClick = onIncrease) { Text("+") }
+    var isFocused by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ExpressiveSlider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                isFocused = isFocused,
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { isFocused = it.isFocused }
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            )
+            Text(
+                valueText,
+                modifier = Modifier.width(64.dp),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -1052,21 +1061,21 @@ private fun HiddenMediaDialog(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             modifier = Modifier.width(660.dp).height(560.dp),
-            shape = RoundedCornerShape(24.dp)
+            shape = ApertureTheme.shapes.dialog
         ) {
-            Column(Modifier.padding(30.dp)) {
+            Column(Modifier.padding(ApertureTheme.spacing.huge)) {
                 Text("Hidden Media", style = MaterialTheme.typography.headlineSmall)
                 Text("Hidden titles stay out of Home, Search, Movies, Shows and My List.")
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(ApertureTheme.spacing.medium))
                 if (media.isEmpty()) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text("Nothing is hidden.")
                     }
                 } else {
-                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
                         items(media, key = { it.id }) { item ->
                             Row(
-                                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                Modifier.fillMaxWidth().padding(vertical = ApertureTheme.spacing.small),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(item.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -1105,15 +1114,15 @@ private fun OpenSubtitlesAccountDialog(
     }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.width(560.dp).padding(32.dp)) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.huge)) {
                 Text("OpenSubtitles.com", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(ApertureTheme.spacing.small))
                 Text(
                     "Sign in with your OpenSubtitles.com account to search and download subtitles. Aperture stores the 24-hour session token, never your password.",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                 )
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
 
                 when (state) {
                     is OpenSubtitlesSessionState.SignedIn -> {
@@ -1140,7 +1149,7 @@ private fun OpenSubtitlesAccountDialog(
                                 .fillMaxWidth()
                                 .focusRequester(usernameFocusRequester)
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
                         androidx.compose.material3.OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
@@ -1161,16 +1170,16 @@ private fun OpenSubtitlesAccountDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
                         if (state is OpenSubtitlesSessionState.Error) {
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(ApertureTheme.spacing.small))
                             Text(state.message, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
                 Row(
                     Modifier.align(Alignment.End),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
@@ -1204,10 +1213,10 @@ fun UpdateDialog(
         runCatching { closeFocusRequester.requestFocus() }
     }
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.width(500.dp).padding(32.dp)) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(500.dp).padding(ApertureTheme.spacing.large)) {
                 Text("Aperture updates", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(ApertureTheme.spacing.medium))
                 Text(
                     when (state) {
                         UpdateCheckState.Idle, UpdateCheckState.Checking -> "Checking the latest GitHub release…"
@@ -1224,14 +1233,13 @@ fun UpdateDialog(
                     }
                 )
                 if (state is UpdateCheckState.Downloading) {
-                    Spacer(Modifier.height(14.dp))
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { state.progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    ExpressiveProgressIndicator(
+                        progress = state.progress.coerceIn(0f, 1f)
                     )
                 }
-                Spacer(Modifier.height(24.dp))
-                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
                     androidx.tv.material3.OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.focusRequester(closeFocusRequester)
@@ -1265,19 +1273,19 @@ private fun ThemePickerDialog(
         ) {
             Surface(
                 modifier = Modifier.width(620.dp).heightIn(max = 620.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(Modifier.padding(32.dp)) {
+                Column(Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Choose a theme", style = MaterialTheme.typography.headlineSmall)
                     Text(
                         "The preview updates Aperture, the player OSD and Quick Menu immediately.",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
                     LazyColumn(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                        verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)
                     ) {
                         itemsIndexed(ApertureThemeOptions, key = { _, option -> option.id }) { index, option ->
                             Surface(
@@ -1305,7 +1313,7 @@ private fun ThemePickerDialog(
                             }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
                     Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
                 }
             }
@@ -1426,14 +1434,14 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
         ) {
             Surface(
                 modifier = Modifier.width(560.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
-                Column(modifier = Modifier.padding(38.dp)) {
+                Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Open Source Licences", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(22.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
                     Text("• Nova Video Player (Archos)")
                     Text("• laposa/media-player")
                     Text("• AndroidX Media3")
@@ -1442,7 +1450,7 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
                     Text("• Jetpack Compose")
                     Text("• Coil")
                     Text("• Retrofit, OkHttp and Moshi")
-                    Spacer(Modifier.height(30.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
@@ -1484,35 +1492,45 @@ private fun SpotlightDaysDialog(
         ) {
             Surface(
                 modifier = Modifier.width(520.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
-                    modifier = Modifier.padding(38.dp),
+                    modifier = Modifier.padding(ApertureTheme.spacing.huge),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text("Finished Spotlight exclusion", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ApertureTheme.spacing.small))
                     Text(
                         "Choose how long completed titles stay out of Spotlight.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
-                    Spacer(Modifier.height(30.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
-                    ) {
-                        Button(
-                            onClick = { days = (days - 1).coerceAtLeast(1) },
-                            modifier = Modifier.focusRequester(decreaseFocusRequester)
-                        ) { Text("−") }
-                        Text("$days days", style = MaterialTheme.typography.displaySmall)
-                        Button(onClick = { days = (days + 1).coerceAtMost(365) }) { Text("+") }
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    
+                    var isSliderFocused by remember { mutableStateOf(false) }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveSlider(
+                            value = days.toFloat(),
+                            onValueChange = { days = it.roundToInt() },
+                            valueRange = 1f..365f,
+                            isFocused = isSliderFocused,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isSliderFocused = it.isFocused }
+                                .focusRequester(decreaseFocusRequester)
+                        )
+                        Text(
+                            text = "$days days",
+                            style = MaterialTheme.typography.displaySmall,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
                     }
-                    Spacer(Modifier.height(32.dp))
+                    
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small),
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }

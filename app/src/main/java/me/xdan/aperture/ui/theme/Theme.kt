@@ -172,6 +172,8 @@ private fun ColorScheme.toApertureColorScheme(): ApertureColorScheme {
         onBackground = onBackground,
         surface = surface,
         onSurface = onSurface,
+        surfaceVariant = surfaceVariant,
+        onSurfaceVariant = onSurfaceVariant,
         border = border,
         borderVariant = borderVariant
     )

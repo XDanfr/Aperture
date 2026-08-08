@@ -35,6 +35,8 @@ class ApertureColorScheme(
     onBackground: Color,
     surface: Color,
     onSurface: Color,
+    surfaceVariant: Color,
+    onSurfaceVariant: Color,
     border: Color,
     borderVariant: Color
 ) {
@@ -76,6 +78,10 @@ class ApertureColorScheme(
         internal set
     var onSurface by mutableStateOf(onSurface, structuralEqualityPolicy())
         internal set
+    var surfaceVariant by mutableStateOf(surfaceVariant, structuralEqualityPolicy())
+        internal set
+    var onSurfaceVariant by mutableStateOf(onSurfaceVariant, structuralEqualityPolicy())
+        internal set
     var border by mutableStateOf(border, structuralEqualityPolicy())
         internal set
     var borderVariant by mutableStateOf(borderVariant, structuralEqualityPolicy())
@@ -104,6 +110,8 @@ class ApertureColorScheme(
         onBackground = other.onBackground
         surface = other.surface
         onSurface = other.onSurface
+        surfaceVariant = other.surfaceVariant
+        onSurfaceVariant = other.onSurfaceVariant
         border = other.border
         borderVariant = other.borderVariant
     }
@@ -131,6 +139,8 @@ class ApertureColorScheme(
         onBackground: Color = this.onBackground,
         surface: Color = this.surface,
         onSurface: Color = this.onSurface,
+        surfaceVariant: Color = this.surfaceVariant,
+        onSurfaceVariant: Color = this.onSurfaceVariant,
         border: Color = this.border,
         borderVariant: Color = this.borderVariant
     ): ApertureColorScheme = ApertureColorScheme(
@@ -153,6 +163,8 @@ class ApertureColorScheme(
         onBackground = onBackground,
         surface = surface,
         onSurface = onSurface,
+        surfaceVariant = surfaceVariant,
+        onSurfaceVariant = onSurfaceVariant,
         border = border,
         borderVariant = borderVariant
     )

@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,7 +14,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -47,37 +45,26 @@ fun ShowsScreen(
             .map { (title, items) -> ShowGroup(title, items) }
             .sortedBy { it.title.lowercase() }
     }
-
-    Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
-        // Focus Anchor
-        Box(
-            modifier = Modifier
-                .size(1.dp)
-                .focusRequester(contentEntryFocusRequester)
-                .focusable()
+    if (presentationMode == "episodes") {
+        EpisodeRows(
+            groups = groups,
+            onMediaClick = onMediaClick,
+            onMediaLongClick = onMediaLongClick,
+            drawerFocusRequester = drawerFocusRequester,
+            contentEntryFocusRequester = contentEntryFocusRequester,
+            onContentFocused = onContentFocused,
+            onActiveMediaChanged = onActiveMediaChanged
         )
-
-        if (presentationMode == "episodes") {
-            EpisodeRows(
-                groups = groups,
-                onMediaClick = onMediaClick,
-                onMediaLongClick = onMediaLongClick,
-                drawerFocusRequester = drawerFocusRequester,
-                contentEntryFocusRequester = contentEntryFocusRequester,
-                onContentFocused = onContentFocused,
-                onActiveMediaChanged = onActiveMediaChanged
-            )
-        } else {
-            GroupedShowsGrid(
-                groups = groups,
-                onMediaClick = onMediaClick,
-                onMediaLongClick = onMediaLongClick,
-                drawerFocusRequester = drawerFocusRequester,
-                contentEntryFocusRequester = contentEntryFocusRequester,
-                onContentFocused = onContentFocused,
-                onActiveMediaChanged = onActiveMediaChanged
-            )
-        }
+    } else {
+        GroupedShowsGrid(
+            groups = groups,
+            onMediaClick = onMediaClick,
+            onMediaLongClick = onMediaLongClick,
+            drawerFocusRequester = drawerFocusRequester,
+            contentEntryFocusRequester = contentEntryFocusRequester,
+            onContentFocused = onContentFocused,
+            onActiveMediaChanged = onActiveMediaChanged
+        )
     }
 }
 
