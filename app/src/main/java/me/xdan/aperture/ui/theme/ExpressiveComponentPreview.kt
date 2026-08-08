@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+  import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
@@ -82,6 +82,17 @@ fun ExpressiveComponentPreview() {
                 ExpressiveProgressIndicator(progress = progressValue)
                 Button(onClick = { progressValue = (progressValue + 0.1f).coerceAtMost(1f) }) {
                     Text("Increase Progress")
+                }
+            }
+
+            // Wavy Progress
+            Column(verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                Text("Wavy Progress (Indeterminate & Determinate)", style = MaterialTheme.typography.titleMedium)
+                me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator()
+                var wavyProgress by remember { mutableStateOf(0.4f) }
+                me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator(progress = wavyProgress)
+                Button(onClick = { wavyProgress = (wavyProgress + 0.1f).coerceAtMost(1f) }) {
+                    Text("Increase Wavy")
                 }
             }
         }

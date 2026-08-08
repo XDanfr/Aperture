@@ -1232,9 +1232,13 @@ fun UpdateDialog(
                         is UpdateCheckState.Error -> state.message
                     }
                 )
+                if (state is UpdateCheckState.Checking || state == UpdateCheckState.Idle) {
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator()
+                }
                 if (state is UpdateCheckState.Downloading) {
                     Spacer(Modifier.height(ApertureTheme.spacing.medium))
-                    ExpressiveProgressIndicator(
+                    me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator(
                         progress = state.progress.coerceIn(0f, 1f)
                     )
                 }
