@@ -270,7 +270,7 @@ fun NavGraph(
     } else if (isOnboardingCompleted == null) {
         // Loading state, show nothing or a splash screen
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator()
         }
     } else if (isOnboardingCompleted == false) {
         OnboardingScreen(

@@ -595,7 +595,7 @@ private fun AssetPickerDialog(
                 Spacer(Modifier.height(20.dp))
                 when {
                     loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        androidx.compose.material3.CircularProgressIndicator()
+                        me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator()
                     }
                     candidates.isEmpty() -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         Text("No matching artwork found.")

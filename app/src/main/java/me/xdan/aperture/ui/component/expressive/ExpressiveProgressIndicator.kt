@@ -1,8 +1,6 @@
 package me.xdan.aperture.ui.component.expressive
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,10 +17,10 @@ import androidx.compose.ui.unit.dp
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 /**
- * A Material 3 Expressive inspired linear progress indicator.
+ * A Material 3 Expressive linear progress indicator.
  *
- * Features fully rounded endpoints, smooth transitions, and a vertical
- * "pop" animation when the progress value increases.
+ * Features fully rounded endpoints, smooth transitions, and the official
+ * "upwards pop" animation when the progress value increases.
  */
 @Composable
 fun ExpressiveProgressIndicator(
@@ -32,27 +30,31 @@ fun ExpressiveProgressIndicator(
     color: Color = ApertureTheme.colorScheme.primary,
     trackColor: Color = ApertureTheme.colorScheme.surfaceContainerHigh
 ) {
+    // 1. Progress Animation Scheme: Spring(StiffnessVeryLow, DampingRatioNoBouncy)
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = ApertureTheme.motion.focus(),
+        animationSpec = spring(
+            stiffness = Spring.StiffnessVeryLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        ),
         label = "progressAnimation"
     )
 
-    // Detect progress increase for the "jump" effect
+    // 2. Upwards Pop: Expansion on increase
     var previousProgress by remember { mutableFloatStateOf(progress) }
-    var heightScaleTarget by remember { mutableFloatStateOf(1f) }
+    var scaleYTarget by remember { mutableFloatStateOf(1f) }
 
     LaunchedEffect(progress) {
         if (progress > previousProgress) {
-            heightScaleTarget = 1.5f
-            kotlinx.coroutines.delay(100)
-            heightScaleTarget = 1f
+            scaleYTarget = 1.4f
+            kotlinx.coroutines.delay(120)
+            scaleYTarget = 1f
         }
         previousProgress = progress
     }
 
     val animatedHeightScale by animateFloatAsState(
-        targetValue = heightScaleTarget,
+        targetValue = scaleYTarget,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
