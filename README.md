@@ -11,7 +11,7 @@
 <div align="center">
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/XDanfr?style=for-the-badge&logo=github&label=Sponsor)](https://github.com/sponsors/XDanfr)
-[![Website](https://img.shields.io/badge/Website-Aperture-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://aperture.xdan.me)
+[![Website](https://img.shields.io/badge/Website-Aperture-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://xdan.me/aperture)
 [![Discord](https://img.shields.io/discord/1525645205720662117?style=for-the-badge&logo=discord&logoColor=white&label=Discord)](https://discord.gg/fuxMAVBccK)
 
 [![Download APK](https://img.shields.io/badge/Download-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/XDanfr/Aperture/releases/latest)
