@@ -114,6 +114,8 @@ Contributions are what make the open-source community such an amazing place! Wan
 
 ---
 ## 💜 Sponsors
-Aperture wouldn’t have active development without sponsors. Special thanks to kurohigex and fenstic for keeping the app running :)
+Aperture wouldn’t have active development without sponsors. Special thanks to them for keeping the app running :)
+
+![sponsors badge](https://readme-contribs.as93.net/sponsors/XDanfr)
 
 <p align="center"><sub>If you like Aperture, please consider <a href="https://github.com/sponsors/XDanfr">supporting its development on GitHub Sponsors</a> 💜</sub></p>
