@@ -27,9 +27,8 @@
 
 ## ✨ Features
 
-* 🎨 **Material 3 UI**
+* 🎨 **Customisable Material 3 UI**
 * ⚡ **Media3 Powered**
-* 🎨 **Themes**
 * 🖼️ **Name matching and asset detecting with TMDb**
 
 ## 🚀 Getting Started
@@ -54,6 +53,8 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 
 2. **Open in Android Studio:** Ensure your environment is configured to use **JDK 17 or 21** (others are currently untested).
 3. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
+> [!NOTE]
+> The repo is undergoing a pretty large rework on the front end to adopt **Material 3 Expressive**. The latest commits may have some bugs.
 
 ## 📸 Screenshots
 
