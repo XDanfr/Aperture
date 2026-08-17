@@ -2,12 +2,11 @@ package me.xdan.aperture.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -29,16 +28,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import me.xdan.aperture.data.local.entity.MediaEntity
-import me.xdan.aperture.data.remote.api.TmdbApi
-import me.xdan.aperture.ui.theme.ApertureTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 fun MediaCard(
@@ -49,7 +47,7 @@ fun MediaCard(
     aspectRatio: Float = 2f / 3f,
     preferEpisodeStill: Boolean = false,
     progress: Float = 0f,
-    focusScale: Float = 1.12f,
+    focusScale: Float = 1.08f,
     drawerFocusRequester: FocusRequester? = null,
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
@@ -78,6 +76,7 @@ fun MediaCard(
     val density = LocalDensity.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val opensToRight = remember { booleanArrayOf(true) }
+    val focusedGlow = rememberFocusGlow(isFocused)
 
     Box(
         modifier = modifier
@@ -147,10 +146,7 @@ fun MediaCard(
                 )
             ),
             glow = ClickableSurfaceDefaults.glow(
-                focusedGlow = Glow(
-                    elevationColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    elevation = 16.dp
-                )
+                focusedGlow = focusedGlow
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
