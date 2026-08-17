@@ -7,34 +7,26 @@ import androidx.compose.ui.unit.dp
 /**
  * Semantic shape tokens for Aperture.
  *
- * These tokens define the corner language of Aperture, optimized for
- * Material 3 Expressive principles on a TV screen.
+ * The shape language is intentionally small: softer artwork corners, larger
+ * immersive surfaces, and pill-shaped actions give Aperture expressive variety
+ * without making every element look like a different component.
  */
 data class ApertureShapes(
-    /**
-     * Shape used by poster artwork throughout Aperture.
-     *
-     * Chosen to preserve artwork while matching Material 3 Expressive
-     * corner language. Usually a smaller radius to avoid cropping info.
-     */
-    val poster: CornerBasedShape = RoundedCornerShape(8.dp),
+    /** Artwork and media-card shape. */
+    val poster: CornerBasedShape = RoundedCornerShape(12.dp),
 
-    /**
-     * Shape used for large banners and immersive content areas.
-     *
-     * Features a more pronounced rounding for a premium feel.
-     */
-    val hero: CornerBasedShape = RoundedCornerShape(24.dp),
+    /** Large immersive surfaces such as hero artwork and featured content. */
+    val hero: CornerBasedShape = RoundedCornerShape(32.dp),
 
-    /**
-     * Semantic shape for action buttons.
-     *
-     * Follows the pill-shaped expressive language for clear interactivity.
-     */
+    /** Primary action shape. */
     val button: CornerBasedShape = RoundedCornerShape(50),
 
-    /**
-     * Shape for immersive overlays and modal dialogs.
-     */
-    val dialog: CornerBasedShape = RoundedCornerShape(28.dp)
+    /** Modal and dialog surface shape. */
+    val dialog: CornerBasedShape = RoundedCornerShape(28.dp),
+
+    /** Menus and contextual surfaces. */
+    val menu: CornerBasedShape = RoundedCornerShape(24.dp),
+
+    /** Compact tags and metadata controls. */
+    val chip: CornerBasedShape = RoundedCornerShape(50)
 )
