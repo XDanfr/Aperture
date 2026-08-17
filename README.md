@@ -21,16 +21,33 @@
 
 ---
 
+<p align="center">
+  <img src="screenshots/RoundSpotlight.png" alt="Aperture home screen with Spotlight and Recently Added media" />
+</p>
+
 ## What you'll need
 * Your own library of local media under `Movies` and `TV Shows` directories in local or extended storage (`Download`, `DCIM` and `Videos` are also supported.)
 * Clear file names representing movie titles
 * Clear folder structure (e.g. `Show/Season/SXXEXX.mp4`) for TV Shows
 
-## 📸 Screenshots
+## 🚀 Getting Started
 
-<p align="center">
-  <img src="screenshots/RoundSpotlight.png" alt="Aperture home screen with Spotlight and Recently Added media" />
-</p>
+### Quick Install (Recommended)
+
+Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device. We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store.
+
+### Or: Build From Source
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/XDanfr/Aperture.git
+   ```
+
+2. **Open in Android Studio:** Ensure your environment is configured to use **JDK 17 or 21** (others are currently untested).
+3. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
+
+## 📸 Screenshots
 
 <p align="center">
   <img src="screenshots/OutfitMovies.png" width="49%" alt="Aperture Movies library" />
@@ -68,23 +85,6 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 #### Further Out
 - [ ] **Support for NAS types, Jellyfin and Plex**
 - [ ] **Support for 3D TVs**
-
-## 🚀 Getting Started
-
-### Quick Install (Recommended)
-
-Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device. We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store.
-
-### Or: Build From Source
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/XDanfr/Aperture.git
-   ```
-
-2. **Open in Android Studio:** Ensure your environment is configured to use **JDK 17 or 21** (others are currently untested).
-3. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
 
 ## 🛠️ Tech Stack
 
