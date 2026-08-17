@@ -19,12 +19,9 @@ import androidx.graphics.shapes.toPath
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 /**
- * A 1:1 high-fidelity Material 3 Expressive Loading Indicator.
+ * A 1:1 high-fidelity Material 3 Expressive Loading Indicator adapted for Android TV.
  *
- * Exact replication of official spec:
- * 1. 7-shape sequence (SoftBurst -> Oval).
- * 2. Emphasized morphing easing (snap-and-pause).
- * 3. Synchronized accelerated rotation (whip-and-settle).
+ * Exact Material shape sequence with Aperture's TV-tuned timing.
  */
 @Composable
 fun ExpressiveLoadingIndicator(
@@ -34,23 +31,23 @@ fun ExpressiveLoadingIndicator(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "expressiveLoading")
 
-    // The cycle progress drives the morphing through 7 shapes (approx 666ms per shape).
+    // 7 shapes across a 5 second cycle (~714ms per morph).
     val cycleProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 7f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4666, easing = LinearEasing),
+            animation = tween(5000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "cycleProgress"
     )
 
-    // Base linear rotation (approx 2333ms per full turn).
+    // Keep the rotation relationship with the morph cycle at 2:1.
     val baseRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2333, easing = LinearEasing),
+            animation = tween(2500, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "baseRotation"
@@ -91,28 +88,27 @@ fun ExpressiveLoadingIndicator(
                 onDrawBehind {
                     val segment = cycleProgress.toInt().coerceIn(0, 6)
                     val segmentProgress = cycleProgress % 1f
-                    
-                    // Emphasized Easing (0.2, 0.0, 0.0, 1.0) for the snappy morph segments
+
+                    // Emphasized easing for the snappy morph segments.
                     val morphProgress = CubicBezierEasing(0.2f, 0f, 0f, 1f).transform(segmentProgress)
-                    
-                    // Non-linear rotation whip: accelerate by 180 degrees during the morph
+
+                    // Non-linear rotation whip: accelerate by 180 degrees during the morph.
                     val rotationWhip = morphProgress * 180f
                     val finalRotation = baseRotation + (segment * (360f / 7f)) + rotationWhip
 
                     androidPath.reset()
                     morphs[segment].toPath(morphProgress, androidPath)
                     val composePath = androidPath.asComposePath()
-                    
-                    // Scale from unit 1f radius to canvas size (with 20% safety margin)
-                    val scaleFactor = (this.size.minDimension / 2f) * 0.8f
-                    
+
+                    // Material's 38dp active size within a 48dp indicator is ~79.2% of the box.
+                    val scaleFactor = (this.size.minDimension / 2f) * (38f / 48f)
+
                     matrix.reset()
                     matrix.translate(this.size.width / 2f, this.size.height / 2f)
                     matrix.rotateZ(finalRotation)
                     matrix.scale(scaleFactor, scaleFactor)
-                    
+
                     composePath.transform(matrix)
-                    
                     drawPath(path = composePath, color = color)
                 }
             }
