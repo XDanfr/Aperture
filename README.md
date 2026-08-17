@@ -33,16 +33,17 @@
 * **Custom themes**
 * **Name matching and asset detecting with TMDb**
 
-## What you'll need
-* Your own library of local media under `Movies` and `TV Shows` directories in local or extended storage (`Download`, `DCIM` and `Videos` are also supported.)
-* Clear file names representing movie titles
-* Clear folder structure (e.g. `Show/Season/SXXEXX.mp4`) for TV Shows
-
 ## 🚀 Getting Started
+
+> [!IMPORTANT]
+> * Organise your media under `Movies/` and `TV Shows/` folders in local or extended storage (`Download`, `DCIM` and `Videos` are also supported).
+> * Use clean file names and standard TV structures (e.g. `Show Title/Season XX/SXXEXX.mp4`).
 
 ### Quick Install (Recommended)
 
-Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device. We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store.
+Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device.
+> [!TIP]
+> We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store.
 
 ### Or: Build From Source
 
