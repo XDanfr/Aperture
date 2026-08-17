@@ -76,7 +76,6 @@ fun MediaCard(
     val density = LocalDensity.current
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val opensToRight = remember { booleanArrayOf(true) }
-    val focusedGlow = rememberFocusGlow(isFocused)
 
     Box(
         modifier = modifier
@@ -85,6 +84,7 @@ fun MediaCard(
                 opensToRight[0] = coordinates.boundsInWindow().center.x < screenWidthPx / 2f
             }
             .zIndex(if (isFocused) 1f else 0f)
+            .focusGlow(isFocused)
             .graphicsLayer { clip = false }
     ) {
         Surface(
@@ -144,9 +144,6 @@ fun MediaCard(
                     border = androidx.compose.foundation.BorderStroke(2.dp, ApertureTheme.colorScheme.border),
                     shape = ApertureTheme.shapes.poster
                 )
-            ),
-            glow = ClickableSurfaceDefaults.glow(
-                focusedGlow = focusedGlow
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
