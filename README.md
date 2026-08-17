@@ -8,11 +8,16 @@
   <i>Finally, a Material 3 media player for Android TV!</i>
 </p>
 
-<p align="center">
-  <a href="https://xdan.me/aperture">Website</a> •
-  <a href="https://github.com/XDanfr/Aperture/releases/latest">Download the latest alpha</a> •
-  <a href="https://discord.gg/vne5ED9xsm">Discord Server
-</p>
+<div align="center">
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/XDanfr?style=for-the-badge&logo=github&label=Sponsor)](https://github.com/sponsors/XDanfr)
+[![Website](https://img.shields.io/badge/Website-Aperture-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://aperture.xdan.me)
+[![Discord](https://img.shields.io/discord/1525645205720662117?style=for-the-badge&logo=discord&logoColor=white&label=Discord)](https://discord.gg/fuxMAVBccK)
+
+[![Download APK](https://img.shields.io/badge/Download-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/XDanfr/Aperture/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/XDanfr/Aperture/total?style=for-the-badge&logo=github&label=Downloads)](https://github.com/XDanfr/Aperture/releases)
+
+</div>
 
 ---
 
