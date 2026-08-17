@@ -25,6 +25,14 @@
   <img src="screenshots/RoundSpotlight.png" alt="Aperture home screen with Spotlight and Recently Added media" />
 </p>
 
+## ✨ Features
+
+* **Material 3 UI**
+* **TV-Optimised Navigation**
+* **Media3 Powered**
+* **Custom themes**
+* **Name matching and asset detecting with TMDb**
+
 ## What you'll need
 * Your own library of local media under `Movies` and `TV Shows` directories in local or extended storage (`Download`, `DCIM` and `Videos` are also supported.)
 * Clear file names representing movie titles
@@ -63,14 +71,6 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
   <img src="screenshots/OutfitSearch.png" width="49%" alt="Aperture media search" />
   <img src="screenshots/MetaSearch.png" width="49%" alt="Aperture manual artwork and metadata selection" />
 </p>
-
-## ✨ Features
-
-* **Material 3 UI**
-* **TV-Optimised Navigation**
-* **Media3 Powered**
-* **Custom themes**
-* **Name matching and asset detecting with TMDb**
 
 ## 🗺️ Roadmap
 
