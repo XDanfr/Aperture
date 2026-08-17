@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @Composable
 fun ArtworkFallback(
