@@ -30,13 +30,14 @@ fun ExpressiveLoadingIndicator(
     color: Color = ApertureTheme.colorScheme.primary
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "expressiveLoading")
+    val motion = ApertureTheme.motion
 
-    // 7 shapes across a 5 second cycle (~714ms per morph).
+    // 7 shapes across a TV-tuned 5 second cycle.
     val cycleProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 7f,
         animationSpec = infiniteRepeatable(
-            animation = tween(5000, easing = LinearEasing),
+            animation = tween(motion.expressiveLoadingCycleDuration, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "cycleProgress"
@@ -47,7 +48,7 @@ fun ExpressiveLoadingIndicator(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = LinearEasing),
+            animation = tween(motion.expressiveLoadingRotationDuration, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "baseRotation"
@@ -92,15 +93,15 @@ fun ExpressiveLoadingIndicator(
                     // Emphasized easing for the snappy morph segments.
                     val morphProgress = CubicBezierEasing(0.2f, 0f, 0f, 1f).transform(segmentProgress)
 
-                    // Non-linear rotation whip: accelerate by 180 degrees during the morph.
-                    val rotationWhip = morphProgress * 180f
+                    // Non-linear rotation whip: accelerate during the morph.
+                    val rotationWhip = morphProgress * motion.expressiveLoadingMorphRotation
                     val finalRotation = baseRotation + (segment * (360f / 7f)) + rotationWhip
 
                     androidPath.reset()
                     morphs[segment].toPath(morphProgress, androidPath)
                     val composePath = androidPath.asComposePath()
 
-                    // Material's 38dp active size within a 48dp indicator is ~79.2% of the box.
+                    // Material's 38dp active size within a 48dp container.
                     val scaleFactor = (this.size.minDimension / 2f) * (38f / 48f)
 
                     matrix.reset()

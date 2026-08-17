@@ -20,7 +20,10 @@ class ApertureMotion(
     private val enterDamping: Float = Spring.DampingRatioNoBouncy,
     private val playbackOverlayDuration: Int = 300,
     private val playbackProgressDuration: Int = 150,
-    private val exitDuration: Int = 200
+    private val exitDuration: Int = 200,
+    val expressiveLoadingCycleDuration: Int = 5000,
+    val expressiveLoadingRotationDuration: Int = 2500,
+    val expressiveLoadingMorphRotation: Float = 180f
 ) {
     /**
      * Fluid spring for scaling components on focus.
