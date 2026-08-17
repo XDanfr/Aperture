@@ -27,11 +27,10 @@
 
 ## ✨ Features
 
-* **Material 3 UI**
-* **TV-Optimised Navigation**
-* **Media3 Powered**
-* **Custom themes**
-* **Name matching and asset detecting with TMDb**
+* 🎨 **Material 3 UI**
+* ⚡ **Media3 Powered**
+* 🎨 **Themes**
+* 🖼️ **Name matching and asset detecting with TMDb**
 
 ## 🚀 Getting Started
 
