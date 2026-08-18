@@ -21,13 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyVerticalGrid
-import androidx.compose.foundation.lazy.GridCells
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
@@ -1272,7 +1270,13 @@ private fun ThemePickerDialog(
     onDismiss: () -> Unit
 ) {
     val firstRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    val themeRows = remember { ApertureThemeOptions.chunked(3) }
+
+    LaunchedEffect(Unit) {
+        delay(80)
+        runCatching { firstRequester.requestFocus() }
+    }
+
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)),
@@ -1290,67 +1294,27 @@ private fun ThemePickerDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                    LazyColumn(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
-                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                        verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
-                        gridItems(ApertureThemeOptions, key = { option -> option.id }) { option ->
-                            val selected = option.id == selectedThemeId
-                            Surface(
-                                onClick = { onSelect(option.id) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .then(
-                                        if (option.id == ApertureThemeOptions.first().id) {
-                                            Modifier.focusRequester(firstRequester)
-                                        } else Modifier
-                                    ),
-                                shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
-                                colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = if (selected) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    focusedContainerColor = MaterialTheme.colorScheme.primaryContainer
-                                ),
-                                scale = ClickableSurfaceDefaults.scale(
-                                    focusedScale = 1.025f,
-                                    pressedScale = 0.98f
-                                ),
-                                border = ClickableSurfaceDefaults.border(
-                                    focusedBorder = Border(
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            2.dp,
-                                            MaterialTheme.colorScheme.primary
-                                        ),
-                                        shape = ApertureTheme.shapes.poster
-                                    )
-                                )
+                        items(themeRows, key = { row -> row.firstOrNull()?.id ?: "empty" }) { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(ApertureTheme.spacing.medium),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    ThemeColourSwatch(
-                                        option = option,
-                                        selected = selected
-                                    )
-                                    Spacer(Modifier.height(ApertureTheme.spacing.small))
-                                    Text(
-                                        text = option.label,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    if (selected) {
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            "Selected",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
+                                repeat(3) { index ->
+                                    val option = row.getOrNull(index)
+                                    if (option != null) {
+                                        ThemeOptionCard(
+                                            option = option,
+                                            selected = option.id == selectedThemeId,
+                                            firstRequester = if (index == 0 && row === themeRows.first()) firstRequester else null,
+                                            onSelect = onSelect,
+                                            modifier = Modifier.weight(1f)
                                         )
+                                    } else {
+                                        Spacer(Modifier.weight(1f))
                                     }
                                 }
                             }
@@ -1364,26 +1328,74 @@ private fun ThemePickerDialog(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ThemeOptionCard(
+    option: me.xdan.aperture.ui.theme.ApertureThemeOption,
+    selected: Boolean,
+    firstRequester: FocusRequester?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = { onSelect(option.id) },
+        modifier = modifier
+            .then(if (firstRequester != null) Modifier.focusRequester(firstRequester) else Modifier),
+        shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+            focusedContainerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        scale = ClickableSurfaceDefaults.scale(
+            focusedScale = 1.025f,
+            pressedScale = 0.98f
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    2.dp,
+                    MaterialTheme.colorScheme.primary
+                ),
+                shape = ApertureTheme.shapes.poster
+            )
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(ApertureTheme.spacing.medium),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            ThemeColourSwatch(option = option, selected = selected)
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
+            Text(
+                text = option.label,
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = TextAlign.Center
+            )
+            if (selected) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Selected",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ThemeColourSwatch(
     option: me.xdan.aperture.ui.theme.ApertureThemeOption,
     selected: Boolean
 ) {
     Canvas(
-        modifier = Modifier
-            .size(88.dp)
-            .border(
-                width = if (selected) 3.dp else 1.dp,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                },
-                shape = CircleShape
-            )
+        modifier = Modifier.size(88.dp)
     ) {
-        // M3-style three-part circular split:
-        // 180° across the top, then 90° bottom-left and 90° bottom-right.
+        val strokeWidth = if (selected) 3.dp.toPx() else 1.dp.toPx()
         drawArc(
             color = option.primary,
             startAngle = 180f,
@@ -1402,12 +1414,10 @@ private fun ThemeColourSwatch(
             sweepAngle = 90f,
             useCenter = true
         )
-        drawArc(
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-            startAngle = 0f,
-            sweepAngle = 360f,
-            useCenter = false,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+        drawCircle(
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            radius = size.minDimension / 2f - strokeWidth / 2f,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
         )
     }
 }
@@ -1598,6 +1608,7 @@ private fun SpotlightDaysDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    
                     var isSliderFocused by remember { mutableStateOf(false) }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExpressiveSlider(
@@ -1617,6 +1628,7 @@ private fun SpotlightDaysDialog(
                             textAlign = TextAlign.Center
                         )
                     }
+                    
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small),
