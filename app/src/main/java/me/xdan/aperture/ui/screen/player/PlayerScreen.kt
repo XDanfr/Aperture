@@ -975,12 +975,12 @@ private fun PlayerOsd(
         ) {
             AnimatedVisibility(
                 visible = !isScrubbing,
-                enter = fadeIn(animationSpec = tween(220)) +
-                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
-                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
-                exit = fadeOut(animationSpec = tween(160)) +
-                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { -it / 5 }) +
-                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
+                enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) +
+                    slideInVertically(animationSpec = androidx.compose.animation.core.tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = androidx.compose.animation.core.tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(160)) +
+                    slideOutVertically(animationSpec = androidx.compose.animation.core.tween(160), targetOffsetY = { -it / 5 }) +
+                    scaleOut(animationSpec = androidx.compose.animation.core.tween(160), targetScale = 0.96f)
             ) {
                 Column {
                     Text(
@@ -1016,12 +1016,12 @@ private fun PlayerOsd(
 
             AnimatedVisibility(
                 visible = !isScrubbing,
-                enter = fadeIn(animationSpec = tween(220)) +
-                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
-                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
-                exit = fadeOut(animationSpec = tween(160)) +
-                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { it / 5 }) +
-                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
+                enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) +
+                    slideInVertically(animationSpec = androidx.compose.animation.core.tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = androidx.compose.animation.core.tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(160)) +
+                    slideOutVertically(animationSpec = androidx.compose.animation.core.tween(160), targetOffsetY = { it / 5 }) +
+                    scaleOut(animationSpec = androidx.compose.animation.core.tween(160), targetScale = 0.96f)
             ) {
                 Column {
                     Row(
