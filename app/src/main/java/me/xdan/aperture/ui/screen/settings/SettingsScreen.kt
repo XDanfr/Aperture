@@ -223,6 +223,8 @@ fun SettingsScreen(
                     title = "Customisation",
                     description = "Theme, presentation and ambient mode",
                     icon = Icons.Rounded.Palette,
+                    focusRequester = contentEntryFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
                     onClick = { currentPage = SettingsPage.CUSTOMISATION }
                 )
             }
@@ -1626,11 +1628,18 @@ private fun SettingsPageEntry(
     title: String,
     description: String,
     icon: ImageVector,
+    focusRequester: FocusRequester? = null,
+    onFocused: (FocusRequester) -> Unit = {},
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged {
+                if (it.isFocused && focusRequester != null) onFocused(focusRequester)
+            },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1.02f,
