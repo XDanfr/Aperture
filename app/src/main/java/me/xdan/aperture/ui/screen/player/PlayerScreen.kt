@@ -2,14 +2,23 @@
 
 package me.xdan.aperture.ui.screen.player
 
+import android.graphics.Bitmap
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,12 +35,14 @@ import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -47,6 +58,10 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.*
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
@@ -249,6 +264,7 @@ fun PlayerScreen(
         ) {
             PlayerOsd(
                 media = media,
+                mediaSource = media?.filePath,
                 player = player,
                 controlsFocusRequester = controlsFocusRequester,
                 onInteraction = viewModel::showOsdBriefly,
@@ -261,7 +277,10 @@ fun PlayerScreen(
                 onQuickMenu = {
                     isQuickMenuVisible = true
                     viewModel.toggleOsd()
-                }
+                },
+                onScrubbingChanged = viewModel::setScrubbing,
+                onScrubUp = viewModel::hideOsd,
+                onScrubToControls = controlsFocusRequester::requestFocus
             )
         }
 
@@ -900,114 +919,568 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
 @Composable
 private fun PlayerOsd(
     media: MediaEntity?,
+    mediaSource: String?,
     player: androidx.media3.common.Player,
     controlsFocusRequester: FocusRequester,
     onInteraction: () -> Unit,
     onRestart: () -> Unit,
-    onQuickMenu: () -> Unit
+    onQuickMenu: () -> Unit,
+    onScrubbingChanged: (Boolean) -> Unit,
+    onScrubUp: () -> Unit,
+    onScrubToControls: () -> Unit
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
     var isPlaying by remember { mutableStateOf(player.playWhenReady) }
+    var isScrubbing by remember { mutableStateOf(false) }
+
+    val scrubUiAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isScrubbing) 0f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "scrubUiAlpha"
+    )
+    val scrubBackgroundAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isScrubbing) 0.76f else 0.5f,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "scrubBackgroundAlpha"
+    )
+
+    DisposableEffect(player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlayWhenReadyChanged(
+                playWhenReady: Boolean,
+                reason: Int
+            ) {
+                isPlaying = playWhenReady
+            }
+
+            override fun onPlaybackStateChanged(state: Int) {
+                duration = player.duration
+            }
+        }
+
+        player.addListener(listener)
+
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
 
     LaunchedEffect(player) {
-        while (true) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             currentPosition = player.currentPosition
             duration = player.duration
-            isPlaying = player.playWhenReady
-            kotlinx.coroutines.delay(1000)
+            kotlinx.coroutines.delay(33)
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = scrubBackgroundAlpha))
             .padding(48.dp)
     ) {
         Column(
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
-            Text(
-                text = media?.title ?: "",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier.graphicsLayer {
+                    alpha = scrubUiAlpha
+                    val scale = 0.96f + (0.04f * scrubUiAlpha)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = -20f * (1f - scrubUiAlpha)
+                }
+            ) {
+                Column {
+                    Text(
+                        text = media?.title ?: "",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
 
-            val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
-            Box(
+            val progress = if (duration > 0) {
+                (currentPosition.toFloat() / duration).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+            PlayerSeekProgress(
+                player = player,
+                mediaSource = mediaSource,
+                progress = progress,
+                isPlaying = isPlaying,
+                onScrubbingChanged = { scrubbing ->
+                    isScrubbing = scrubbing
+                    onScrubbingChanged(scrubbing)
+                },
+                onScrubUp = onScrubUp,
+                onScrubToControls = onScrubToControls,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Gray)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
+                    .height(24.dp)
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier.graphicsLayer {
+                    alpha = scrubUiAlpha
+                    val scale = 0.96f + (0.04f * scrubUiAlpha)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = 20f * (1f - scrubUiAlpha)
+                }
             ) {
-                Text(formatTime(currentPosition), color = Color.White)
-                Text(formatTime(duration), color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.Replay,
-                    contentDescription = "Restart",
-                    onClick = onRestart
-                )
-                Spacer(modifier = Modifier.width(24.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.FastRewind,
-                    contentDescription = "Rewind",
-                    onClick = {
-                        player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
-                        onInteraction()
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(formatTime(currentPosition), color = Color.White)
+                        Text(formatTime(duration), color = Color.White)
                     }
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    iconSize = 64.dp,
-                    onClick = {
-                        if (isPlaying) player.pause() else player.play()
-                        onInteraction()
-                    },
-                    modifier = Modifier.focusRequester(controlsFocusRequester)
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.FastForward,
-                    contentDescription = "Fast Forward",
-                    onClick = {
-                        val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-                        player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
-                        onInteraction()
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.Replay,
+                            contentDescription = "Restart",
+                            onClick = onRestart
+                        )
+                        Spacer(modifier = Modifier.width(24.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastRewind,
+                            contentDescription = "Rewind",
+                            onClick = {
+                                player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            iconSize = 64.dp,
+                            onClick = {
+                                if (isPlaying) {
+                                    player.pause()
+                                } else {
+                                    player.play()
+                                }
+                                onInteraction()
+                            },
+                            modifier = Modifier.focusRequester(controlsFocusRequester)
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastForward,
+                            contentDescription = "Fast Forward",
+                            onClick = {
+                                val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                                player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.MoreVert,
+                            contentDescription = "Audio and subtitle options",
+                            onClick = onQuickMenu
+                        )
                     }
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.MoreVert,
-                    contentDescription = "Audio and subtitle options",
-                    onClick = onQuickMenu
-                )
+                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PlayerSeekProgress(
+    player: androidx.media3.common.Player,
+    mediaSource: String?,
+    progress: Float,
+    isPlaying: Boolean,
+    onScrubbingChanged: (Boolean) -> Unit,
+    onScrubUp: () -> Unit,
+    onScrubToControls: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val duration = player.duration.coerceAtLeast(0L)
+    val context = LocalContext.current
+
+    var focused by remember { mutableStateOf(false) }
+    var scrubbing by remember { mutableStateOf(false) }
+
+    var originalPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val previewLoader = remember(context) { PreviewFrameLoader(context) }
+
+    var holdDirection by remember { mutableIntStateOf(0) }
+    var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val scope = rememberCoroutineScope()
+
+    /*
+     * Keep the visual playback position smooth between player updates.
+     * During scrubbing we use the explicit seek position instead.
+     */
+    val targetProgress = if (scrubbing && duration > 0L) {
+        (seekPosition.toFloat() / duration).coerceIn(0f, 1f)
+    } else {
+        progress.coerceIn(0f, 1f)
+    }
+
+    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = 80
+        ),
+        label = "seekProgress"
+    )
+
+    val waveAmplitude = if (isPlaying && !scrubbing) 1f else 0f
+    val previewPosition = if (scrubbing) {
+        PreviewFrameLoader.quantise(seekPosition)
+    } else {
+        -1L
+    }
+
+    LaunchedEffect(previewPosition, scrubbing, mediaSource) {
+        previewBitmap = null
+        if (!scrubbing || mediaSource.isNullOrBlank() || previewPosition < 0L) return@LaunchedEffect
+
+        delay(100)
+        previewBitmap = previewLoader.load(mediaSource, previewPosition)
+    }
+
+    DisposableEffect(previewLoader) {
+        onDispose { previewLoader.clear() }
+    }
+
+    val handleSize by animateDpAsState(
+        targetValue = if (focused || scrubbing) 14.dp else 0.dp,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "seekHandleSize"
+    )
+
+    fun beginScrubbing() {
+        if (scrubbing) return
+
+        originalPosition = player.currentPosition
+        seekPosition = originalPosition
+        wasPlayingBeforeScrub = player.isPlaying
+
+        scrubbing = true
+        onScrubbingChanged(true)
+        player.pause()
+    }
+
+    fun commitScrubbing() {
+        if (!scrubbing) return
+
+        player.seekTo(
+            seekPosition.coerceIn(0L, duration)
+        )
+
+        scrubbing = false
+        onScrubbingChanged(false)
+
+        if (wasPlayingBeforeScrub) {
+            player.play()
+        }
+    }
+
+    fun cancelScrubbing() {
+        if (!scrubbing) return
+
+        seekJob?.cancel()
+        seekJob = null
+        holdDirection = 0
+
+        player.seekTo(originalPosition.coerceIn(0L, duration))
+
+        scrubbing = false
+        onScrubbingChanged(false)
+
+        if (wasPlayingBeforeScrub) {
+            player.play()
+        }
+    }
+
+    BackHandler(enabled = scrubbing) {
+        cancelScrubbing()
+        onScrubToControls()
+    }
+
+    fun beginHold(direction: Int) {
+        if (holdDirection == direction && seekJob?.isActive == true) {
+            return
+        }
+
+        beginScrubbing()
+
+        holdDirection = direction
+        seekJob?.cancel()
+
+        seekJob = scope.launch {
+            var startedAt = android.os.SystemClock.elapsedRealtime()
+            var lastStepAt = startedAt
+
+            // Immediate first movement.
+            seekPosition = when (direction) {
+                -1 -> (seekPosition - 10_000L).coerceAtLeast(0L)
+                else -> (seekPosition + 10_000L).coerceAtMost(duration)
+            }
+
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val elapsed = now - startedAt
+
+                val interval: Long
+                val step: Long
+
+                when {
+                    elapsed < 1_000L -> {
+                        interval = 250L
+                        step = 10_000L
+                    }
+
+                    elapsed < 2_500L -> {
+                        interval = 220L
+                        step = 20_000L
+                    }
+
+                    elapsed < 5_000L -> {
+                        interval = 180L
+                        step = 30_000L
+                    }
+
+                    elapsed < 8_000L -> {
+                        interval = 140L
+                        step = 60_000L
+                    }
+
+                    else -> {
+                        interval = 110L
+                        step = 120_000L
+                    }
+                }
+
+                if (now - lastStepAt >= interval) {
+                    seekPosition = if (direction < 0) {
+                        (seekPosition - step).coerceAtLeast(0L)
+                    } else {
+                        (seekPosition + step).coerceAtMost(duration)
+                    }
+
+                    lastStepAt = now
+                }
+
+                kotlinx.coroutines.delay(16L)
+            }
+        }
+    }
+
+    fun endHold() {
+        holdDirection = 0
+        seekJob?.cancel()
+        seekJob = null
+    }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .layout { measurable, constraints ->
+                val relaxedConstraints = constraints.copy(
+                    maxHeight = maxOf(constraints.maxHeight, 240.dp.roundToPx())
+                )
+                val placeable = measurable.measure(relaxedConstraints)
+                val reportedHeight = 24.dp.roundToPx()
+                    .coerceIn(constraints.minHeight, constraints.maxHeight)
+
+                layout(constraints.maxWidth, reportedHeight) {
+                    placeable.placeRelative(
+                        x = 0,
+                        y = (reportedHeight - placeable.height) / 2
+                    )
+                }
+            }
+            .onFocusChanged {
+                focused = it.isFocused
+
+                if (!it.isFocused && scrubbing) {
+                    cancelScrubbing()
+                }
+            }
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                val keyCode = event.nativeKeyEvent.keyCode
+
+                when (event.nativeKeyEvent.action) {
+                    KeyEvent.ACTION_DOWN -> {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                beginHold(-1)
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                beginHold(1)
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_CENTER,
+                            KeyEvent.KEYCODE_ENTER -> {
+                                endHold()
+
+                                if (scrubbing) {
+                                    commitScrubbing()
+                                } else if (player.isPlaying) {
+                                    player.pause()
+                                } else {
+                                    player.play()
+                                }
+
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_UP -> {
+                                if (scrubbing) {
+                                    endHold()
+                                    cancelScrubbing()
+                                    onScrubUp()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (scrubbing) {
+                                    endHold()
+                                    cancelScrubbing()
+                                    onScrubToControls()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
+                            KeyEvent.KEYCODE_BACK -> false
+
+                            else -> false
+                        }
+                    }
+
+                    KeyEvent.ACTION_UP -> {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT,
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                endHold()
+                                true
+                            }
+
+                            else -> false
+                        }
+                    }
+
+                    else -> false
+                }
+            }
+    ) {
+        if (scrubbing) {
+            val previewWidth = 320.dp
+            val previewHeight = 180.dp
+            val previewX = ((maxWidth - previewWidth) * animatedProgress)
+                .coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
+
+            Surface(
+                modifier = Modifier
+                    .width(previewWidth)
+                    .wrapContentHeight()
+                    .offset(x = previewX, y = -(previewHeight + 28.dp) / 2)
+                    .align(Alignment.CenterStart),
+                shape = RoundedCornerShape(24.dp),
+                colors = SurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                ),
+                tonalElevation = 6.dp
+            ) {
+                Column {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(previewHeight)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (previewBitmap != null) {
+                            Image(
+                                bitmap = previewBitmap!!.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            ExpressiveLoadingIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                size = 28.dp
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = formatTime(seekPosition),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+
+        LinearWavyProgressIndicator(
+            progress = { animatedProgress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Center),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
+            stopSize = 0.dp,
+            amplitude = { waveAmplitude },
+            wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
+        )
+
+        if (handleSize > 0.dp && maxWidth > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .size(handleSize)
+                    .align(Alignment.CenterStart)
+                    .offset(
+                        x = maxWidth * animatedProgress -
+                                (handleSize / 2)
+                    )
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        androidx.compose.foundation.shape.CircleShape
+                    )
+            )
         }
     }
 }
