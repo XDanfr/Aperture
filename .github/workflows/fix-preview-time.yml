@@ -22,35 +22,24 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
           text = path.read_text(encoding='utf-8')
 
-          old = '''                    Text(
-                        text = formatTime(seekPosition),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )'''
+          pattern = r'''(?ms)                    Text\(\n                        text = formatTime\(seekPosition\),\n                        modifier = Modifier\.padding\(horizontal = 14\.dp, vertical = 10\.dp\),\n                        style = MaterialTheme\.typography\.[A-Za-z0-9_]+,\n                        color = MaterialTheme\.colorScheme\.onSurface\n                    \)'''
+          replacement = '''                    Box(\n                        modifier = Modifier\n                            .fillMaxWidth()\n                            .padding(horizontal = 14.dp, vertical = 10.dp),\n                        contentAlignment = Alignment.Center\n                    ) {\n                        Text(\n                            text = formatTime(seekPosition),\n                            style = MaterialTheme.typography.titleLarge,\n                            color = MaterialTheme.colorScheme.onSurface\n                        )\n                    }'''
 
-          new = '''                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = formatTime(seekPosition),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }'''
-
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
+          new_text, count = re.subn(pattern, replacement, text, count=1)
+          if count == 1:
+              text = new_text
+          elif 'text = formatTime(seekPosition)' not in text:
               raise SystemExit('Could not find preview time text block')
 
+          # Restore the side elapsed/total readout if the earlier mistaken patch combined it.
+          combined = '''                    Box(\n                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),\n                        contentAlignment = Alignment.Center\n                    ) {\n                        Text(\n                            text = "${formatTime(currentPosition)} / ${formatTime(duration)}",\n                            style = MaterialTheme.typography.titleLarge,\n                            color = Color.White\n                        )\n                    }'''
+          side = '''                    Row(\n                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),\n                        horizontalArrangement = Arrangement.SpaceBetween\n                    ) {\n                        Text(formatTime(currentPosition), color = Color.White)\n                        Text(formatTime(duration), color = Color.White)\n                    }'''
+          text = text.replace(combined, side, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
