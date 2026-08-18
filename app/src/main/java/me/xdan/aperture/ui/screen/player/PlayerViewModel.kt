@@ -91,6 +91,15 @@ class PlayerViewModel @Inject constructor(
     )
 
     private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) {
+                if (_isOsdVisible.value) resetOsdTimer()
+            } else {
+                osdTimerJob?.cancel()
+                osdTimerJob = null
+            }
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             progressTrackerJob?.cancel()
             osdTimerJob?.cancel()
@@ -535,7 +544,14 @@ class PlayerViewModel @Inject constructor(
     }
     private fun resetOsdTimer() {
         osdTimerJob?.cancel()
-        osdTimerJob = viewModelScope.launch { delay(3000); _isOsdVisible.value = false }
+        if (!player.isPlaying) return
+
+        osdTimerJob = viewModelScope.launch {
+            delay(3000)
+            if (player.isPlaying) {
+                _isOsdVisible.value = false
+            }
+        }
     }
     fun seekForward() {
         val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE

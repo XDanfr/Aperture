@@ -1172,9 +1172,13 @@ private fun PlayerSeekProgress(
         scrubbing = false
         onScrubbingChanged(false)
 
-        if (wasPlayingBeforeScrub) {
-            player.play()
-        }
+        player.play()
+    }
+
+    BackHandler(enabled = scrubbing) {
+        endHold()
+        cancelScrubbing()
+        onScrubToControls()
     }
 
     fun beginHold(direction: Int) {
@@ -1299,8 +1303,10 @@ private fun PlayerSeekProgress(
 
                                 if (scrubbing) {
                                     commitScrubbing()
+                                } else if (player.isPlaying) {
+                                    player.pause()
                                 } else {
-                                    beginScrubbing()
+                                    player.play()
                                 }
 
                                 true
@@ -1308,6 +1314,7 @@ private fun PlayerSeekProgress(
 
                             KeyEvent.KEYCODE_DPAD_UP -> {
                                 if (scrubbing) {
+                                    endHold()
                                     cancelScrubbing()
                                     onScrubUp()
                                     true
@@ -1318,6 +1325,7 @@ private fun PlayerSeekProgress(
 
                             KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 if (scrubbing) {
+                                    endHold()
                                     cancelScrubbing()
                                     onScrubToControls()
                                     true
@@ -1326,15 +1334,7 @@ private fun PlayerSeekProgress(
                                 }
                             }
 
-                            KeyEvent.KEYCODE_BACK -> {
-                                if (scrubbing) {
-                                    cancelScrubbing()
-                                    onScrubToControls()
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
+                            KeyEvent.KEYCODE_BACK -> false
 
                             else -> false
                         }
