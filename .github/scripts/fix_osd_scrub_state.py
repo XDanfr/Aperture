@@ -1,15 +1,15 @@
 from pathlib import Path
 
-vm = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerViewModel.kt')
-screen = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
+vm = Path("app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerViewModel.kt")
+screen = Path("app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt")
 
-vm_text = vm.read_text(encoding='utf-8')
+vm_text = vm.read_text(encoding="utf-8")
 
-old_timer = '''    private fun resetOsdTimer() {
+old_timer = """    private fun resetOsdTimer() {
         osdTimerJob?.cancel()
         osdTimerJob = viewModelScope.launch { delay(3000); _isOsdVisible.value = false }
-    }'''
-new_timer = '''    private fun resetOsdTimer() {
+    }"""
+new_timer = """    private fun resetOsdTimer() {
         osdTimerJob?.cancel()
         if (!player.isPlaying) return
 
@@ -19,14 +19,15 @@ new_timer = '''    private fun resetOsdTimer() {
                 _isOsdVisible.value = false
             }
         }
-    }'''
-if vm_text.count(old_timer) != 1:
-    raise SystemExit('Expected exactly one resetOsdTimer block')
-vm_text = vm_text.replace(old_timer, new_timer, 1)
+    }"""
+if old_timer in vm_text:
+    vm_text = vm_text.replace(old_timer, new_timer, 1)
+elif new_timer not in vm_text:
+    raise SystemExit("Could not find resetOsdTimer in either old or already-patched form")
 
-old_error = '''    private val playerListener = object : Player.Listener {
-        override fun onPlayerError(error: PlaybackException) {'''
-new_error = '''    private val playerListener = object : Player.Listener {
+old_listener = """    private val playerListener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {"""
+new_listener = """    private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (isPlaying) {
                 if (_isOsdVisible.value) resetOsdTimer()
@@ -36,15 +37,17 @@ new_error = '''    private val playerListener = object : Player.Listener {
             }
         }
 
-        override fun onPlayerError(error: PlaybackException) {'''
-if vm_text.count(old_error) != 1:
-    raise SystemExit('Expected exactly one playerListener declaration')
-vm_text = vm_text.replace(old_error, new_error, 1)
-vm.write_text(vm_text, encoding='utf-8')
+        override fun onPlayerError(error: PlaybackException) {"""
+if old_listener in vm_text:
+    vm_text = vm_text.replace(old_listener, new_listener, 1)
+elif new_listener not in vm_text:
+    raise SystemExit("Could not find playerListener in either old or already-patched form")
 
-screen_text = screen.read_text(encoding='utf-8')
+vm.write_text(vm_text, encoding="utf-8")
 
-old_cancel = '''    fun cancelScrubbing() {
+screen_text = screen.read_text(encoding="utf-8")
+
+old_cancel = """    fun cancelScrubbing() {
         if (!scrubbing) return
 
         seekJob?.cancel()
@@ -59,8 +62,8 @@ old_cancel = '''    fun cancelScrubbing() {
         if (wasPlayingBeforeScrub) {
             player.play()
         }
-    }'''
-new_cancel = '''    fun cancelScrubbing() {
+    }"""
+new_cancel = """    fun cancelScrubbing() {
         if (!scrubbing) return
 
         seekJob?.cancel()
@@ -73,12 +76,13 @@ new_cancel = '''    fun cancelScrubbing() {
         onScrubbingChanged(false)
 
         player.play()
-    }'''
-if screen_text.count(old_cancel) != 1:
-    raise SystemExit('Expected exactly one cancelScrubbing block')
-screen_text = screen_text.replace(old_cancel, new_cancel, 1)
+    }"""
+if old_cancel in screen_text:
+    screen_text = screen_text.replace(old_cancel, new_cancel, 1)
+elif new_cancel not in screen_text:
+    raise SystemExit("Could not find cancelScrubbing in either old or already-patched form")
 
-old_center = '''                            KeyEvent.KEYCODE_DPAD_CENTER,
+old_center = """                            KeyEvent.KEYCODE_DPAD_CENTER,
                             KeyEvent.KEYCODE_ENTER -> {
                                 endHold()
 
@@ -89,8 +93,8 @@ old_center = '''                            KeyEvent.KEYCODE_DPAD_CENTER,
                                 }
 
                                 true
-                            }'''
-new_center = '''                            KeyEvent.KEYCODE_DPAD_CENTER,
+                            }"""
+new_center = """                            KeyEvent.KEYCODE_DPAD_CENTER,
                             KeyEvent.KEYCODE_ENTER -> {
                                 endHold()
 
@@ -103,12 +107,13 @@ new_center = '''                            KeyEvent.KEYCODE_DPAD_CENTER,
                                 }
 
                                 true
-                            }'''
-if screen_text.count(old_center) != 1:
-    raise SystemExit('Expected exactly one centre key handler')
-screen_text = screen_text.replace(old_center, new_center, 1)
+                            }"""
+if old_center in screen_text:
+    screen_text = screen_text.replace(old_center, new_center, 1)
+elif new_center not in screen_text:
+    raise SystemExit("Could not find centre key handler in either old or already-patched form")
 
-old_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
+old_up = """                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 if (scrubbing) {
                                     cancelScrubbing()
                                     onScrubUp()
@@ -116,8 +121,8 @@ old_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 } else {
                                     false
                                 }
-                            }'''
-new_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
+                            }"""
+new_up = """                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 if (scrubbing) {
                                     endHold()
                                     cancelScrubbing()
@@ -126,12 +131,13 @@ new_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 } else {
                                     false
                                 }
-                            }'''
-if screen_text.count(old_up) != 1:
-    raise SystemExit('Expected exactly one DPAD_UP handler')
-screen_text = screen_text.replace(old_up, new_up, 1)
+                            }"""
+if old_up in screen_text:
+    screen_text = screen_text.replace(old_up, new_up, 1)
+elif new_up not in screen_text:
+    raise SystemExit("Could not find DPAD_UP handler in either old or already-patched form")
 
-old_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+old_down = """                            KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 if (scrubbing) {
                                     cancelScrubbing()
                                     onScrubToControls()
@@ -139,8 +145,8 @@ old_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 } else {
                                     false
                                 }
-                            }'''
-new_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            }"""
+new_down = """                            KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 if (scrubbing) {
                                     endHold()
                                     cancelScrubbing()
@@ -149,12 +155,13 @@ new_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 } else {
                                     false
                                 }
-                            }'''
-if screen_text.count(old_down) != 1:
-    raise SystemExit('Expected exactly one DPAD_DOWN handler')
-screen_text = screen_text.replace(old_down, new_down, 1)
+                            }"""
+if old_down in screen_text:
+    screen_text = screen_text.replace(old_down, new_down, 1)
+elif new_down not in screen_text:
+    raise SystemExit("Could not find DPAD_DOWN handler in either old or already-patched form")
 
-old_back = '''                            KeyEvent.KEYCODE_BACK -> {
+old_back = """                            KeyEvent.KEYCODE_BACK -> {
                                 if (scrubbing) {
                                     cancelScrubbing()
                                     onScrubToControls()
@@ -162,34 +169,24 @@ old_back = '''                            KeyEvent.KEYCODE_BACK -> {
                                 } else {
                                     false
                                 }
-                            }'''
-new_back = '''                            KeyEvent.KEYCODE_BACK -> false'''
-if screen_text.count(old_back) != 1:
-    raise SystemExit('Expected exactly one BACK key handler')
-screen_text = screen_text.replace(old_back, new_back, 1)
+                            }"""
+new_back = """                            KeyEvent.KEYCODE_BACK -> false"""
+if old_back in screen_text:
+    screen_text = screen_text.replace(old_back, new_back, 1)
+elif new_back not in screen_text:
+    raise SystemExit("Could not find BACK key handler in either old or already-patched form")
 
-old_anchor = '''    fun endHold() {
-        holdDirection = 0
-        seekJob?.cancel()
-        seekJob = null
-    }
-
-    fun beginHold(direction: Int) {'''
-new_anchor = '''    fun endHold() {
-        holdDirection = 0
-        seekJob?.cancel()
-        seekJob = null
-    }
-
-    BackHandler(enabled = scrubbing) {
+handler = """    BackHandler(enabled = scrubbing) {
         endHold()
         cancelScrubbing()
         onScrubToControls()
     }
 
-    fun beginHold(direction: Int) {'''
-if screen_text.count(old_anchor) != 1:
-    raise SystemExit('Expected exactly one endHold/beginHold sequence')
-screen_text = screen_text.replace(old_anchor, new_anchor, 1)
+"""
+if handler not in screen_text:
+    anchor = "    fun beginHold(direction: Int) {"
+    if screen_text.count(anchor) != 1:
+        raise SystemExit("Could not find unique beginHold anchor")
+    screen_text = screen_text.replace(anchor, handler + anchor, 1)
 
-screen.write_text(screen_text, encoding='utf-8')
+screen.write_text(screen_text, encoding="utf-8")
