@@ -1034,12 +1034,15 @@ private fun PlayerOsd(
                 }
             ) {
                 Column {
-                    Row(
+                    Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(formatTime(currentPosition), color = Color.White)
-                        Text(formatTime(duration), color = Color.White)
+                        Text(
+                            text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
