@@ -1061,6 +1061,7 @@ private fun PlayerSeekProgress(
     modifier: Modifier = Modifier
 ) {
     val duration = player.duration.coerceAtLeast(0L)
+    val context = LocalContext.current
 
     var focused by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
@@ -1069,7 +1070,7 @@ private fun PlayerSeekProgress(
     var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
     var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val previewLoader = remember { PreviewFrameLoader(LocalContext.current) }
+    val previewLoader = remember(context) { PreviewFrameLoader(context) }
 
     var holdDirection by remember { mutableIntStateOf(0) }
     var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -1319,8 +1320,7 @@ private fun PlayerSeekProgress(
                 colors = SurfaceDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
                 ),
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp
+                tonalElevation = 6.dp
             ) {
                 Column {
                     Box(
@@ -1330,17 +1330,19 @@ private fun PlayerSeekProgress(
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        previewBitmap?.let { bitmap ->
+                        if (previewBitmap != null) {
                             Image(
-                                bitmap = bitmap.asImageBitmap(),
+                                bitmap = previewBitmap!!.asImageBitmap(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
-                        } ?: ExpressiveLoadingIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            size = 28.dp
-                        )
+                        } else {
+                            ExpressiveLoadingIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                size = 28.dp
+                            )
+                        }
                     }
                     Text(
                         text = formatTime(seekPosition),

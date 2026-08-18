@@ -76,7 +76,11 @@ class PreviewFrameLoader(
 
         retriever = MediaMetadataRetriever().apply {
             if (sourcePath.startsWith("content://")) {
-                setDataSource(context, Uri.parse(sourcePath), null)
+                context.contentResolver.openFileDescriptor(Uri.parse(sourcePath), "r")
+                    ?.use { descriptor ->
+                        setDataSource(descriptor.fileDescriptor)
+                    }
+                    ?: error("Unable to open preview source: $sourcePath")
             } else {
                 setDataSource(File(sourcePath).absolutePath)
             }
@@ -90,14 +94,15 @@ class PreviewFrameLoader(
 
     companion object {
         private const val DEFAULT_CACHE_SIZE = 10
-        private const val PREVIEW_WIDTH = 320
-        private const val PREVIEW_HEIGHT = 180
         private const val QUANTUM_MS = 2_000L
 
         fun quantise(positionMs: Long): Long =
             (positionMs.coerceAtLeast(0L) / QUANTUM_MS) * QUANTUM_MS
     }
 }
+
+private const val PREVIEW_WIDTH = 320
+private const val PREVIEW_HEIGHT = 180
 
 private fun Bitmap.scaleToPreview(): Bitmap {
     if (width <= PREVIEW_WIDTH && height <= PREVIEW_HEIGHT) return this
