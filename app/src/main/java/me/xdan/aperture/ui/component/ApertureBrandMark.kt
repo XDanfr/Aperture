@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.tv.material3.MaterialTheme
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 private const val BladeSpinDurationMillis = 650
 private val BladeSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
@@ -27,7 +27,7 @@ private val BladeSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 @Composable
 fun ApertureBrandMark(
     modifier: Modifier = Modifier,
-    accent: Color = MaterialTheme.colorScheme.primary,
+    accent: Color = ApertureTheme.brandAccent,
     spinBlades: Boolean = false,
     spinKey: Any? = null
 ) {

@@ -70,7 +70,21 @@ fun HomeScreen(
                 ) {
                     Text("No media found on device.")
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { viewModel.softRefresh() }) {
+                    Button(
+                        onClick = { viewModel.softRefresh() },
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
+                    ) {
                         Text("Rescan")
                     }
                 }
@@ -277,9 +291,9 @@ private fun FeaturedCarousel(
                 border = androidx.compose.foundation.BorderStroke(
                     width = if (focusActiveSpotlight) 3.dp else 1.dp,
                     color = if (focusActiveSpotlight) {
-                        Color.White
+                        ApertureTheme.colorScheme.primary
                     } else {
-                        Color.White.copy(alpha = 0.28f)
+                        ApertureTheme.colorScheme.primary.copy(alpha = 0.28f)
                     }
                 ),
                 shape = spotlightShape
@@ -377,7 +391,19 @@ private fun FeaturedCarousel(
                                     onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
                                     onContentFocused(watchNowFocusRequester)
                                 }
-                            }
+                            },
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
                     ) {
                         val progress = progressMap[media.id] ?: 0f
                         Text(
@@ -418,6 +444,7 @@ private fun HomeMediaRow(
         Text(
             text = row.title,
             style = MaterialTheme.typography.titleLarge,
+            color = ApertureTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
         LazyRow(

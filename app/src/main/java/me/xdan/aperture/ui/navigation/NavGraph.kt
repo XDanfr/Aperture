@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -37,6 +38,7 @@ import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -285,10 +287,25 @@ fun NavGraph(
                 NavigationDrawer(
                     drawerState = drawerState,
                     drawerContent = { drawerValue ->
-                        Column(
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .fillMaxHeight(),
+                        Surface(
+                            modifier = Modifier.fillMaxHeight(),
+                            colors = SurfaceDefaults.colors(
+                                containerColor = if (ApertureTheme.isMaterialTv) {
+                                    Color.White
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                },
+                                contentColor = if (ApertureTheme.isMaterialTv) {
+                                    Color(0xFF1A191C)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxHeight(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Logo and Title
@@ -416,6 +433,7 @@ fun NavGraph(
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
                             ) {
                                 Text("Settings")
+                            }
                             }
                         }
                     }
