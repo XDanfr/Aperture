@@ -1,9 +1,7 @@
 package me.xdan.aperture.ui.theme.tokens
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.tv.material3.Typography
 
 /**
  * The unified token system for Aperture.
@@ -17,7 +15,8 @@ data class ApertureTokens(
     val shapes: ApertureShapes,
     val motion: ApertureMotion,
     val spacing: ApertureSpacing,
-    val elevation: ApertureElevation
+    val elevation: ApertureElevation,
+    val brandAccent: Color
 )
 
 /**
