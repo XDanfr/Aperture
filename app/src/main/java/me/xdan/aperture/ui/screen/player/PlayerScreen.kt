@@ -1196,8 +1196,9 @@ private fun PlayerSeekProgress(
         scrubbing = false
         onScrubbingChanged(false)
 
-        // Seeking is an explicit action, so resume playback on commit.
-        player.play()
+        if (wasPlayingBeforeScrub) {
+            player.play()
+        }
     }
 
     fun cancelScrubbing() {
@@ -1212,7 +1213,9 @@ private fun PlayerSeekProgress(
         scrubbing = false
         onScrubbingChanged(false)
 
-        player.play()
+        if (wasPlayingBeforeScrub) {
+            player.play()
+        }
     }
 
     BackHandler(enabled = scrubbing) {
