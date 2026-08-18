@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Keep the scrub-state patcher idempotent so repeated workflow triggers are safe.
 vm = Path("app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerViewModel.kt")
 screen = Path("app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt")
 
