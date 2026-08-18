@@ -151,8 +151,8 @@ fun MediaDetailsModal(
             Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedVisibility(
                     visible = isVisible,
-                    enter = fadeIn(animationSpec = tween(200)),
-                    exit = fadeOut(animationSpec = tween(200)),
+                    enter = fadeIn(animationSpec = tween(durationMillis = 200)),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 200)),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Box(
@@ -166,11 +166,11 @@ fun MediaDetailsModal(
                     visible = isVisible,
                     enter = slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
+                        animationSpec = tween(durationMillis = 300)
                     ),
                     exit = slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
+                        animationSpec = tween(durationMillis = 300)
                     ),
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -197,7 +197,6 @@ fun MediaDetailsModal(
                                 m.year?.toString().orEmpty()
                             }
                             val artworkHeight = if (showEpisodeSelector) 120.dp else 160.dp
-
                             Surface(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
@@ -236,7 +235,7 @@ fun MediaDetailsModal(
                                         )
                                     }
 
-                                    Spacer(Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(14.dp))
                                     Text(
                                         text = heading,
                                         style = MaterialTheme.typography.headlineLarge,
@@ -247,7 +246,7 @@ fun MediaDetailsModal(
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = Color.Gray
                                     )
-                                    Spacer(Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = m.episodeOverview ?: m.overview ?: "No synopsis available.",
                                         style = MaterialTheme.typography.bodyMedium,
@@ -255,7 +254,7 @@ fun MediaDetailsModal(
                                         overflow = TextOverflow.Ellipsis
                                     )
 
-                                    Spacer(Modifier.weight(1f))
+                                    Spacer(modifier = Modifier.weight(1f))
 
                                     if (showEpisodeSelector) {
                                         OutlinedButton(
@@ -318,25 +317,20 @@ fun MediaDetailsModal(
                                                     } else if (keyEvent.key != Key.DirectionLeft) {
                                                         false
                                                     } else if (waitForLeftRelease) {
-                                                        if (keyEvent.type == KeyEventType.KeyUp) {
-                                                            waitForLeftRelease = false
-                                                        }
+                                                        if (keyEvent.type == KeyEventType.KeyUp) waitForLeftRelease = false
                                                         true
-                                                    } else {
-                                                        when (keyEvent.type) {
-                                                            KeyEventType.KeyDown -> true
-                                                            KeyEventType.KeyUp -> {
-                                                                closeModal()
-                                                                true
-                                                            }
-                                                            else -> false
+                                                    } else when (keyEvent.type) {
+                                                        KeyEventType.KeyDown -> true
+                                                        KeyEventType.KeyUp -> {
+                                                            closeModal()
+                                                            true
                                                         }
+                                                        else -> false
                                                     }
                                                 }
                                         ) {
                                             Icon(
-                                                if (hasBeenCompleted && !hasActiveProgress) Icons.Rounded.Replay
-                                                else Icons.Rounded.PlayArrow,
+                                                if (hasBeenCompleted && !hasActiveProgress) Icons.Rounded.Replay else Icons.Rounded.PlayArrow,
                                                 null
                                             )
                                             Spacer(Modifier.width(8.dp))
@@ -360,7 +354,6 @@ fun MediaDetailsModal(
                                             Spacer(Modifier.width(8.dp))
                                             Text(if (m.isFavorite) "Remove from My List" else "My List")
                                         }
-
                                         IconButton(
                                             onClick = {
                                                 showAssetPicker = true
@@ -388,7 +381,6 @@ fun MediaDetailsModal(
                         onDismiss = { showAssetPicker = false }
                     )
                 }
-
                 if (showEpisodePicker && displayedMedia != null) {
                     EpisodePickerDialog(
                         episodes = episodes,
@@ -454,11 +446,7 @@ private fun EpisodePickerDialog(
                             onClick = { selectedSeason = season },
                             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
                             colors = ClickableSurfaceDefaults.colors(
-                                containerColor = if (season == selectedSeason) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                }
+                                containerColor = if (season == selectedSeason) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
                             Text(
@@ -484,11 +472,7 @@ private fun EpisodePickerDialog(
                                 .then(if (isEntryEpisode) Modifier.focusRequester(episodeFocusRequester) else Modifier),
                             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
                             colors = ClickableSurfaceDefaults.colors(
-                                containerColor = if (episode.id == selectedEpisodeId) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                }
+                                containerColor = if (episode.id == selectedEpisodeId) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
                             Row(
@@ -594,11 +578,11 @@ private fun AssetPickerDialog(
                         Text("No matching artwork found.")
                     }
                     else -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(150.dp),
+                        columns = GridCells.Adaptive(120.dp),
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         gridItems(candidates, key = { it.id }) { candidate ->
                             Surface(
@@ -606,7 +590,7 @@ private fun AssetPickerDialog(
                                 modifier = Modifier.aspectRatio(2f / 3f),
                                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                                 scale = ClickableSurfaceDefaults.scale(
-                                    focusedScale = 1.05f,
+                                    focusedScale = 1.04f,
                                     pressedScale = 0.98f
                                 ),
                                 border = ClickableSurfaceDefaults.border(
