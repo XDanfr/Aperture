@@ -200,7 +200,7 @@ elif new_handler not in screen_text:
 
 # Older workflow runs could leave the BackHandler duplicated. Collapse it to one.
 double_handler = new_handler + new_handler
-if screen_text.count(double_handler) == 1:
+while double_handler in screen_text:
     screen_text = screen_text.replace(double_handler, new_handler, 1)
 
 # Add a local visual scrub state to PlayerOsd so the non-timeline UI can disappear
@@ -219,6 +219,11 @@ if old_state in screen_text:
 elif new_state not in screen_text:
     raise SystemExit("Could not find PlayerOsd state block")
 
+# Normalize any duplicate declarations left by previous workflow runs.
+scrub_state_line = "    var isScrubbing by remember { mutableStateOf(false) }\n"
+while scrub_state_line + scrub_state_line in screen_text:
+    screen_text = screen_text.replace(scrub_state_line + scrub_state_line, scrub_state_line)
+
 old_callback = """                onScrubbingChanged = onScrubbingChanged,
 """
 new_callback = """                onScrubbingChanged = { scrubbing ->
@@ -226,14 +231,11 @@ new_callback = """                onScrubbingChanged = { scrubbing ->
                     onScrubbingChanged(scrubbing)
                 },
 """
-# The exact callback occurs in both PlayerOsd and elsewhere; target only the first one,
-# which is the PlayerSeekProgress invocation inside PlayerOsd.
 if old_callback in screen_text:
     screen_text = screen_text.replace(old_callback, new_callback, 1)
 elif new_callback not in screen_text:
     raise SystemExit("Could not find PlayerOsd scrub callback")
 
-# Fade/scale the background OSD content while keeping the timeline itself visible.
 old_title = """            Text(
                 text = media?.title ?: "",
                 style = MaterialTheme.typography.headlineLarge,
@@ -407,5 +409,11 @@ if old_bottom in screen_text:
     screen_text = screen_text.replace(old_bottom, new_bottom, 1)
 elif new_bottom not in screen_text:
     raise SystemExit("Could not find PlayerOsd bottom controls block")
+
+# The visual patch uses tween(), which is not included by androidx.compose.animation.*.
+screen_text = screen_text.replace(
+    "animationSpec = tween(",
+    "animationSpec = androidx.compose.animation.core.tween("
+)
 
 screen.write_text(screen_text, encoding="utf-8")
