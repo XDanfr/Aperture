@@ -38,6 +38,7 @@ import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
+import me.xdan.aperture.ui.theme.ApertureTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -432,6 +433,7 @@ fun NavGraph(
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
                             ) {
                                 Text("Settings")
+                            }
                             }
                         }
                     }
