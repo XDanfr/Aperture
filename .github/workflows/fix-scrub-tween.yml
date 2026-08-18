@@ -18,17 +18,21 @@ jobs:
           fetch-depth: 0
       - name: Qualify tween calls and remove this workflow
         run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin OSD2.0
           python3 - <<'PY'
           from pathlib import Path
           p = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
-          s = p.read_text()
-          s = s.replace('animationSpec = tween(', 'animationSpec = androidx.compose.animation.core.tween(')
-          p.write_text(s)
-          w = Path('.github/workflows/fix-scrub-tween.yml')
-          w.unlink()
+          s = p.read_text(encoding='utf-8')
+          s2 = s.replace('animationSpec = tween(', 'animationSpec = androidx.compose.animation.core.tween(')
+          p.write_text(s2, encoding='utf-8')
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt .github/workflows/fix-scrub-tween.yml
+          git add app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt
+          if git diff --cached --quiet; then
+            echo 'No tween changes needed.'
+            exit 0
+          fi
           git commit -m 'Fix scrub animation tween references'
+          git pull --rebase origin OSD2.0
           git push origin OSD2.0
