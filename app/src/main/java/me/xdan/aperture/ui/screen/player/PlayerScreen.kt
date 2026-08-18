@@ -933,6 +933,7 @@ private fun PlayerOsd(
     var isPlaying by remember { mutableStateOf(player.playWhenReady) }
     var isScrubbing by remember { mutableStateOf(false) }
     var isScrubbing by remember { mutableStateOf(false) }
+    var isScrubbing by remember { mutableStateOf(false) }
 
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
