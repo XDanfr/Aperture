@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,14 +21,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.LazyVerticalGrid
+import androidx.compose.foundation.lazy.GridCells
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
@@ -1334,55 +1334,10 @@ private fun ThemePickerDialog(
                                     modifier = Modifier.padding(ApertureTheme.spacing.medium),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(88.dp)
-                                            .border(
-                                                width = if (selected) 3.dp else 1.dp,
-                                                color = if (selected) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                                                },
-                                                shape = CircleShape
-                                            )
-                                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(48.dp)
-                                                .background(option.primary)
-                                        )
-                                        Row(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomCenter)
-                                                .fillMaxWidth()
-                                                .height(40.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .fillMaxSize()
-                                                    .background(option.secondary)
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .fillMaxSize()
-                                                    .background(option.tertiary)
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .border(
-                                                    width = 1.dp,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                                    shape = CircleShape
-                                                )
-                                        )
-                                    }
+                                    ThemeColourSwatch(
+                                        option = option,
+                                        selected = selected
+                                    )
                                     Spacer(Modifier.height(ApertureTheme.spacing.small))
                                     Text(
                                         text = option.label,
@@ -1392,7 +1347,7 @@ private fun ThemePickerDialog(
                                     if (selected) {
                                         Spacer(Modifier.height(2.dp))
                                         Text(
-                                            text = "Selected",
+                                            "Selected",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -1406,6 +1361,54 @@ private fun ThemePickerDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeColourSwatch(
+    option: me.xdan.aperture.ui.theme.ApertureThemeOption,
+    selected: Boolean
+) {
+    Canvas(
+        modifier = Modifier
+            .size(88.dp)
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                },
+                shape = CircleShape
+            )
+    ) {
+        // M3-style three-part circular split:
+        // 180° across the top, then 90° bottom-left and 90° bottom-right.
+        drawArc(
+            color = option.primary,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = true
+        )
+        drawArc(
+            color = option.secondary,
+            startAngle = 90f,
+            sweepAngle = 90f,
+            useCenter = true
+        )
+        drawArc(
+            color = option.tertiary,
+            startAngle = 0f,
+            sweepAngle = 90f,
+            useCenter = true
+        )
+        drawArc(
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+        )
     }
 }
 
