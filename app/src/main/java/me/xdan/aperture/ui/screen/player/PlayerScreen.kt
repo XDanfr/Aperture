@@ -1244,7 +1244,8 @@ private fun PlayerSeekProgress(
                     maxHeight = maxOf(constraints.maxHeight, 240.dp.roundToPx())
                 )
                 val placeable = measurable.measure(relaxedConstraints)
-                val reportedHeight = constraints.constrainHeight(24.dp.roundToPx())
+                val reportedHeight = 24.dp.roundToPx()
+                    .coerceIn(constraints.minHeight, constraints.maxHeight)
 
                 layout(constraints.maxWidth, reportedHeight) {
                     placeable.placeRelative(
