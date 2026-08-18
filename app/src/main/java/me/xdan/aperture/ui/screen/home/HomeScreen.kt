@@ -72,14 +72,18 @@ fun HomeScreen(
                     Spacer(Modifier.height(16.dp))
                     Button(
                         onClick = { viewModel.softRefresh() },
-                        colors = ButtonDefaults.colors(
-                            containerColor = ApertureTheme.colorScheme.primary,
-                            contentColor = ApertureTheme.colorScheme.onPrimary,
-                            focusedContainerColor = ApertureTheme.colorScheme.primaryContainer,
-                            focusedContentColor = ApertureTheme.colorScheme.onPrimaryContainer,
-                            pressedContainerColor = ApertureTheme.colorScheme.primaryContainer,
-                            pressedContentColor = ApertureTheme.colorScheme.onPrimaryContainer
-                        )
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
                     ) {
                         Text("Rescan")
                     }
@@ -388,14 +392,18 @@ private fun FeaturedCarousel(
                                     onContentFocused(watchNowFocusRequester)
                                 }
                             },
-                        colors = ButtonDefaults.colors(
-                            containerColor = ApertureTheme.colorScheme.primary,
-                            contentColor = ApertureTheme.colorScheme.onPrimary,
-                            focusedContainerColor = ApertureTheme.colorScheme.primaryContainer,
-                            focusedContentColor = ApertureTheme.colorScheme.onPrimaryContainer,
-                            pressedContainerColor = ApertureTheme.colorScheme.primaryContainer,
-                            pressedContentColor = ApertureTheme.colorScheme.onPrimaryContainer
-                        )
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
                     ) {
                         val progress = progressMap[media.id] ?: 0f
                         Text(
