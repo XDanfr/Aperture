@@ -162,6 +162,14 @@ fun PlayerScreen(
         }
     }
 
+    fun saveProgressAndBack() {
+        if (player.isPlaying) {
+            player.pause()
+        }
+        viewModel.saveProgressNow()
+        onBack()
+    }
+
     BackHandler {
         when {
             compatibilityWarning != null -> {
@@ -292,7 +300,7 @@ fun PlayerScreen(
                     },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
-                    onPlayerBack = onBack,
+                    onPlayerBack = onBackonPlayerBack = ::saveProgressAndBack,
                     initialScrubDirection = pendingScrubDirection,
                     onInitialScrubConsumed = { pendingScrubDirection = 0 }
                 )
@@ -317,7 +325,7 @@ fun PlayerScreen(
                     },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
-                    onPlayerBack = onBack,
+                    onPlayerBack = ::saveProgressAndBack,
                     initialScrubDirection = pendingScrubDirection,
                     onInitialScrubConsumed = { pendingScrubDirection = 0 }
                 )
