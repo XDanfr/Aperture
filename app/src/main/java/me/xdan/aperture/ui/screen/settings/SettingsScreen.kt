@@ -1328,13 +1328,13 @@ private fun ThemePickerDialog(
                                             onSelect = onSelect,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(176.dp)
+                                                .height(152.dp)
                                         )
                                     } else {
                                         Spacer(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(176.dp)
+                                                .height(152.dp)
                                         )
                                     }
                                 }
@@ -1394,7 +1394,7 @@ private fun ThemeOptionCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(ApertureTheme.spacing.medium),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -1403,7 +1403,7 @@ private fun ThemeOptionCard(
                 selected = selected
             )
 
-            Spacer(Modifier.height(ApertureTheme.spacing.small))
+            Spacer(Modifier.height(4.dp))
 
             Box(
                 modifier = Modifier
