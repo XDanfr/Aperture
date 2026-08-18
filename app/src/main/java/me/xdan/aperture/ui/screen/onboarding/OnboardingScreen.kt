@@ -31,7 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
@@ -185,6 +185,7 @@ private fun PreparationPanel(
 ) {
     val isDiscovering = progress.stage == LibraryPreparationStage.IDLE ||
         progress.stage == LibraryPreparationStage.DISCOVERING
+    val isMatching = progress.stage == LibraryPreparationStage.MATCHING
     val isError = progress.stage == LibraryPreparationStage.ERROR
     val isComplete = progress.stage == LibraryPreparationStage.COMPLETE
 
@@ -225,7 +226,7 @@ private fun PreparationPanel(
                     isComplete && progress.errorMessage != null -> if (rescanMode) "The library was updated, but some titles could not be matched yet." else "Your library is ready, but some titles could not be matched yet. Aperture can retry them later."
                     isComplete -> "Everything we found has been added."
                     isDiscovering -> "Scanning local storage before matching titles with TMDB…"
-                    else -> if (rescanMode) "Matching artwork and information with TMDB…" else "Matching artwork and information with TMDB. You can skip and let this continue in the background."
+                    else -> "Matching artwork and information with TMDB. You can skip and let this continue in the background."
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f)
@@ -250,12 +251,22 @@ private fun PreparationPanel(
             Spacer(Modifier.height(ApertureTheme.spacing.medium))
             ProgressLabel(
                 label = progress.currentTitle ?: if (isComplete) "Finished" else "Current title",
-                value = if (progress.currentTitle == null) "" else "${(progress.currentItemProgress * 100).toInt()}%"
+                value = if (progress.currentTitle == null) "" else "${(progress.currentItemProgress * 100).toInt()}%",
+                showLoading = isMatching && !isComplete
             )
             Spacer(Modifier.height(ApertureTheme.spacing.small))
-            ExpressiveProgressIndicator(
-                progress = progress.currentItemProgress.coerceIn(0f, 1f)
-            )
+            if (isMatching && !isComplete) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ExpressiveLoadingIndicator(size = 36.dp)
+                }
+            } else {
+                ExpressiveProgressIndicator(
+                    progress = progress.currentItemProgress.coerceIn(0f, 1f)
+                )
+            }
 
             Spacer(Modifier.height(ApertureTheme.spacing.huge))
             Row(
@@ -278,9 +289,17 @@ private fun PreparationPanel(
 }
 
 @Composable
-private fun ProgressLabel(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+private fun ProgressLabel(label: String, value: String, showLoading: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.weight(1f))
+        if (showLoading) {
+            ExpressiveLoadingIndicator(size = 24.dp)
+            Spacer(Modifier.width(8.dp))
+        }
         Text(
             value,
             style = MaterialTheme.typography.titleMedium,
