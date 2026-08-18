@@ -15,7 +15,6 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -54,6 +53,10 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.*
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.xdan.aperture.data.local.entity.MediaEntity
@@ -915,14 +918,31 @@ private fun PlayerOsd(
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
-    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
+    var isPlaying by remember { mutableStateOf(player.isPlaying) }
+
+    DisposableEffect(player) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+
+            override fun onPlaybackStateChanged(state: Int) {
+                duration = player.duration
+            }
+        }
+
+        player.addListener(listener)
+
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
 
     LaunchedEffect(player) {
-        while (true) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             currentPosition = player.currentPosition
             duration = player.duration
-            isPlaying = player.playWhenReady
-            kotlinx.coroutines.delay(1000)
+            kotlinx.coroutines.delay(33)
         }
     }
 
@@ -992,7 +1012,13 @@ private fun PlayerOsd(
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     iconSize = 64.dp,
                     onClick = {
-                        if (isPlaying) player.pause() else player.play()
+                        if (isPlaying) {
+                            player.pause()
+                            isPlaying = false
+                        } else {
+                            player.play()
+                            isPlaying = true
+                        }
                         onInteraction()
                     },
                     modifier = Modifier.focusRequester(controlsFocusRequester)
@@ -1026,24 +1052,36 @@ private fun PlayerSeekProgress(
     isPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val duration = player.duration.coerceAtLeast(0L)
+
     var focused by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
 
-    val duration = player.duration.coerceAtLeast(0L)
+    var originalPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
 
-    var seekPosition by remember(progress, duration) {
-        mutableLongStateOf(
-            (progress * duration)
-                .toLong()
-                .coerceIn(0L, duration)
-        )
-    }
+    var holdDirection by remember { mutableIntStateOf(0) }
+    var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val scope = rememberCoroutineScope()
 
-    val displayedProgress = if (duration > 0L) {
+    /*
+     * Keep the visual playback position smooth between player updates.
+     * During scrubbing we use the explicit seek position instead.
+     */
+    val targetProgress = if (scrubbing && duration > 0L) {
         (seekPosition.toFloat() / duration).coerceIn(0f, 1f)
     } else {
-        0f
+        progress.coerceIn(0f, 1f)
     }
+
+    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = 80
+        ),
+        label = "seekProgress"
+    )
 
     val amplitude by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isPlaying && !scrubbing) 1f else 0f,
@@ -1059,76 +1097,182 @@ private fun PlayerSeekProgress(
         label = "seekHandleSize"
     )
 
+    fun beginScrubbing() {
+        if (scrubbing) return
+
+        originalPosition = player.currentPosition
+        seekPosition = originalPosition
+        wasPlayingBeforeScrub = player.isPlaying
+
+        player.pause()
+        scrubbing = true
+    }
+
+    fun commitScrubbing() {
+        if (!scrubbing) return
+
+        player.seekTo(
+            seekPosition.coerceIn(0L, duration)
+        )
+
+        scrubbing = false
+
+        // Seeking is an explicit action, so resume playback on commit.
+        player.play()
+    }
+
+    fun cancelScrubbing() {
+        if (!scrubbing) return
+
+        seekJob?.cancel()
+        seekJob = null
+        holdDirection = 0
+
+        player.seekTo(originalPosition.coerceIn(0L, duration))
+
+        scrubbing = false
+
+        if (wasPlayingBeforeScrub) {
+            player.play()
+        }
+    }
+
+    fun beginHold(direction: Int) {
+        if (holdDirection == direction && seekJob?.isActive == true) {
+            return
+        }
+
+        beginScrubbing()
+
+        holdDirection = direction
+        seekJob?.cancel()
+
+        seekJob = scope.launch {
+            var startedAt = android.os.SystemClock.elapsedRealtime()
+            var lastStepAt = startedAt
+
+            // Immediate first movement.
+            seekPosition = when (direction) {
+                -1 -> (seekPosition - 10_000L).coerceAtLeast(0L)
+                else -> (seekPosition + 10_000L).coerceAtMost(duration)
+            }
+
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val elapsed = now - startedAt
+
+                val interval: Long
+                val step: Long
+
+                when {
+                    elapsed < 1_000L -> {
+                        interval = 250L
+                        step = 10_000L
+                    }
+
+                    elapsed < 2_500L -> {
+                        interval = 220L
+                        step = 20_000L
+                    }
+
+                    elapsed < 5_000L -> {
+                        interval = 180L
+                        step = 30_000L
+                    }
+
+                    elapsed < 8_000L -> {
+                        interval = 140L
+                        step = 60_000L
+                    }
+
+                    else -> {
+                        interval = 110L
+                        step = 120_000L
+                    }
+                }
+
+                if (now - lastStepAt >= interval) {
+                    seekPosition = if (direction < 0) {
+                        (seekPosition - step).coerceAtLeast(0L)
+                    } else {
+                        (seekPosition + step).coerceAtMost(duration)
+                    }
+
+                    lastStepAt = now
+                }
+
+                kotlinx.coroutines.delay(16L)
+            }
+        }
+    }
+
+    fun endHold() {
+        holdDirection = 0
+        seekJob?.cancel()
+        seekJob = null
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .onFocusChanged {
                 focused = it.isFocused
 
                 if (!it.isFocused && scrubbing) {
-                    player.seekTo(
-                        seekPosition.coerceIn(0L, duration)
-                    )
-                    scrubbing = false
+                    cancelScrubbing()
                 }
             }
             .focusable()
             .onPreviewKeyEvent { event ->
-                if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
-                    return@onPreviewKeyEvent false
-                }
+                val keyCode = event.nativeKeyEvent.keyCode
 
-                when (event.nativeKeyEvent.keyCode) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (!scrubbing) {
-                            player.pause()
-                            scrubbing = true
-                            seekPosition = player.currentPosition
+                when (event.nativeKeyEvent.action) {
+                    KeyEvent.ACTION_DOWN -> {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                beginHold(-1)
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                beginHold(1)
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_CENTER,
+                            KeyEvent.KEYCODE_ENTER -> {
+                                endHold()
+
+                                if (scrubbing) {
+                                    commitScrubbing()
+                                } else {
+                                    beginScrubbing()
+                                }
+
+                                true
+                            }
+
+                            KeyEvent.KEYCODE_BACK -> {
+                                if (scrubbing) {
+                                    cancelScrubbing()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
+                            else -> false
                         }
-
-                        seekPosition = (seekPosition - 10_000L)
-                            .coerceAtLeast(0L)
-
-                        true
                     }
 
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (!scrubbing) {
-                            player.pause()
-                            scrubbing = true
-                            seekPosition = player.currentPosition
-                        }
+                    KeyEvent.ACTION_UP -> {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT,
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                endHold()
+                                true
+                            }
 
-                        seekPosition = (seekPosition + 10_000L)
-                            .coerceAtMost(duration)
-
-                        true
-                    }
-
-                    KeyEvent.KEYCODE_DPAD_CENTER,
-                    KeyEvent.KEYCODE_ENTER -> {
-                        if (scrubbing) {
-                            player.seekTo(
-                                seekPosition.coerceIn(0L, duration)
-                            )
-                            scrubbing = false
-                        } else {
-                            player.pause()
-                            scrubbing = true
-                            seekPosition = player.currentPosition
-                        }
-
-                        true
-                    }
-
-                    KeyEvent.KEYCODE_BACK -> {
-                        if (scrubbing) {
-                            player.seekTo(
-                                seekPosition.coerceIn(0L, duration)
-                            )
-                            scrubbing = false
-                            true
-                        } else {
-                            false
+                            else -> false
                         }
                     }
 
@@ -1137,12 +1281,13 @@ private fun PlayerSeekProgress(
             }
     ) {
         LinearWavyProgressIndicator(
-            progress = { displayedProgress },
+            progress = { animatedProgress },
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center),
             color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
             stopSize = 0.dp,
             amplitude = { amplitude },
             wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
@@ -1154,7 +1299,7 @@ private fun PlayerSeekProgress(
                     .size(handleSize)
                     .align(Alignment.CenterStart)
                     .offset(
-                        x = maxWidth * displayedProgress -
+                        x = maxWidth * animatedProgress -
                                 (handleSize / 2)
                     )
                     .background(
