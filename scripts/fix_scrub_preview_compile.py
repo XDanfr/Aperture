@@ -9,7 +9,7 @@ replacements = [
         '    val duration = player.duration.coerceAtLeast(0L)\n    val context = LocalContext.current\n\n    var focused by remember { mutableStateOf(false) }',
     ),
     (
-        '    val previewBitmap by remember { mutableStateOf<Bitmap?>(null) }\n    val previewLoader = remember { PreviewFrameLoader(LocalContext.current) }',
+        '    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }\n    val previewLoader = remember { PreviewFrameLoader(LocalContext.current) }',
         '    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }\n    val previewLoader = remember(context) { PreviewFrameLoader(context) }',
     ),
     (
@@ -34,10 +34,6 @@ loader = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PreviewFrameL
 text = loader.read_text(encoding='utf-8')
 
 replacements = [
-    (
-        'import android.graphics.Bitmap\nimport android.media.MediaMetadataRetriever\nimport android.net.Uri\n',
-        'import android.graphics.Bitmap\nimport android.media.MediaMetadataRetriever\nimport android.net.Uri\n',
-    ),
     (
         '            if (sourcePath.startsWith("content://")) {\n                setDataSource(context, Uri.parse(sourcePath), null)\n            } else {\n                setDataSource(File(sourcePath).absolutePath)\n            }',
         '            if (sourcePath.startsWith("content://")) {\n                context.contentResolver.openFileDescriptor(Uri.parse(sourcePath), "r")\n                    ?.use { descriptor ->\n                        setDataSource(descriptor.fileDescriptor)\n                    }\n                    ?: error("Unable to open preview source: $sourcePath")\n            } else {\n                setDataSource(File(sourcePath).absolutePath)\n            }',
