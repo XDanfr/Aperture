@@ -1,0 +1,69 @@
+name: Fix preview time styling
+
+on:
+  push:
+    branches:
+      - OSD2.0
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: OSD2.0
+          fetch-depth: 0
+
+      - name: Update preview time
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''                    Text(
+                        text = formatTime(seekPosition),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )'''
+
+          new = '''                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = formatTime(seekPosition),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }'''
+
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('Could not find preview time text block')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit change and remove workflow
+        run: |
+          rm -f .github/workflows/fix-preview-time.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt .github/workflows/fix-preview-time.yml
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Centre preview scrub time'
+          git pull --rebase origin OSD2.0
+          git push origin OSD2.0
