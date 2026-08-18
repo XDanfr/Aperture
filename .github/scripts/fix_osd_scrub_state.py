@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 vm = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerViewModel.kt')
 screen = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
@@ -169,16 +168,28 @@ if screen_text.count(old_back) != 1:
     raise SystemExit('Expected exactly one BACK key handler')
 screen_text = screen_text.replace(old_back, new_back, 1)
 
-anchor = '''    fun beginHold(direction: Int) {'''
-back_handler = '''    BackHandler(enabled = scrubbing) {
+old_anchor = '''    fun endHold() {
+        holdDirection = 0
+        seekJob?.cancel()
+        seekJob = null
+    }
+
+    fun beginHold(direction: Int) {'''
+new_anchor = '''    fun endHold() {
+        holdDirection = 0
+        seekJob?.cancel()
+        seekJob = null
+    }
+
+    BackHandler(enabled = scrubbing) {
         endHold()
         cancelScrubbing()
         onScrubToControls()
     }
 
-'''
-if screen_text.count(anchor) != 1:
-    raise SystemExit('Expected exactly one beginHold anchor')
-screen_text = screen_text.replace(anchor, back_handler + anchor, 1)
+    fun beginHold(direction: Int) {'''
+if screen_text.count(old_anchor) != 1:
+    raise SystemExit('Expected exactly one endHold/beginHold sequence')
+screen_text = screen_text.replace(old_anchor, new_anchor, 1)
 
 screen.write_text(screen_text, encoding='utf-8')
