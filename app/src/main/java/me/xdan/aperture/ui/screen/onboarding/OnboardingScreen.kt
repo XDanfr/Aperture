@@ -59,8 +59,7 @@ import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
-import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
-import me.xdan.aperture.ui.component.expressive.ExpressiveProgressIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalPermissionsApi::class)
@@ -239,12 +238,11 @@ private fun PreparationPanel(
             )
             Spacer(Modifier.height(ApertureTheme.spacing.small))
             if (isDiscovering) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    ExpressiveLoadingIndicator(size = 40.dp)
-                }
+                ExpressiveWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
             } else {
-                ExpressiveProgressIndicator(
-                    progress = progress.totalProgress.coerceIn(0f, 1f)
+                ExpressiveWavyProgressIndicator(
+                    progress = progress.totalProgress.coerceIn(0f, 1f),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -256,15 +254,11 @@ private fun PreparationPanel(
             )
             Spacer(Modifier.height(ApertureTheme.spacing.small))
             if (isMatching && !isComplete) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ExpressiveLoadingIndicator(size = 36.dp)
-                }
+                ExpressiveWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
             } else {
-                ExpressiveProgressIndicator(
-                    progress = progress.currentItemProgress.coerceIn(0f, 1f)
+                ExpressiveWavyProgressIndicator(
+                    progress = progress.currentItemProgress.coerceIn(0f, 1f),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -296,10 +290,6 @@ private fun ProgressLabel(label: String, value: String, showLoading: Boolean = f
     ) {
         Text(label, style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.weight(1f))
-        if (showLoading) {
-            ExpressiveLoadingIndicator(size = 24.dp)
-            Spacer(Modifier.width(8.dp))
-        }
         Text(
             value,
             style = MaterialTheme.typography.titleMedium,
