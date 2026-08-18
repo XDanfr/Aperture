@@ -276,7 +276,10 @@ fun PlayerScreen(
                 onQuickMenu = {
                     isQuickMenuVisible = true
                     viewModel.toggleOsd()
-                }
+                },
+                onScrubbingChanged = viewModel::setScrubbing,
+                onScrubUp = viewModel::hideOsd,
+                onScrubToControls = controlsFocusRequester::requestFocus
             )
         }
 
@@ -920,7 +923,10 @@ private fun PlayerOsd(
     controlsFocusRequester: FocusRequester,
     onInteraction: () -> Unit,
     onRestart: () -> Unit,
-    onQuickMenu: () -> Unit
+    onQuickMenu: () -> Unit,
+    onScrubbingChanged: (Boolean) -> Unit,
+    onScrubUp: () -> Unit,
+    onScrubToControls: () -> Unit
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
@@ -982,9 +988,9 @@ private fun PlayerOsd(
                 mediaSource = mediaSource,
                 progress = progress,
                 isPlaying = isPlaying,
-                onScrubbingChanged = viewModel::setScrubbing,
-                onScrubUp = viewModel::hideOsd,
-                onScrubToControls = controlsFocusRequester::requestFocus,
+                onScrubbingChanged = onScrubbingChanged,
+                onScrubUp = onScrubUp,
+                onScrubToControls = onScrubToControls,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(24.dp)
