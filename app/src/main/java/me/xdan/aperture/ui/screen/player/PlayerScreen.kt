@@ -36,6 +36,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
@@ -933,6 +934,17 @@ private fun PlayerOsd(
     var isPlaying by remember { mutableStateOf(player.playWhenReady) }
     var isScrubbing by remember { mutableStateOf(false) }
 
+    val scrubUiAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isScrubbing) 0f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "scrubUiAlpha"
+    )
+    val scrubBackgroundAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isScrubbing) 0.76f else 0.5f,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "scrubBackgroundAlpha"
+    )
+
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onPlayWhenReadyChanged(
@@ -965,20 +977,20 @@ private fun PlayerOsd(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = scrubBackgroundAlpha))
             .padding(48.dp)
     ) {
         Column(
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
-            AnimatedVisibility(
-                visible = !isScrubbing,
-                enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) +
-                    slideInVertically(animationSpec = androidx.compose.animation.core.tween(220), initialOffsetY = { it / 5 }) +
-                    scaleIn(animationSpec = androidx.compose.animation.core.tween(220), initialScale = 0.96f),
-                exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(160)) +
-                    slideOutVertically(animationSpec = androidx.compose.animation.core.tween(160), targetOffsetY = { -it / 5 }) +
-                    scaleOut(animationSpec = androidx.compose.animation.core.tween(160), targetScale = 0.96f)
+            Column(
+                modifier = Modifier.graphicsLayer {
+                    alpha = scrubUiAlpha
+                    val scale = 0.96f + (0.04f * scrubUiAlpha)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = -20f * (1f - scrubUiAlpha)
+                }
             ) {
                 Column {
                     Text(
@@ -1012,14 +1024,14 @@ private fun PlayerOsd(
                     .height(24.dp)
             )
 
-            AnimatedVisibility(
-                visible = !isScrubbing,
-                enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) +
-                    slideInVertically(animationSpec = androidx.compose.animation.core.tween(220), initialOffsetY = { it / 5 }) +
-                    scaleIn(animationSpec = androidx.compose.animation.core.tween(220), initialScale = 0.96f),
-                exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(160)) +
-                    slideOutVertically(animationSpec = androidx.compose.animation.core.tween(160), targetOffsetY = { it / 5 }) +
-                    scaleOut(animationSpec = androidx.compose.animation.core.tween(160), targetScale = 0.96f)
+            Column(
+                modifier = Modifier.graphicsLayer {
+                    alpha = scrubUiAlpha
+                    val scale = 0.96f + (0.04f * scrubUiAlpha)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = 20f * (1f - scrubUiAlpha)
+                }
             ) {
                 Column {
                     Row(
