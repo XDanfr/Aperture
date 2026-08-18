@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.SystemClock
-import androidx.annotation.WorkerThread
 import java.io.File
 import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers
@@ -33,24 +31,22 @@ class PreviewFrameLoader(
     ): Bitmap? = withContext(Dispatchers.IO) {
         val quantisedPosition = quantise(positionMs)
 
-        synchronized(cache) {
-            cache[cacheKey(sourcePath, quantisedPosition)]?.let { return@withContext it }
-        }
-
         ensureRetriever(sourcePath)
+
+        synchronized(cache) {
+            cache[quantisedPosition]?.let { return@withContext it }
+        }
 
         val frame = runCatching {
             retriever?.getFrameAtTime(
                 quantisedPosition * 1_000L,
                 MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-            )?.let { bitmap ->
-                bitmap.scaleToPreview()
-            }
+            )?.scaleToPreview()
         }.getOrNull()
 
         if (frame != null) {
             synchronized(cache) {
-                cache[cacheKey(sourcePath, quantisedPosition)] = frame
+                cache[quantisedPosition] = frame
             }
         }
 
@@ -68,6 +64,13 @@ class PreviewFrameLoader(
     private fun ensureRetriever(sourcePath: String) {
         if (source == sourcePath && retriever != null) return
 
+        synchronized(cache) {
+            cache.values.forEach { bitmap ->
+                runCatching { bitmap.recycle() }
+            }
+            cache.clear()
+        }
+
         releaseRetriever()
         source = sourcePath
 
@@ -83,11 +86,6 @@ class PreviewFrameLoader(
     private fun releaseRetriever() {
         retriever?.runCatching { release() }
         retriever = null
-    }
-
-    private fun cacheKey(sourcePath: String, positionMs: Long): Long {
-        // The source is already scoped by clearing the cache whenever it changes.
-        return positionMs
     }
 
     companion object {
