@@ -125,7 +125,8 @@ fun ApertureTheme(
             motion = ApertureMotion(),
             spacing = ApertureSpacing(),
             elevation = ApertureElevation(),
-            brandAccent = if (themeId == "classic") Primary else animatedAccent
+            brandAccent = if (themeId == "classic") Primary else animatedAccent,
+            isMaterialTv = themeId == "classic"
         )
     }
 
@@ -176,6 +177,11 @@ object ApertureTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalApertureTokens.current.brandAccent
+
+    val isMaterialTv: Boolean
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalApertureTokens.current.isMaterialTv
 }
 
 /**
