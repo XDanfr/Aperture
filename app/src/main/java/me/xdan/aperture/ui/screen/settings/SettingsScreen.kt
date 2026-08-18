@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -1295,7 +1296,7 @@ private fun ThemePickerDialog(
                         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
                         horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
-                        items(ApertureThemeOptions, key = { option -> option.id }) { option ->
+                        gridItems(ApertureThemeOptions, key = { option -> option.id }) { option ->
                             val selected = option.id == selectedThemeId
                             Surface(
                                 onClick = { onSelect(option.id) },
