@@ -1290,7 +1290,7 @@ private fun ThemePickerDialog(
                 Column(Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Choose a theme", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Choose a palette for Aperture. Material TV keeps the Google TV look, while the other themes carry their colour through the interface.",
+                        "Choose a palette for Aperture.",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
@@ -1392,10 +1392,17 @@ private fun ThemeColourSwatch(
     option: me.xdan.aperture.ui.theme.ApertureThemeOption,
     selected: Boolean
 ) {
+    val outlineColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    }
+
     Canvas(
         modifier = Modifier.size(88.dp)
     ) {
         val strokeWidth = if (selected) 3.dp.toPx() else 1.dp.toPx()
+
         drawArc(
             color = option.primary,
             startAngle = 180f,
@@ -1415,7 +1422,7 @@ private fun ThemeColourSwatch(
             useCenter = true
         )
         drawCircle(
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            color = outlineColor,
             radius = size.minDimension / 2f - strokeWidth / 2f,
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
         )
