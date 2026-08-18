@@ -202,6 +202,8 @@ private fun ColorScheme.toApertureColorScheme(): ApertureColorScheme {
         // Core brand
         primary = primary,
         onPrimary = onPrimary,
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = onPrimaryContainer,
         secondary = secondary,
         background = background,
         onBackground = onBackground,
