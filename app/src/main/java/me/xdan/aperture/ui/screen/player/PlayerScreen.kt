@@ -1238,6 +1238,20 @@ private fun PlayerSeekProgress(
 
     BoxWithConstraints(
         modifier = modifier
+            .layout { measurable, constraints ->
+                val relaxedConstraints = constraints.copy(
+                    maxHeight = maxOf(constraints.maxHeight, 240.dp.roundToPx())
+                )
+                val placeable = measurable.measure(relaxedConstraints)
+                val reportedHeight = constraints.constrainHeight(24.dp.roundToPx())
+
+                layout(constraints.maxWidth, reportedHeight) {
+                    placeable.placeRelative(
+                        x = 0,
+                        y = (reportedHeight - placeable.height) / 2
+                    )
+                }
+            }
             .onFocusChanged {
                 focused = it.isFocused
 
