@@ -253,11 +253,13 @@ fun SettingsScreen(
 
                     }
                     SettingsPage.CUSTOMISATION -> {
-            SettingsPageHeader(
+            item {
+                SettingsPageHeader(
                 title = "Customisation",
                 description = "Theme, presentation and ambient mode",
                 onBack = { currentPage = SettingsPage.OVERVIEW }
-            )
+                )
+            }
 
 
             item {
@@ -422,11 +424,13 @@ fun SettingsScreen(
 
                     }
                     SettingsPage.LIBRARY -> {
-            SettingsPageHeader(
+            item {
+                SettingsPageHeader(
                 title = "Library & storage",
                 description = "Folders, hidden titles and library maintenance",
                 onBack = { currentPage = SettingsPage.OVERVIEW }
-            )
+                )
+            }
 
 
             item {
@@ -498,11 +502,13 @@ fun SettingsScreen(
 
                     }
                     SettingsPage.PLAYBACK -> {
-            SettingsPageHeader(
+            item {
+                SettingsPageHeader(
                 title = "Playback & subtitles",
                 description = "Playback, subtitles and related options",
                 onBack = { currentPage = SettingsPage.OVERVIEW }
-            )
+                )
+            }
             item {
                 SettingsItem(
                     title = "Languages",
@@ -556,11 +562,13 @@ fun SettingsScreen(
 
                     }
                     SettingsPage.ABOUT -> {
-            SettingsPageHeader(
+            item {
+                SettingsPageHeader(
                 title = "About Aperture",
                 description = "Updates, licences and project information",
                 onBack = { currentPage = SettingsPage.OVERVIEW }
-            )
+                )
+            }
 
 
             item {
