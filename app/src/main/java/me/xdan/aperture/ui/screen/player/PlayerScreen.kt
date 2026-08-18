@@ -300,8 +300,7 @@ fun PlayerScreen(
                     },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
-                    onPlayerBack = onBackonPlayerBack = ::saveProgressAndBack,
-                    initialScrubDirection = pendingScrubDirection,
+                    onPlayerBack = ::saveProgressAndBack,                    initialScrubDirection = pendingScrubDirection,
                     onInitialScrubConsumed = { pendingScrubDirection = 0 }
                 )
             } else {
