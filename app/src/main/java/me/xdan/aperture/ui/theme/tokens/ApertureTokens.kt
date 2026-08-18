@@ -16,7 +16,8 @@ data class ApertureTokens(
     val motion: ApertureMotion,
     val spacing: ApertureSpacing,
     val elevation: ApertureElevation,
-    val brandAccent: Color
+    val brandAccent: Color,
+    val isMaterialTv: Boolean
 )
 
 /**
