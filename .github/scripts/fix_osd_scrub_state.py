@@ -198,4 +198,214 @@ elif new_handler not in screen_text:
         raise SystemExit("Could not find unique beginHold anchor")
     screen_text = screen_text.replace(anchor, new_handler + anchor, 1)
 
+# Older workflow runs could leave the BackHandler duplicated. Collapse it to one.
+double_handler = new_handler + new_handler
+if screen_text.count(double_handler) == 1:
+    screen_text = screen_text.replace(double_handler, new_handler, 1)
+
+# Add a local visual scrub state to PlayerOsd so the non-timeline UI can disappear
+# while the preview is active, without changing the existing scrub state itself.
+old_state = """    var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var duration by remember { mutableLongStateOf(player.duration) }
+    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
+"""
+new_state = """    var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
+    var duration by remember { mutableLongStateOf(player.duration) }
+    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
+    var isScrubbing by remember { mutableStateOf(false) }
+"""
+if old_state in screen_text:
+    screen_text = screen_text.replace(old_state, new_state, 1)
+elif new_state not in screen_text:
+    raise SystemExit("Could not find PlayerOsd state block")
+
+old_callback = """                onScrubbingChanged = onScrubbingChanged,
+"""
+new_callback = """                onScrubbingChanged = { scrubbing ->
+                    isScrubbing = scrubbing
+                    onScrubbingChanged(scrubbing)
+                },
+"""
+# The exact callback occurs in both PlayerOsd and elsewhere; target only the first one,
+# which is the PlayerSeekProgress invocation inside PlayerOsd.
+if old_callback in screen_text:
+    screen_text = screen_text.replace(old_callback, new_callback, 1)
+elif new_callback not in screen_text:
+    raise SystemExit("Could not find PlayerOsd scrub callback")
+
+# Fade/scale the background OSD content while keeping the timeline itself visible.
+old_title = """            Text(
+                text = media?.title ?: "",
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+"""
+new_title = """            AnimatedVisibility(
+                visible = !isScrubbing,
+                enter = fadeIn(animationSpec = tween(220)) +
+                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = tween(160)) +
+                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { -it / 5 }) +
+                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
+            ) {
+                Column {
+                    Text(
+                        text = media?.title ?: "",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+"""
+if old_title in screen_text:
+    screen_text = screen_text.replace(old_title, new_title, 1)
+elif new_title not in screen_text:
+    raise SystemExit("Could not find PlayerOsd title block")
+
+old_bottom = """            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(formatTime(currentPosition), color = Color.White)
+                Text(formatTime(duration), color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.Replay,
+                    contentDescription = "Restart",
+                    onClick = onRestart
+                )
+                Spacer(modifier = Modifier.width(24.dp))
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.FastRewind,
+                    contentDescription = "Rewind",
+                    onClick = {
+                        player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                        onInteraction()
+                    }
+                )
+                Spacer(modifier = Modifier.width(32.dp))
+                PlayerControlIconButton(
+                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    iconSize = 64.dp,
+                    onClick = {
+                        if (isPlaying) {
+                            player.pause()
+                        } else {
+                            player.play()
+                        }
+                        onInteraction()
+                    },
+                    modifier = Modifier.focusRequester(controlsFocusRequester)
+                )
+                Spacer(modifier = Modifier.width(32.dp))
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.FastForward,
+                    contentDescription = "Fast Forward",
+                    onClick = {
+                        val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                        player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
+                        onInteraction()
+                    }
+                )
+                Spacer(modifier = Modifier.width(32.dp))
+                PlayerControlIconButton(
+                    icon = Icons.Rounded.MoreVert,
+                    contentDescription = "Audio and subtitle options",
+                    onClick = onQuickMenu
+                )
+            }
+"""
+new_bottom = """            AnimatedVisibility(
+                visible = !isScrubbing,
+                enter = fadeIn(animationSpec = tween(220)) +
+                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = tween(160)) +
+                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { it / 5 }) +
+                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(formatTime(currentPosition), color = Color.White)
+                        Text(formatTime(duration), color = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.Replay,
+                            contentDescription = "Restart",
+                            onClick = onRestart
+                        )
+                        Spacer(modifier = Modifier.width(24.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastRewind,
+                            contentDescription = "Rewind",
+                            onClick = {
+                                player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            iconSize = 64.dp,
+                            onClick = {
+                                if (isPlaying) {
+                                    player.pause()
+                                } else {
+                                    player.play()
+                                }
+                                onInteraction()
+                            },
+                            modifier = Modifier.focusRequester(controlsFocusRequester)
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastForward,
+                            contentDescription = "Fast Forward",
+                            onClick = {
+                                val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                                player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.MoreVert,
+                            contentDescription = "Audio and subtitle options",
+                            onClick = onQuickMenu
+                        )
+                    }
+                }
+            }
+"""
+if old_bottom in screen_text:
+    screen_text = screen_text.replace(old_bottom, new_bottom, 1)
+elif new_bottom not in screen_text:
+    raise SystemExit("Could not find PlayerOsd bottom controls block")
+
 screen.write_text(screen_text, encoding="utf-8")
