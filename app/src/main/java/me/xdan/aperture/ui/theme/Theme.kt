@@ -24,7 +24,7 @@ data class ApertureThemeOption(
 
 val ApertureThemeOptions = listOf(
     ApertureThemeOption("purple", "Aperture Purple", Color(0xFFD0BCFF), Color(0xFFCCC2DC), Color(0xFFEFB8C8)),
-    ApertureThemeOption("dynamic", "Artwork Dynamic [PRE-ALPHA]", Color(0xFFB7C8FF), Color(0xFFAFC7E8), Color(0xFFC6B7E8)),
+    ApertureThemeOption("dynamic", "Artwork Dynamic", Color(0xFFB7C8FF), Color(0xFFAFC7E8), Color(0xFFC6B7E8)),
     ApertureThemeOption("classic", "Material TV", Color.White, Color(0xFFE6E1E5), Color(0xFFD0C8D1)),
     ApertureThemeOption("green", "Emerald", Color(0xFF7DDA9A), Color(0xFFA4DDB5), Color(0xFFB9D98B)),
     ApertureThemeOption("red", "Cinema Red", Color(0xFFFFB4AB), Color(0xFFFFC9C3), Color(0xFFFFC17D)),

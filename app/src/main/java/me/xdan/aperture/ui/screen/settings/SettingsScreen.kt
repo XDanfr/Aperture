@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -1295,26 +1296,46 @@ private fun ThemePickerDialog(
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
                     LazyColumn(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(
+                            top = 12.dp,
+                            bottom = 8.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
-                        items(themeRows, key = { row -> row.firstOrNull()?.id ?: "empty" }) { row ->
+                        items(
+                            themeRows,
+                            key = { row -> row.firstOrNull()?.id ?: "empty" }
+                        ) { row ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                                horizontalArrangement = Arrangement.spacedBy(
+                                    ApertureTheme.spacing.medium
+                                )
                             ) {
                                 repeat(3) { index ->
                                     val option = row.getOrNull(index)
+
                                     if (option != null) {
                                         ThemeOptionCard(
                                             option = option,
                                             selected = option.id == selectedThemeId,
-                                            firstRequester = if (index == 0 && row === themeRows.first()) firstRequester else null,
+                                            firstRequester = if (
+                                                index == 0 && row === themeRows.first()
+                                            ) firstRequester else null,
                                             onSelect = onSelect,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(176.dp)
                                         )
                                     } else {
-                                        Spacer(Modifier.weight(1f))
+                                        Spacer(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(176.dp)
+                                        )
                                     }
                                 }
                             }
@@ -1340,7 +1361,13 @@ private fun ThemeOptionCard(
     Surface(
         onClick = { onSelect(option.id) },
         modifier = modifier
-            .then(if (firstRequester != null) Modifier.focusRequester(firstRequester) else Modifier),
+            .then(
+                if (firstRequester != null) {
+                    Modifier.focusRequester(firstRequester)
+                } else {
+                    Modifier
+                }
+            ),
         shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) {
@@ -1365,23 +1392,47 @@ private fun ThemeOptionCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(ApertureTheme.spacing.medium),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(ApertureTheme.spacing.medium),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            ThemeColourSwatch(option = option, selected = selected)
-            Spacer(Modifier.height(ApertureTheme.spacing.small))
-            Text(
-                text = option.label,
-                style = MaterialTheme.typography.titleSmall,
-                textAlign = TextAlign.Center
+            ThemeColourSwatch(
+                option = option,
+                selected = selected
             )
-            if (selected) {
-                Spacer(Modifier.height(2.dp))
+
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    "Selected",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    text = option.label,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
                 )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selected) {
+                    Text(
+                        "Selected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
