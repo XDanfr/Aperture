@@ -177,7 +177,6 @@ elif new_back not in screen_text:
     raise SystemExit("Could not find BACK key handler in either old or already-patched form")
 
 handler = """    BackHandler(enabled = scrubbing) {
-        endHold()
         cancelScrubbing()
         onScrubToControls()
     }
