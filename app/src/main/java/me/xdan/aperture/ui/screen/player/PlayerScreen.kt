@@ -5,6 +5,14 @@ package me.xdan.aperture.ui.screen.player
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -26,7 +34,6 @@ import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
@@ -935,21 +942,20 @@ private fun PlayerOsd(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
-            Box(
+            val progress = if (duration > 0) {
+                (currentPosition.toFloat() / duration).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+
+            PlayerSeekProgress(
+                player = player,
+                progress = progress,
+                isPlaying = isPlaying,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Gray)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            }
+                    .height(24.dp)
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -1008,6 +1014,154 @@ private fun PlayerOsd(
                     onClick = onQuickMenu
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PlayerSeekProgress(
+    player: androidx.media3.common.Player,
+    progress: Float,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    var scrubbing by remember { mutableStateOf(false) }
+
+    val duration = player.duration.coerceAtLeast(0L)
+
+    var seekPosition by remember(progress, duration) {
+        mutableLongStateOf(
+            (progress * duration)
+                .toLong()
+                .coerceIn(0L, duration)
+        )
+    }
+
+    val displayedProgress = if (duration > 0L) {
+        (seekPosition.toFloat() / duration).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    val amplitude by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPlaying && !scrubbing) 1f else 0f,
+        animationSpec = WavyProgressIndicatorDefaults.ProgressAnimationSpec,
+        label = "seekWaveAmplitude"
+    )
+
+    val handleSize by animateDpAsState(
+        targetValue = if (focused || scrubbing) 14.dp else 0.dp,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "seekHandleSize"
+    )
+
+    BoxWithConstraints(
+        modifier = modifier
+            .onFocusChanged {
+                focused = it.isFocused
+
+                if (!it.isFocused && scrubbing) {
+                    player.seekTo(
+                        seekPosition.coerceIn(0L, duration)
+                    )
+                    scrubbing = false
+                }
+            }
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
+                    return@onPreviewKeyEvent false
+                }
+
+                when (event.nativeKeyEvent.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (!scrubbing) {
+                            player.pause()
+                            scrubbing = true
+                            seekPosition = player.currentPosition
+                        }
+
+                        seekPosition = (seekPosition - 10_000L)
+                            .coerceAtLeast(0L)
+
+                        true
+                    }
+
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        if (!scrubbing) {
+                            player.pause()
+                            scrubbing = true
+                            seekPosition = player.currentPosition
+                        }
+
+                        seekPosition = (seekPosition + 10_000L)
+                            .coerceAtMost(duration)
+
+                        true
+                    }
+
+                    KeyEvent.KEYCODE_DPAD_CENTER,
+                    KeyEvent.KEYCODE_ENTER -> {
+                        if (scrubbing) {
+                            player.seekTo(
+                                seekPosition.coerceIn(0L, duration)
+                            )
+                            scrubbing = false
+                        } else {
+                            player.pause()
+                            scrubbing = true
+                            seekPosition = player.currentPosition
+                        }
+
+                        true
+                    }
+
+                    KeyEvent.KEYCODE_BACK -> {
+                        if (scrubbing) {
+                            player.seekTo(
+                                seekPosition.coerceIn(0L, duration)
+                            )
+                            scrubbing = false
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    else -> false
+                }
+            }
+    ) {
+        LinearWavyProgressIndicator(
+            progress = { displayedProgress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Center),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
+            stopSize = 0.dp,
+            amplitude = { amplitude },
+            wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
+        )
+
+        if (handleSize > 0.dp && maxWidth > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .size(handleSize)
+                    .align(Alignment.CenterStart)
+                    .offset(
+                        x = maxWidth * displayedProgress -
+                                (handleSize / 2)
+                    )
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        androidx.compose.foundation.shape.CircleShape
+                    )
+            )
         }
     }
 }
