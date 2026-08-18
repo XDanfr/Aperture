@@ -76,6 +76,12 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         SubtitleAppearanceSettings()
     )
+    val classicPlayerControls = userPreferencesRepository.classicPlayerControls.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false
+    )
+
     val ambientSettings: StateFlow<AmbientSettings> = combine(
         userPreferencesRepository.ambientMode,
         userPreferencesRepository.ambientWallBrandPlacement,
@@ -156,6 +162,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setRoundedSpotlight(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setRoundedSpotlight(enabled) }
+    }
+
+    fun setClassicPlayerControls(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setClassicPlayerControls(enabled) }
     }
 
     fun setTheme(themeId: String) {

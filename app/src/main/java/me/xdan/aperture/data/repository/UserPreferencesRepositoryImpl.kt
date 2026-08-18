@@ -36,6 +36,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private val AMBIENT_MODE = stringPreferencesKey("ambient_mode")
     private val AMBIENT_WALL_BRAND_PLACEMENT = stringPreferencesKey("ambient_wall_brand_placement")
     private val AMBIENT_SHOW_CLOCK = booleanPreferencesKey("ambient_show_clock")
+    private val CLASSIC_PLAYER_CONTROLS = booleanPreferencesKey("classic_player_controls")
 
     override val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -79,6 +80,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val ambientShowClock: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[AMBIENT_SHOW_CLOCK] ?: false }
+
+    override val classicPlayerControls: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[CLASSIC_PLAYER_CONTROLS] ?: false }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->
@@ -142,5 +146,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setAmbientShowClock(enabled: Boolean) {
         context.dataStore.edit { preferences -> preferences[AMBIENT_SHOW_CLOCK] = enabled }
+    }
+
+    override suspend fun setClassicPlayerControls(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[CLASSIC_PLAYER_CONTROLS] = enabled }
     }
 }
