@@ -1,8 +1,11 @@
 package me.xdan.aperture.ui.component.expressive
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -24,12 +27,16 @@ fun ExpressiveWavyProgressIndicator(
 ) {
     val stroke = with(LocalDensity.current) { Stroke(width = strokeWidth.toPx()) }
     if (progress == null) {
-        LinearWavyProgressIndicator(
-            modifier = modifier,
-            color = color,
-            trackColor = trackColor,
-            stroke = stroke
-        )
+        Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            LinearWavyProgressIndicator(
+                color = color,
+                trackColor = trackColor,
+                stroke = stroke
+            )
+        }
     } else {
         LinearWavyProgressIndicator(
             progress = { progress.coerceIn(0f, 1f) },
