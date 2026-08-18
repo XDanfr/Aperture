@@ -1420,20 +1420,20 @@ private fun ThemeOptionCard(
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selected) {
-                    Text(
-                        "Selected",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .height(18.dp),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                if (selected) {
+//                    Text(
+//                        "Selected",
+//                        style = MaterialTheme.typography.labelSmall,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                }
+//            }
         }
     }
 }
