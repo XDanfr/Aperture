@@ -1,0 +1,66 @@
+name: Fix settings entry focus
+
+on:
+  push:
+    branches:
+      - settingsPages
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: settingsPages
+
+      - name: Attach settings entry focus requester
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/me/xdan/aperture/ui/screen/settings/SettingsScreen.kt')
+          text = path.read_text(encoding='utf-8')
+
+          old_call = '''                SettingsPageEntry(\n                    title = "Customisation",\n                    description = "Theme, presentation and ambient mode",\n                    icon = Icons.Rounded.Palette,\n                    onClick = { currentPage = SettingsPage.CUSTOMISATION }\n                )'''
+          new_call = '''                SettingsPageEntry(\n                    title = "Customisation",\n                    description = "Theme, presentation and ambient mode",\n                    icon = Icons.Rounded.Palette,\n                    focusRequester = contentEntryFocusRequester,\n                    onFocused = { requester -> onContentFocused(requester) },\n                    onClick = { currentPage = SettingsPage.CUSTOMISATION }\n                )'''
+          if old_call in text and 'focusRequester = contentEntryFocusRequester' not in text.split('SettingsPageEntry(', 1)[1].split('SettingsPageEntry(', 1)[0]:
+              text = text.replace(old_call, new_call, 1)
+          elif old_call not in text:
+              raise SystemExit('Customisation page entry block not found')
+
+          old_sig = '''private fun SettingsPageEntry(\n    title: String,\n    description: String,\n    icon: ImageVector,\n    onClick: () -> Unit\n)'''
+          new_sig = '''private fun SettingsPageEntry(\n    title: String,\n    description: String,\n    icon: ImageVector,\n    focusRequester: FocusRequester? = null,\n    onFocused: (FocusRequester) -> Unit = {},\n    onClick: () -> Unit\n)'''
+          if old_sig in text:
+              text = text.replace(old_sig, new_sig, 1)
+          elif new_sig not in text:
+              raise SystemExit('SettingsPageEntry signature not found')
+
+          old_modifier = '''        modifier = Modifier.fillMaxWidth(),'''
+          new_modifier = '''        modifier = Modifier\n            .fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)\n            .onFocusChanged {\n                if (it.isFocused && focusRequester != null) onFocused(focusRequester)\n            },'''
+          marker = 'private fun SettingsPageEntry('
+          start = text.index(marker)
+          end = text.index('@Composable\nprivate fun SettingsCategoryHeader', start)
+          block = text[start:end]
+          if old_modifier not in block:
+              if new_modifier not in block:
+                  raise SystemExit('SettingsPageEntry modifier not found')
+          else:
+              block = block.replace(old_modifier, new_modifier, 1)
+              text = text[:start] + block + text[end:]
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/me/xdan/aperture/ui/screen/settings/SettingsScreen.kt
+          git commit -m 'Fix settings page entry focus'
+          git rm .github/workflows/fix-settings-focus.yml
+          git commit -m 'Remove temporary settings focus workflow'
+          git push origin settingsPages
