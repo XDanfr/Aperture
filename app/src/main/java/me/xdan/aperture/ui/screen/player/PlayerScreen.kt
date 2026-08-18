@@ -1176,7 +1176,6 @@ private fun PlayerSeekProgress(
     }
 
     BackHandler(enabled = scrubbing) {
-        endHold()
         cancelScrubbing()
         onScrubToControls()
     }
