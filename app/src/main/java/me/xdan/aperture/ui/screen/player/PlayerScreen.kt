@@ -982,6 +982,9 @@ private fun PlayerOsd(
                 mediaSource = mediaSource,
                 progress = progress,
                 isPlaying = isPlaying,
+                onScrubbingChanged = viewModel::setScrubbing,
+                onScrubUp = viewModel::hideOsd,
+                onScrubToControls = controlsFocusRequester::requestFocus,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(24.dp)
@@ -1059,6 +1062,9 @@ private fun PlayerSeekProgress(
     mediaSource: String?,
     progress: Float,
     isPlaying: Boolean,
+    onScrubbingChanged: (Boolean) -> Unit,
+    onScrubUp: () -> Unit,
+    onScrubToControls: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val duration = player.duration.coerceAtLeast(0L)
@@ -1130,6 +1136,7 @@ private fun PlayerSeekProgress(
         wasPlayingBeforeScrub = player.isPlaying
 
         scrubbing = true
+        onScrubbingChanged(true)
         player.pause()
     }
 
@@ -1141,6 +1148,7 @@ private fun PlayerSeekProgress(
         )
 
         scrubbing = false
+        onScrubbingChanged(false)
 
         // Seeking is an explicit action, so resume playback on commit.
         player.play()
@@ -1156,6 +1164,7 @@ private fun PlayerSeekProgress(
         player.seekTo(originalPosition.coerceIn(0L, duration))
 
         scrubbing = false
+        onScrubbingChanged(false)
 
         if (wasPlayingBeforeScrub) {
             player.play()
@@ -1291,9 +1300,30 @@ private fun PlayerSeekProgress(
                                 true
                             }
 
+                            KeyEvent.KEYCODE_DPAD_UP -> {
+                                if (scrubbing) {
+                                    cancelScrubbing()
+                                    onScrubUp()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
+                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (scrubbing) {
+                                    cancelScrubbing()
+                                    onScrubToControls()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
                             KeyEvent.KEYCODE_BACK -> {
                                 if (scrubbing) {
                                     cancelScrubbing()
+                                    onScrubToControls()
                                     true
                                 } else {
                                     false

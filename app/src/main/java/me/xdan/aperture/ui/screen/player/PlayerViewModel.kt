@@ -526,6 +526,13 @@ class PlayerViewModel @Inject constructor(
     }
     fun hideOsd() { osdTimerJob?.cancel(); _isOsdVisible.value = false }
     fun showOsdBriefly() { _isOsdVisible.value = true; resetOsdTimer() }
+    fun setScrubbing(scrubbing: Boolean) {
+        if (scrubbing) {
+            osdTimerJob?.cancel()
+        } else {
+            resetOsdTimer()
+        }
+    }
     private fun resetOsdTimer() {
         osdTimerJob?.cancel()
         osdTimerJob = viewModelScope.launch { delay(3000); _isOsdVisible.value = false }
