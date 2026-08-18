@@ -2,6 +2,7 @@
 
 package me.xdan.aperture.ui.screen.player
 
+import android.graphics.Bitmap
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
@@ -17,6 +18,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +36,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -259,6 +262,7 @@ fun PlayerScreen(
         ) {
             PlayerOsd(
                 media = media,
+                mediaSource = media?.filePath,
                 player = player,
                 controlsFocusRequester = controlsFocusRequester,
                 onInteraction = viewModel::showOsdBriefly,
@@ -910,6 +914,7 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
 @Composable
 private fun PlayerOsd(
     media: MediaEntity?,
+    mediaSource: String?,
     player: androidx.media3.common.Player,
     controlsFocusRequester: FocusRequester,
     onInteraction: () -> Unit,
@@ -973,6 +978,7 @@ private fun PlayerOsd(
 
             PlayerSeekProgress(
                 player = player,
+                mediaSource = mediaSource,
                 progress = progress,
                 isPlaying = isPlaying,
                 modifier = Modifier
@@ -1049,6 +1055,7 @@ private fun PlayerOsd(
 @Composable
 private fun PlayerSeekProgress(
     player: androidx.media3.common.Player,
+    mediaSource: String?,
     progress: Float,
     isPlaying: Boolean,
     modifier: Modifier = Modifier
@@ -1061,6 +1068,8 @@ private fun PlayerSeekProgress(
     var originalPosition by remember { mutableLongStateOf(player.currentPosition) }
     var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
     var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val previewLoader = remember { PreviewFrameLoader(LocalContext.current) }
 
     var holdDirection by remember { mutableIntStateOf(0) }
     var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -1085,6 +1094,23 @@ private fun PlayerSeekProgress(
     )
 
     val waveAmplitude = if (isPlaying && !scrubbing) 1f else 0f
+    val previewPosition = if (scrubbing) {
+        PreviewFrameLoader.quantise(seekPosition)
+    } else {
+        -1L
+    }
+
+    LaunchedEffect(previewPosition, scrubbing, mediaSource) {
+        previewBitmap = null
+        if (!scrubbing || mediaSource.isNullOrBlank() || previewPosition < 0L) return@LaunchedEffect
+
+        delay(100)
+        previewBitmap = previewLoader.load(mediaSource, previewPosition)
+    }
+
+    DisposableEffect(previewLoader) {
+        onDispose { previewLoader.clear() }
+    }
 
     val handleSize by animateDpAsState(
         targetValue = if (focused || scrubbing) 14.dp else 0.dp,
@@ -1277,6 +1303,55 @@ private fun PlayerSeekProgress(
                 }
             }
     ) {
+        if (scrubbing) {
+            val previewWidth = 320.dp
+            val previewHeight = 180.dp
+            val previewX = ((maxWidth - previewWidth) * animatedProgress)
+                .coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
+
+            Surface(
+                modifier = Modifier
+                    .width(previewWidth)
+                    .wrapContentHeight()
+                    .offset(x = previewX, y = -(previewHeight + 28.dp) / 2)
+                    .align(Alignment.CenterStart),
+                shape = RoundedCornerShape(24.dp),
+                colors = SurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                ),
+                tonalElevation = 6.dp,
+                shadowElevation = 8.dp
+            ) {
+                Column {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(previewHeight)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        previewBitmap?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: ExpressiveLoadingIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            size = 28.dp
+                        )
+                    }
+                    Text(
+                        text = formatTime(seekPosition),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         LinearWavyProgressIndicator(
             progress = { animatedProgress },
             modifier = Modifier
