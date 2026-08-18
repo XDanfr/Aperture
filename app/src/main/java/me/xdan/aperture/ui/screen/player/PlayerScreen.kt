@@ -931,6 +931,7 @@ private fun PlayerOsd(
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
     var isPlaying by remember { mutableStateOf(player.playWhenReady) }
+    var isScrubbing by remember { mutableStateOf(false) }
 
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
@@ -970,12 +971,24 @@ private fun PlayerOsd(
         Column(
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
-            Text(
-                text = media?.title ?: "",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            AnimatedVisibility(
+                visible = !isScrubbing,
+                enter = fadeIn(animationSpec = tween(220)) +
+                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = tween(160)) +
+                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { -it / 5 }) +
+                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
+            ) {
+                Column {
+                    Text(
+                        text = media?.title ?: "",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
 
             val progress = if (duration > 0) {
                 (currentPosition.toFloat() / duration).coerceIn(0f, 1f)
@@ -988,7 +1001,10 @@ private fun PlayerOsd(
                 mediaSource = mediaSource,
                 progress = progress,
                 isPlaying = isPlaying,
-                onScrubbingChanged = onScrubbingChanged,
+                onScrubbingChanged = { scrubbing ->
+                    isScrubbing = scrubbing
+                    onScrubbingChanged(scrubbing)
+                },
                 onScrubUp = onScrubUp,
                 onScrubToControls = onScrubToControls,
                 modifier = Modifier
@@ -996,66 +1012,78 @@ private fun PlayerOsd(
                     .height(24.dp)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            AnimatedVisibility(
+                visible = !isScrubbing,
+                enter = fadeIn(animationSpec = tween(220)) +
+                    slideInVertically(animationSpec = tween(220), initialOffsetY = { it / 5 }) +
+                    scaleIn(animationSpec = tween(220), initialScale = 0.96f),
+                exit = fadeOut(animationSpec = tween(160)) +
+                    slideOutVertically(animationSpec = tween(160), targetOffsetY = { it / 5 }) +
+                    scaleOut(animationSpec = tween(160), targetScale = 0.96f)
             ) {
-                Text(formatTime(currentPosition), color = Color.White)
-                Text(formatTime(duration), color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.Replay,
-                    contentDescription = "Restart",
-                    onClick = onRestart
-                )
-                Spacer(modifier = Modifier.width(24.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.FastRewind,
-                    contentDescription = "Rewind",
-                    onClick = {
-                        player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
-                        onInteraction()
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(formatTime(currentPosition), color = Color.White)
+                        Text(formatTime(duration), color = Color.White)
                     }
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    iconSize = 64.dp,
-                    onClick = {
-                        if (isPlaying) {
-                            player.pause()
-                        } else {
-                            player.play()
-                        }
-                        onInteraction()
-                    },
-                    modifier = Modifier.focusRequester(controlsFocusRequester)
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.FastForward,
-                    contentDescription = "Fast Forward",
-                    onClick = {
-                        val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-                        player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
-                        onInteraction()
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.Replay,
+                            contentDescription = "Restart",
+                            onClick = onRestart
+                        )
+                        Spacer(modifier = Modifier.width(24.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastRewind,
+                            contentDescription = "Rewind",
+                            onClick = {
+                                player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            iconSize = 64.dp,
+                            onClick = {
+                                if (isPlaying) {
+                                    player.pause()
+                                } else {
+                                    player.play()
+                                }
+                                onInteraction()
+                            },
+                            modifier = Modifier.focusRequester(controlsFocusRequester)
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.FastForward,
+                            contentDescription = "Fast Forward",
+                            onClick = {
+                                val safeDuration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                                player.seekTo((player.currentPosition + 10000).coerceAtMost(safeDuration))
+                                onInteraction()
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(32.dp))
+                        PlayerControlIconButton(
+                            icon = Icons.Rounded.MoreVert,
+                            contentDescription = "Audio and subtitle options",
+                            onClick = onQuickMenu
+                        )
                     }
-                )
-                Spacer(modifier = Modifier.width(32.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.MoreVert,
-                    contentDescription = "Audio and subtitle options",
-                    onClick = onQuickMenu
-                )
+                }
             }
         }
     }
@@ -1173,11 +1201,6 @@ private fun PlayerSeekProgress(
         onScrubbingChanged(false)
 
         player.play()
-    }
-
-    BackHandler(enabled = scrubbing) {
-        cancelScrubbing()
-        onScrubToControls()
     }
 
     BackHandler(enabled = scrubbing) {
