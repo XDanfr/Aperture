@@ -176,16 +176,25 @@ if old_back in screen_text:
 elif new_back not in screen_text:
     raise SystemExit("Could not find BACK key handler in either old or already-patched form")
 
-handler = """    BackHandler(enabled = scrubbing) {
+old_handler = """    BackHandler(enabled = scrubbing) {
+        endHold()
         cancelScrubbing()
         onScrubToControls()
     }
 
 """
-if handler not in screen_text:
+new_handler = """    BackHandler(enabled = scrubbing) {
+        cancelScrubbing()
+        onScrubToControls()
+    }
+
+"""
+if old_handler in screen_text:
+    screen_text = screen_text.replace(old_handler, new_handler, 1)
+elif new_handler not in screen_text:
     anchor = "    fun beginHold(direction: Int) {"
     if screen_text.count(anchor) != 1:
         raise SystemExit("Could not find unique beginHold anchor")
-    screen_text = screen_text.replace(anchor, handler + anchor, 1)
+    screen_text = screen_text.replace(anchor, new_handler + anchor, 1)
 
 screen.write_text(screen_text, encoding="utf-8")
