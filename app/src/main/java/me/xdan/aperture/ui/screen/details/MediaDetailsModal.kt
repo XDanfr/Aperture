@@ -571,10 +571,20 @@ private fun AssetPickerDialog(
                 )
                 Spacer(Modifier.height(20.dp))
                 when {
-                    loading -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    loading -> Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
                         me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator(size = 72.dp)
                     }
-                    candidates.isEmpty() -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    candidates.isEmpty() -> Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text("No matching artwork found.")
                     }
                     else -> LazyVerticalGrid(
