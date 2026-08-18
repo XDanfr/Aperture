@@ -115,6 +115,7 @@ fun SettingsScreen(
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     val ambientSettings by viewModel.ambientSettings.collectAsState()
+    val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -335,6 +336,24 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showSpotlightDaysPicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Classic Player Controls",
+                    subtitle = if (classicPlayerControls) "Use the traditional playback controls" else "Use the default streamlined controls",
+                    icon = Icons.Rounded.Movie,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = { viewModel.setClassicPlayerControls(!classicPlayerControls) },
+                    trailingContent = {
+                        ExpressiveToggle(
+                            checked = classicPlayerControls,
+                            onCheckedChange = null,
+                            isFocused = false
+                        )
+                    }
                 )
             }
 

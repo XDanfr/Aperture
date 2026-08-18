@@ -68,6 +68,12 @@ class PlayerViewModel @Inject constructor(
     private val _subtitleDelayMs = MutableStateFlow(0L)
     val subtitleDelayMs: StateFlow<Long> = _subtitleDelayMs
 
+    val classicPlayerControls: StateFlow<Boolean> = preferences.classicPlayerControls.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false
+    )
+
     val subtitleStyle = combine(
         preferences.subtitleTextScale,
         preferences.subtitleColour,

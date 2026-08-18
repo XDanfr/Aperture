@@ -18,6 +18,7 @@ interface UserPreferencesRepository {
     val ambientMode: Flow<AmbientModeType>
     val ambientWallBrandPlacement: Flow<AmbientBrandPlacement>
     val ambientShowClock: Flow<Boolean>
+    val classicPlayerControls: Flow<Boolean>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setHideFinishedFromSpotlight(enabled: Boolean)
@@ -32,4 +33,5 @@ interface UserPreferencesRepository {
     suspend fun setAmbientMode(mode: AmbientModeType)
     suspend fun setAmbientWallBrandPlacement(placement: AmbientBrandPlacement)
     suspend fun setAmbientShowClock(enabled: Boolean)
+    suspend fun setClassicPlayerControls(enabled: Boolean)
 }
