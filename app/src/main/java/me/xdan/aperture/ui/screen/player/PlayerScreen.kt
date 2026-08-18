@@ -1181,6 +1181,11 @@ private fun PlayerSeekProgress(
         onScrubToControls()
     }
 
+    BackHandler(enabled = scrubbing) {
+        cancelScrubbing()
+        onScrubToControls()
+    }
+
     fun beginHold(direction: Int) {
         if (holdDirection == direction && seekJob?.isActive == true) {
             return
