@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 vm = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerViewModel.kt')
 screen = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
@@ -108,17 +109,16 @@ if screen_text.count(old_center) != 1:
     raise SystemExit('Expected exactly one centre key handler')
 screen_text = screen_text.replace(old_center, new_center, 1)
 
-old_back_up = '''                            KeyEvent.KEYCODE_BACK -> {
+old_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 if (scrubbing) {
                                     cancelScrubbing()
+                                    onScrubUp()
                                     true
                                 } else {
                                     false
                                 }
-                            }
-
-                            else -> false'''
-new_back_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
+                            }'''
+new_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 if (scrubbing) {
                                     endHold()
                                     cancelScrubbing()
@@ -127,9 +127,21 @@ new_back_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 } else {
                                     false
                                 }
-                            }
+                            }'''
+if screen_text.count(old_up) != 1:
+    raise SystemExit('Expected exactly one DPAD_UP handler')
+screen_text = screen_text.replace(old_up, new_up, 1)
 
-                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+old_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                if (scrubbing) {
+                                    cancelScrubbing()
+                                    onScrubToControls()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }'''
+new_down = '''                            KeyEvent.KEYCODE_DPAD_DOWN -> {
                                 if (scrubbing) {
                                     endHold()
                                     cancelScrubbing()
@@ -138,14 +150,24 @@ new_back_up = '''                            KeyEvent.KEYCODE_DPAD_UP -> {
                                 } else {
                                     false
                                 }
-                            }
+                            }'''
+if screen_text.count(old_down) != 1:
+    raise SystemExit('Expected exactly one DPAD_DOWN handler')
+screen_text = screen_text.replace(old_down, new_down, 1)
 
-                            KeyEvent.KEYCODE_BACK -> false
-
-                            else -> false'''
-if screen_text.count(old_back_up) != 1:
-    raise SystemExit('Expected exactly one back/else key section')
-screen_text = screen_text.replace(old_back_up, new_back_up, 1)
+old_back = '''                            KeyEvent.KEYCODE_BACK -> {
+                                if (scrubbing) {
+                                    cancelScrubbing()
+                                    onScrubToControls()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }'''
+new_back = '''                            KeyEvent.KEYCODE_BACK -> false'''
+if screen_text.count(old_back) != 1:
+    raise SystemExit('Expected exactly one BACK key handler')
+screen_text = screen_text.replace(old_back, new_back, 1)
 
 anchor = '''    fun beginHold(direction: Int) {'''
 back_handler = '''    BackHandler(enabled = scrubbing) {
@@ -155,8 +177,8 @@ back_handler = '''    BackHandler(enabled = scrubbing) {
     }
 
 '''
-if screen_text.count(anchor) < 1:
-    raise SystemExit('Could not find beginHold anchor')
+if screen_text.count(anchor) != 1:
+    raise SystemExit('Expected exactly one beginHold anchor')
 screen_text = screen_text.replace(anchor, back_handler + anchor, 1)
 
 screen.write_text(screen_text, encoding='utf-8')
