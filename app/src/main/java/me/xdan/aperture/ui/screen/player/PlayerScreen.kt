@@ -1034,15 +1034,12 @@ private fun PlayerOsd(
                 }
             ) {
                 Column {
-                    Box(
+                    Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        contentAlignment = Alignment.Center
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
-                        )
+                        Text(formatTime(currentPosition), color = Color.White)
+                        Text(formatTime(duration), color = Color.White)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -1438,12 +1435,18 @@ private fun PlayerSeekProgress(
                             )
                         }
                     }
-                    Text(
-                        text = formatTime(seekPosition),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = formatTime(seekPosition),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }
