@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.component.expressive
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
