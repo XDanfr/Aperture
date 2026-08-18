@@ -922,8 +922,11 @@ private fun PlayerOsd(
 
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
+            override fun onPlayWhenReadyChanged(
+                playWhenReady: Boolean,
+                reason: Int
+            ) {
+                isPlaying = playWhenReady
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -942,6 +945,7 @@ private fun PlayerOsd(
         while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             currentPosition = player.currentPosition
             duration = player.duration
+            isPlaying = player.isPlaying
             kotlinx.coroutines.delay(33)
         }
     }
@@ -1014,10 +1018,8 @@ private fun PlayerOsd(
                     onClick = {
                         if (isPlaying) {
                             player.pause()
-                            isPlaying = false
                         } else {
                             player.play()
-                            isPlaying = true
                         }
                         onInteraction()
                     },
@@ -1085,7 +1087,10 @@ private fun PlayerSeekProgress(
 
     val amplitude by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isPlaying && !scrubbing) 1f else 0f,
-        animationSpec = WavyProgressIndicatorDefaults.ProgressAnimationSpec,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        ),
         label = "seekWaveAmplitude"
     )
 
