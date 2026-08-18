@@ -20,11 +20,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyVerticalGrid
+import androidx.compose.foundation.lazy.GridCells
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
@@ -283,7 +285,7 @@ fun SettingsScreen(
                         ExpressiveToggle(
                             checked = spotlightSettings.roundedSpotlight,
                             onCheckedChange = null,
-                            isFocused = false // Managed by parent item
+                            isFocused = false
                         )
                     }
                 )
@@ -1276,43 +1278,116 @@ private fun ThemePickerDialog(
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                modifier = Modifier.width(620.dp).heightIn(max = 620.dp),
+                modifier = Modifier.width(820.dp).heightIn(max = 720.dp),
                 shape = ApertureTheme.shapes.dialog,
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Choose a theme", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "The preview updates Aperture, the player OSD and Quick Menu immediately.",
+                        "Choose a palette for Aperture. Material TV keeps the Google TV look, while the other themes carry their colour through the interface.",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
-                    LazyColumn(
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)
+                        verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
-                        itemsIndexed(ApertureThemeOptions, key = { _, option -> option.id }) { index, option ->
+                        items(ApertureThemeOptions, key = { it.id }) { option ->
+                            val selected = option.id == selectedThemeId
                             Surface(
                                 onClick = { onSelect(option.id) },
                                 modifier = Modifier.fillMaxWidth().then(
-                                    if (index == 0) Modifier.focusRequester(firstRequester) else Modifier
+                                    if (option.id == ApertureThemeOptions.first().id) Modifier.focusRequester(firstRequester) else Modifier
                                 ),
-                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                                shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.card),
                                 colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = if (option.id == selectedThemeId) {
+                                    containerColor = if (selected) {
                                         MaterialTheme.colorScheme.primaryContainer
-                                    } else MaterialTheme.colorScheme.surfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    focusedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                                ),
+                                scale = ClickableSurfaceDefaults.scale(
+                                    focusedScale = 1.025f,
+                                    pressedScale = 0.98f
+                                ),
+                                border = ClickableSurfaceDefaults.border(
+                                    focusedBorder = Border(
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = ApertureTheme.shapes.card
+                                    )
                                 )
                             ) {
-                                Row(
-                                    Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Column(
+                                    modifier = Modifier.padding(ApertureTheme.spacing.medium),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Box(Modifier.size(28.dp).background(option.preview, CircleShape))
-                                    Spacer(Modifier.width(14.dp))
-                                    Text(option.label, style = MaterialTheme.typography.titleMedium)
-                                    Spacer(Modifier.weight(1f))
-                                    if (option.id == selectedThemeId) Text("Selected")
+                                    Box(
+                                        modifier = Modifier
+                                            .size(88.dp)
+                                            .border(
+                                                width = if (selected) 3.dp else 1.dp,
+                                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                                shape = CircleShape
+                                            )
+                                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(48.dp)
+                                                .background(option.primary)
+                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .height(40.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxSize()
+                                                    .background(option.secondary)
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxSize()
+                                                    .background(option.tertiary)
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                    }
+                                    Spacer(Modifier.height(ApertureTheme.spacing.small))
+                                    Text(
+                                        option.label,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    if (selected) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            "Selected",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1511,7 +1586,6 @@ private fun SpotlightDaysDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
-                    
                     var isSliderFocused by remember { mutableStateOf(false) }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExpressiveSlider(
@@ -1531,16 +1605,13 @@ private fun SpotlightDaysDialog(
                             textAlign = TextAlign.Center
                         )
                     }
-                    
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small),
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-                        Button(
-                            onClick = { onSave(days) }
-                        ) { Text("Save") }
+                        Button(onClick = { onSave(days) }) { Text("Save") }
                     }
                 }
             }
