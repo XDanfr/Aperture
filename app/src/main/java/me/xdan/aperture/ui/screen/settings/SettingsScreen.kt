@@ -21,8 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyVerticalGrid
-import androidx.compose.foundation.lazy.GridCells
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -1295,14 +1295,18 @@ private fun ThemePickerDialog(
                         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
                         horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
                     ) {
-                        items(ApertureThemeOptions, key = { it.id }) { option ->
+                        items(ApertureThemeOptions, key = { option -> option.id }) { option ->
                             val selected = option.id == selectedThemeId
                             Surface(
                                 onClick = { onSelect(option.id) },
-                                modifier = Modifier.fillMaxWidth().then(
-                                    if (option.id == ApertureThemeOptions.first().id) Modifier.focusRequester(firstRequester) else Modifier
-                                ),
-                                shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.card),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (option.id == ApertureThemeOptions.first().id) {
+                                            Modifier.focusRequester(firstRequester)
+                                        } else Modifier
+                                    ),
+                                shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
                                 colors = ClickableSurfaceDefaults.colors(
                                     containerColor = if (selected) {
                                         MaterialTheme.colorScheme.primaryContainer
@@ -1321,7 +1325,7 @@ private fun ThemePickerDialog(
                                             2.dp,
                                             MaterialTheme.colorScheme.primary
                                         ),
-                                        shape = ApertureTheme.shapes.card
+                                        shape = ApertureTheme.shapes.poster
                                     )
                                 )
                             ) {
@@ -1334,7 +1338,11 @@ private fun ThemePickerDialog(
                                             .size(88.dp)
                                             .border(
                                                 width = if (selected) 3.dp else 1.dp,
-                                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                                color = if (selected) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                                },
                                                 shape = CircleShape
                                             )
                                             .background(MaterialTheme.colorScheme.surface, CircleShape)
@@ -1376,14 +1384,14 @@ private fun ThemePickerDialog(
                                     }
                                     Spacer(Modifier.height(ApertureTheme.spacing.small))
                                     Text(
-                                        option.label,
+                                        text = option.label,
                                         style = MaterialTheme.typography.titleSmall,
                                         textAlign = TextAlign.Center
                                     )
                                     if (selected) {
                                         Spacer(Modifier.height(2.dp))
                                         Text(
-                                            "Selected",
+                                            text = "Selected",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary
                                         )
