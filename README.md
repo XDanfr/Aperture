@@ -52,7 +52,8 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
    ```
 
 2. **Open in Android Studio:** Ensure your environment is configured to use **JDK 17 or 21** (others are currently untested).
-3. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
+3. **Add API Keys:** local.properties needs a `TMDB_API_KEY` and an `OPENSUBTITLES_API_KEY` to function properly.
+4. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
 > [!NOTE]
 > The repo is undergoing a pretty large rework on the front end to adopt **Material 3 Expressive**. The latest commits may have some bugs.
 
