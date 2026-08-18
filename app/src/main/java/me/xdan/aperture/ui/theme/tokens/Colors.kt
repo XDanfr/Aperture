@@ -30,6 +30,8 @@ class ApertureColorScheme(
     shelfBackground: Color,
     primary: Color,
     onPrimary: Color,
+    primaryContainer: Color,
+    onPrimaryContainer: Color,
     secondary: Color,
     background: Color,
     onBackground: Color,
@@ -68,6 +70,10 @@ class ApertureColorScheme(
         internal set
     var onPrimary by mutableStateOf(onPrimary, structuralEqualityPolicy())
         internal set
+    var primaryContainer by mutableStateOf(primaryContainer, structuralEqualityPolicy())
+        internal set
+    var onPrimaryContainer by mutableStateOf(onPrimaryContainer, structuralEqualityPolicy())
+        internal set
     var secondary by mutableStateOf(secondary, structuralEqualityPolicy())
         internal set
     var background by mutableStateOf(background, structuralEqualityPolicy())
@@ -105,6 +111,8 @@ class ApertureColorScheme(
         shelfBackground = other.shelfBackground
         primary = other.primary
         onPrimary = other.onPrimary
+        primaryContainer = other.primaryContainer
+        onPrimaryContainer = other.onPrimaryContainer
         secondary = other.secondary
         background = other.background
         onBackground = other.onBackground
@@ -134,6 +142,8 @@ class ApertureColorScheme(
         shelfBackground: Color = this.shelfBackground,
         primary: Color = this.primary,
         onPrimary: Color = this.onPrimary,
+        primaryContainer: Color = this.primaryContainer,
+        onPrimaryContainer: Color = this.onPrimaryContainer,
         secondary: Color = this.secondary,
         background: Color = this.background,
         onBackground: Color = this.onBackground,
@@ -158,6 +168,8 @@ class ApertureColorScheme(
         shelfBackground = shelfBackground,
         primary = primary,
         onPrimary = onPrimary,
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = onPrimaryContainer,
         secondary = secondary,
         background = background,
         onBackground = onBackground,
