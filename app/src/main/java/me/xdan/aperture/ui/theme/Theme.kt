@@ -117,7 +117,7 @@ fun ApertureTheme(
     // Efficiently update semantic roles when the base Material scheme changes
     apertureColorScheme.updateFrom(scheme.toApertureColorScheme())
 
-    val tokens = remember(apertureColorScheme, themeId) {
+    val tokens = remember(apertureColorScheme, themeId, animatedAccent) {
         ApertureTokens(
             colorScheme = apertureColorScheme,
             typography = ApertureTypography(Typography),
