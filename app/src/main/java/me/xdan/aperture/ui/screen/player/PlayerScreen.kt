@@ -918,7 +918,7 @@ private fun PlayerOsd(
 ) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
-    var isPlaying by remember { mutableStateOf(player.isPlaying) }
+    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
 
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
@@ -945,7 +945,6 @@ private fun PlayerOsd(
         while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             currentPosition = player.currentPosition
             duration = player.duration
-            isPlaying = player.isPlaying
             kotlinx.coroutines.delay(33)
         }
     }
@@ -1085,14 +1084,7 @@ private fun PlayerSeekProgress(
         label = "seekProgress"
     )
 
-    val amplitude by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isPlaying && !scrubbing) 1f else 0f,
-        animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioNoBouncy
-        ),
-        label = "seekWaveAmplitude"
-    )
+    val waveAmplitude = if (isPlaying && !scrubbing) 1f else 0f
 
     val handleSize by animateDpAsState(
         targetValue = if (focused || scrubbing) 14.dp else 0.dp,
@@ -1109,8 +1101,8 @@ private fun PlayerSeekProgress(
         seekPosition = originalPosition
         wasPlayingBeforeScrub = player.isPlaying
 
-        player.pause()
         scrubbing = true
+        player.pause()
     }
 
     fun commitScrubbing() {
@@ -1294,7 +1286,7 @@ private fun PlayerSeekProgress(
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
             trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
             stopSize = 0.dp,
-            amplitude = { amplitude },
+            amplitude = { waveAmplitude },
             wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
         )
 
