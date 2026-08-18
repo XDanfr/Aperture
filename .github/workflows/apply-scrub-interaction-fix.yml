@@ -1,0 +1,25 @@
+name: Apply scrub interaction fix
+
+on:
+  push:
+    branches:
+      - OSD2.0
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/apply_scrub_interaction_fix.py
+      - name: Commit integrated fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix scrub interaction and OSD timeout"
+          git push
