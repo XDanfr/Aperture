@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -92,6 +94,14 @@ import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.SponsorVerificationDialog
 import kotlin.math.roundToInt
 
+private enum class SettingsPage {
+    OVERVIEW,
+    CUSTOMISATION,
+    LIBRARY,
+    PLAYBACK,
+    ABOUT
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -148,27 +158,42 @@ fun SettingsScreen(
         internalDonateFocusRequester
     }
 
-    LaunchedEffect(Unit) {
-        val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 1
-            SETTINGS_AMBIENT_FOCUS_KEY -> 2
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
-            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 4
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 5
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 6
-            SETTINGS_HIDDEN_FOCUS_KEY -> 9
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 10
-            SETTINGS_RESCAN_FOCUS_KEY -> 11
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 14
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 15
-            SETTINGS_LICENCES_FOCUS_KEY -> 17
-            SETTINGS_UPDATE_FOCUS_KEY -> 18
-            SETTINGS_TMDB_FOCUS_KEY -> 19
-            SETTINGS_DONATE_FOCUS_KEY -> 20
-            else -> 0
+
+
+    var currentPage by remember(restoreFocusKey) {
+        mutableStateOf(
+            when (restoreFocusKey) {
+                SETTINGS_THEME_FOCUS_KEY,
+                SETTINGS_AMBIENT_FOCUS_KEY,
+                SETTINGS_SHOW_LAYOUT_FOCUS_KEY,
+                SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY,
+                SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY,
+                SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> SettingsPage.CUSTOMISATION
+                SETTINGS_HIDDEN_FOCUS_KEY,
+                SETTINGS_MEDIA_FOLDERS_FOCUS_KEY,
+                SETTINGS_RESCAN_FOCUS_KEY,
+                SETTINGS_CLEAR_CACHE_FOCUS_KEY -> SettingsPage.LIBRARY
+                SETTINGS_OPEN_SUBTITLES_FOCUS_KEY,
+                SETTINGS_SUBTITLES_FOCUS_KEY -> SettingsPage.PLAYBACK
+                SETTINGS_LICENCES_FOCUS_KEY,
+                SETTINGS_UPDATE_FOCUS_KEY,
+                SETTINGS_TMDB_FOCUS_KEY,
+                SETTINGS_DONATE_FOCUS_KEY -> SettingsPage.ABOUT
+                else -> SettingsPage.OVERVIEW
+            }
+        )
+    }
+
+    BackHandler(enabled = currentPage != SettingsPage.OVERVIEW) {
+        currentPage = SettingsPage.OVERVIEW
+    }
+
+    LaunchedEffect(currentPage) {
+        listState.scrollToItem(0)
+        delay(80)
+        if (currentPage == SettingsPage.CUSTOMISATION && restoreFocusKey == null) {
+            runCatching { contentEntryFocusRequester.requestFocus() }
         }
-        if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -177,26 +202,63 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .widthIn(max = 1_000.dp)
         ) {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.padding(start = 72.dp, end = 72.dp, top = 48.dp, bottom = 26.dp)
-            )
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(start = 72.dp, end = 72.dp, bottom = 48.dp),
+                    .padding(start = 72.dp, end = 72.dp, top = 42.dp, bottom = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-
+                when (currentPage) {
+                    SettingsPage.OVERVIEW -> {
+                        item {
+                            SettingsPageHeader(
+                                title = "Settings",
+                                description = "Choose a settings area"
+                            )
+                        }
             item {
-                SettingsCategoryHeader(
+                SettingsPageEntry(
                     title = "Customisation",
-                    description = "Theme, presentation and ambient mode"
+                    description = "Theme, presentation and ambient mode",
+                    icon = Icons.Rounded.Palette,
+                    onClick = { currentPage = SettingsPage.CUSTOMISATION }
                 )
             }
+            item {
+                SettingsPageEntry(
+                    title = "Library & storage",
+                    description = "Folders, hidden titles and library maintenance",
+                    icon = Icons.Rounded.FolderOpen,
+                    onClick = { currentPage = SettingsPage.LIBRARY }
+                )
+            }
+            item {
+                SettingsPageEntry(
+                    title = "Playback & subtitles",
+                    description = "Playback, subtitles and related options",
+                    icon = Icons.Rounded.Subtitles,
+                    onClick = { currentPage = SettingsPage.PLAYBACK }
+                )
+            }
+            item {
+                SettingsPageEntry(
+                    title = "About Aperture",
+                    description = "Updates, licences and project information",
+                    icon = Icons.Rounded.Info,
+                    onClick = { currentPage = SettingsPage.ABOUT }
+                )
+            }
+
+                    }
+                    SettingsPage.CUSTOMISATION -> {
+            SettingsPageHeader(
+                title = "Customisation",
+                description = "Theme, presentation and ambient mode",
+                onBack = { currentPage = SettingsPage.OVERVIEW }
+            )
+
 
             item {
                 SettingsItem(
@@ -357,27 +419,15 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                SettingsItem(
-                    title = "Language",
-                    subtitle = "English (system default) · More options coming soon",
-                    icon = Icons.Rounded.Language,
-                    enabled = false,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_LANGUAGE_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = {}
-                )
-            }
 
-            item {
-                SettingsCategoryHeader(
-                    title = "Library & storage",
-                    description = "Folders, hidden titles and library maintenance"
-                )
-            }
+                    }
+                    SettingsPage.LIBRARY -> {
+            SettingsPageHeader(
+                title = "Library & storage",
+                description = "Folders, hidden titles and library maintenance",
+                onBack = { currentPage = SettingsPage.OVERVIEW }
+            )
+
 
             item {
                 SettingsItem(
@@ -445,12 +495,27 @@ fun SettingsScreen(
                 )
             }
 
+
+                    }
+                    SettingsPage.PLAYBACK -> {
+            SettingsPageHeader(
+                title = "Playback & subtitles",
+                description = "Playback, subtitles and related options",
+                onBack = { currentPage = SettingsPage.OVERVIEW }
+            )
             item {
-                SettingsCategoryHeader(
-                    title = "Playback & subtitles",
-                    description = "Subtitle account and on-screen appearance"
+                SettingsItem(
+                    title = "Languages",
+                    subtitle = "Audio and subtitle language preferences · Coming soon",
+                    icon = Icons.Rounded.Language,
+                    enabled = false,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = {}
                 )
             }
+
+
 
             item {
                 SettingsItem(
@@ -488,12 +553,15 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                SettingsCategoryHeader(
-                    title = "About Aperture",
-                    description = "Updates, licences and project information"
-                )
-            }
+
+                    }
+                    SettingsPage.ABOUT -> {
+            SettingsPageHeader(
+                title = "About Aperture",
+                description = "Updates, licences and project information",
+                onBack = { currentPage = SettingsPage.OVERVIEW }
+            )
+
 
             item {
                 SettingsItem(
@@ -585,6 +653,9 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+                    }
+                }
             }
         }
     }
@@ -1496,6 +1567,103 @@ private fun ThemeColourSwatch(
             radius = size.minDimension / 2f - strokeWidth / 2f,
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
         )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsPageHeader(
+    title: String,
+    description: String,
+    onBack: (() -> Unit)? = null
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (onBack != null) {
+            Surface(
+                onClick = onBack,
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f, pressedScale = 0.98f),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.ArrowBack, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Back to Settings", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+        Text(title, style = MaterialTheme.typography.displaySmall)
+        Text(
+            description,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f)
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsPageEntry(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+        scale = ClickableSurfaceDefaults.scale(
+            focusedScale = 1.02f,
+            pressedScale = 0.985f
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    2.dp,
+                    MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(18.dp)
+            )
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                colors = SurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null)
+                }
+            }
+            Spacer(Modifier.width(18.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(Icons.Rounded.ViewModule, contentDescription = null)
+        }
     }
 }
 
