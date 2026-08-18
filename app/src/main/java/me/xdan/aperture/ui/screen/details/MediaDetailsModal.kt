@@ -8,21 +8,19 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.ImageSearch
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items as lazyItems
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.ImageSearch
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,22 +35,26 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
+import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.data.remote.dto.TmdbResult
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.theme.GlassBackground
 
@@ -76,7 +78,7 @@ fun MediaDetailsModal(
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
     var waitForLeftRelease by remember { mutableStateOf(false) }
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
-    var displayedMedia by remember { mutableStateOf<me.xdan.aperture.data.local.entity.MediaEntity?>(null) }
+    var displayedMedia by remember { mutableStateOf<MediaEntity?>(null) }
     var showAssetPicker by remember { mutableStateOf(false) }
     var showEpisodePicker by remember { mutableStateOf(false) }
     var restoreEpisodeButtonAfterPicker by remember { mutableStateOf(false) }
@@ -98,8 +100,6 @@ fun MediaDetailsModal(
     LaunchedEffect(mediaId, episodeOnly) {
         if (mediaId != null) {
             displayedMedia = null
-            // Grouped show cards resume the most recently active episode. An
-            // individual episode popup must continue to honour the exact card.
             viewModel.loadMedia(mediaId, preferActiveEpisode = !episodeOnly)
         } else if (displayedMedia != null) {
             delay(320)
@@ -149,267 +149,257 @@ fun MediaDetailsModal(
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn(animationSpec = tween(durationMillis = 200)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 200)),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.8f))
-            )
-        }
-
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(durationMillis = 300)
-            ),
-            exit = slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(durationMillis = 300)
-            ),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                displayedMedia?.let { m ->
-                    val showEpisodeSelector = episodes.isNotEmpty() && !episodeOnly
-                    val artworkPath = if (episodeOnly && !m.stillPath.isNullOrBlank()) {
-                        m.stillPath
-                    } else {
-                        m.backdropPath
-                    }
-                    val heading = if (episodeOnly) {
-                        m.episodeTitle ?: "Episode ${m.episodeNumber ?: "?"}"
-                    } else {
-                        m.title
-                    }
-                    val subheading = if (episodeOnly) {
-                        buildString {
-                            append(m.title)
-                            m.seasonNumber?.let { append(" · Season $it") }
-                            m.episodeNumber?.let { append(" Episode $it") }
-                        }
-                    } else {
-                        m.year?.toString().orEmpty()
-                    }
-                    val artworkHeight = if (showEpisodeSelector) 120.dp else 160.dp
-                    Surface(
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(animationSpec = tween(200)),
+                    exit = fadeOut(animationSpec = tween(200)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight()
-                            .width(500.dp)
-                            .focusProperties {
-                                canFocus = true
-                            },
-                        colors = SurfaceDefaults.colors(containerColor = GlassBackground),
-                        shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp)
-                        ) {
-                            if (artworkPath.isNullOrBlank()) {
-                                ArtworkFallback(
-                                    title = heading,
-                                    isFocused = false,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(artworkHeight)
-                                        .clip(RoundedCornerShape(12.dp))
-                                )
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.8f))
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(300)
+                    ),
+                    exit = slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(300)
+                    ),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        displayedMedia?.let { m ->
+                            val showEpisodeSelector = episodes.isNotEmpty() && !episodeOnly
+                            val artworkPath = if (episodeOnly && !m.stillPath.isNullOrBlank()) {
+                                m.stillPath
                             } else {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath)
-                                        .crossfade(false)
-                                        .build(),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(artworkHeight)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
+                                m.backdropPath
                             }
-                        
-                        Spacer(modifier = Modifier.height(14.dp))
-                        
-                        Text(
-                            text = heading,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        Text(
-                            text = subheading,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = m.episodeOverview ?: m.overview ?: "No synopsis available.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = if (showEpisodeSelector) 2 else 4,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                            val heading = if (episodeOnly) {
+                                m.episodeTitle ?: "Episode ${m.episodeNumber ?: "?"}"
+                            } else {
+                                m.title
+                            }
+                            val subheading = if (episodeOnly) {
+                                buildString {
+                                    append(m.title)
+                                    m.seasonNumber?.let { append(" · Season $it") }
+                                    m.episodeNumber?.let { append(" Episode $it") }
+                                }
+                            } else {
+                                m.year?.toString().orEmpty()
+                            }
+                            val artworkHeight = if (showEpisodeSelector) 120.dp else 160.dp
 
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        if (showEpisodeSelector) {
-                            OutlinedButton(
-                                onClick = {
-                                    restoreEpisodeButtonAfterPicker = true
-                                    showEpisodePicker = true
-                                },
+                            Surface(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusRequester(episodeButtonFocusRequester)
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight()
+                                    .width(500.dp)
+                                    .focusProperties { canFocus = true },
+                                colors = SurfaceDefaults.colors(containerColor = GlassBackground),
+                                shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp)
                             ) {
-                                Column(Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(32.dp)
+                                ) {
+                                    if (artworkPath.isNullOrBlank()) {
+                                        ArtworkFallback(
+                                            title = heading,
+                                            isFocused = false,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(artworkHeight)
+                                                .clip(RoundedCornerShape(12.dp))
+                                        )
+                                    } else {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath)
+                                                .crossfade(false)
+                                                .build(),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(artworkHeight)
+                                                .clip(RoundedCornerShape(12.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(14.dp))
                                     Text(
-                                        buildString {
-                                            m.seasonNumber?.let { append("Season $it") }
-                                            if (isNotEmpty() && m.episodeNumber != null) append(" · ")
-                                            m.episodeNumber?.let { append("Episode $it") }
-                                        }.ifBlank { "Choose episode" },
-                                        style = MaterialTheme.typography.labelMedium
+                                        text = heading,
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        m.episodeTitle ?: "Choose episode",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        maxLines = 1,
+                                        text = subheading,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color.Gray
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = m.episodeOverview ?: m.overview ?: "No synopsis available.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = if (showEpisodeSelector) 2 else 4,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                }
-                                Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = "Choose episode")
-                            }
-                            Spacer(Modifier.height(10.dp))
-                        }
-                        
-                        Row(
-                            modifier = Modifier.heightIn(min = 52.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(
-                                onClick = { onPlay(m.id, false) },
-                                modifier = Modifier
-                                    .focusRequester(playButtonFocusRequester)
-                                    .focusProperties {
-                                        if (showEpisodeSelector) {
-                                            up = episodeButtonFocusRequester
-                                        }
-                                    }
-                                    .onFocusChanged { focusState ->
-                                        if (focusState.isFocused) {
-                                            if (ignoreNextPlayFocus) {
-                                                ignoreNextPlayFocus = false
-                                            } else {
-                                                waitForLeftRelease = true
-                                            }
-                                        }
-                                    }
-                                    .onKeyEvent { keyEvent ->
-                                        if (showEpisodeSelector && keyEvent.key == Key.DirectionUp) {
-                                            if (keyEvent.type == KeyEventType.KeyDown) {
-                                                episodeButtonFocusRequester.requestFocus()
-                                            }
-                                            true
-                                        } else if (keyEvent.key != Key.DirectionLeft) {
-                                            false
-                                        } else if (waitForLeftRelease) {
-                                            if (keyEvent.type == KeyEventType.KeyUp) {
-                                                waitForLeftRelease = false
-                                            }
-                                            true
-                                        } else when (keyEvent.type) {
-                                            KeyEventType.KeyDown -> true
-                                            KeyEventType.KeyUp -> {
-                                                closeModal()
-                                                true
-                                            }
-                                            else -> false
-                                        }
-                                    }
-                            ) {
-                                Icon(
-                                    if (hasBeenCompleted && !hasActiveProgress) {
-                                        Icons.Rounded.Replay
-                                    } else {
-                                        Icons.Rounded.PlayArrow
-                                    },
-                                    null
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    when {
-                                        hasActiveProgress -> "Continue"
-                                        hasBeenCompleted -> "Rewatch"
-                                        else -> "Play"
-                                    }
-                                )
-                            }
 
-                            if (hasActiveProgress) {
-                                IconButton(onClick = { onPlay(m.id, true) }) {
-                                    Icon(Icons.Rounded.Replay, contentDescription = "Restart")
+                                    Spacer(Modifier.weight(1f))
+
+                                    if (showEpisodeSelector) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                restoreEpisodeButtonAfterPicker = true
+                                                showEpisodePicker = true
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .focusRequester(episodeButtonFocusRequester)
+                                        ) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    buildString {
+                                                        m.seasonNumber?.let { append("Season $it") }
+                                                        if (isNotEmpty() && m.episodeNumber != null) append(" · ")
+                                                        m.episodeNumber?.let { append("Episode $it") }
+                                                    }.ifBlank { "Choose episode" },
+                                                    style = MaterialTheme.typography.labelMedium
+                                                )
+                                                Text(
+                                                    m.episodeTitle ?: "Choose episode",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = "Choose episode")
+                                        }
+                                        Spacer(Modifier.height(10.dp))
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.heightIn(min = 52.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Button(
+                                            onClick = { onPlay(m.id, false) },
+                                            modifier = Modifier
+                                                .focusRequester(playButtonFocusRequester)
+                                                .focusProperties {
+                                                    if (showEpisodeSelector) up = episodeButtonFocusRequester
+                                                }
+                                                .onFocusChanged { focusState ->
+                                                    if (focusState.isFocused) {
+                                                        if (ignoreNextPlayFocus) {
+                                                            ignoreNextPlayFocus = false
+                                                        } else {
+                                                            waitForLeftRelease = true
+                                                        }
+                                                    }
+                                                }
+                                                .onKeyEvent { keyEvent ->
+                                                    if (showEpisodeSelector && keyEvent.key == Key.DirectionUp) {
+                                                        if (keyEvent.type == KeyEventType.KeyDown) {
+                                                            episodeButtonFocusRequester.requestFocus()
+                                                        }
+                                                        true
+                                                    } else if (keyEvent.key != Key.DirectionLeft) {
+                                                        false
+                                                    } else if (waitForLeftRelease) {
+                                                        if (keyEvent.type == KeyEventType.KeyUp) {
+                                                            waitForLeftRelease = false
+                                                        }
+                                                        true
+                                                    } else {
+                                                        when (keyEvent.type) {
+                                                            KeyEventType.KeyDown -> true
+                                                            KeyEventType.KeyUp -> {
+                                                                closeModal()
+                                                                true
+                                                            }
+                                                            else -> false
+                                                        }
+                                                    }
+                                                }
+                                        ) {
+                                            Icon(
+                                                if (hasBeenCompleted && !hasActiveProgress) Icons.Rounded.Replay
+                                                else Icons.Rounded.PlayArrow,
+                                                null
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                when {
+                                                    hasActiveProgress -> "Continue"
+                                                    hasBeenCompleted -> "Rewatch"
+                                                    else -> "Play"
+                                                }
+                                            )
+                                        }
+
+                                        if (hasActiveProgress) {
+                                            IconButton(onClick = { onPlay(m.id, true) }) {
+                                                Icon(Icons.Rounded.Replay, contentDescription = "Restart")
+                                            }
+                                        }
+
+                                        OutlinedButton(onClick = { viewModel.toggleFavorite(m.id) }) {
+                                            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(if (m.isFavorite) "Remove from My List" else "My List")
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                showAssetPicker = true
+                                                viewModel.findAssetCandidates()
+                                            }
+                                        ) {
+                                            Icon(Icons.Rounded.ImageSearch, contentDescription = "Select artwork")
+                                        }
+                                    }
                                 }
                             }
-                            
-                            OutlinedButton(
-                                onClick = { viewModel.toggleFavorite(m.id) }
-                            ) {
-                                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(if (m.isFavorite) "Remove from My List" else "My List")
-                            }
-                            IconButton(
-                                onClick = {
-                                    showAssetPicker = true
-                                    viewModel.findAssetCandidates()
-                                }
-                            ) {
-                                Icon(Icons.Rounded.ImageSearch, contentDescription = "Select artwork")
-                            }
-                        }
                         }
                     }
                 }
-            }
-        }
-        if (showAssetPicker) {
-            AssetPickerDialog(
-                candidates = assetCandidates,
-                loading = isLoadingAssets,
-                onSelect = {
-                    viewModel.selectAssetCandidate(it)
-                    showAssetPicker = false
-                },
-                onQueryChange = viewModel::findAssetCandidates,
-                onDismiss = { showAssetPicker = false }
-            )
-        }
-        if (showEpisodePicker && displayedMedia != null) {
-            EpisodePickerDialog(
-                episodes = episodes,
-                selectedEpisodeId = displayedMedia!!.id,
-                onSelectEpisode = { episodeId ->
-                    viewModel.selectEpisode(episodeId)
-                    showEpisodePicker = false
-                },
-                onDismiss = { showEpisodePicker = false }
-            )
-        }
+
+                if (showAssetPicker) {
+                    AssetPickerDialog(
+                        candidates = assetCandidates,
+                        loading = isLoadingAssets,
+                        onSelect = {
+                            viewModel.selectAssetCandidate(it)
+                            showAssetPicker = false
+                        },
+                        onQueryChange = viewModel::findAssetCandidates,
+                        onDismiss = { showAssetPicker = false }
+                    )
+                }
+
+                if (showEpisodePicker && displayedMedia != null) {
+                    EpisodePickerDialog(
+                        episodes = episodes,
+                        selectedEpisodeId = displayedMedia!!.id,
+                        onSelectEpisode = { episodeId ->
+                            viewModel.selectEpisode(episodeId)
+                            showEpisodePicker = false
+                        },
+                        onDismiss = { showEpisodePicker = false }
+                    )
+                }
             }
         }
     }
@@ -417,7 +407,7 @@ fun MediaDetailsModal(
 
 @Composable
 private fun EpisodePickerDialog(
-    episodes: List<me.xdan.aperture.data.local.entity.MediaEntity>,
+    episodes: List<MediaEntity>,
     selectedEpisodeId: Long,
     onSelectEpisode: (Long) -> Unit,
     onDismiss: () -> Unit
@@ -432,6 +422,7 @@ private fun EpisodePickerDialog(
     LaunchedEffect(selectedEpisode?.seasonNumber) {
         selectedEpisode?.seasonNumber?.let { selectedSeason = it }
     }
+
     val episodeFocusRequester = remember { FocusRequester() }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val seasonEpisodes = episodes.filter { (it.seasonNumber ?: 0) == selectedSeason }
@@ -450,9 +441,7 @@ private fun EpisodePickerDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
     ) {
         Surface(
-            modifier = Modifier
-                .width(780.dp)
-                .height(650.dp),
+            modifier = Modifier.width(780.dp).height(650.dp),
             shape = RoundedCornerShape(28.dp),
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
@@ -467,7 +456,9 @@ private fun EpisodePickerDialog(
                             colors = ClickableSurfaceDefaults.colors(
                                 containerColor = if (season == selectedSeason) {
                                     MaterialTheme.colorScheme.primaryContainer
-                                } else MaterialTheme.colorScheme.surfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
                             )
                         ) {
                             Text(
@@ -481,33 +472,25 @@ private fun EpisodePickerDialog(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    // Focused TV surfaces scale beyond their normal bounds.
-                    // Keep that animation safely inside the picker on all sides.
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     lazyItems(seasonEpisodes, key = { it.id }) { episode ->
                         val isEntryEpisode = episode.id == seasonEpisodes.getOrNull(selectedIndex)?.id
                         Surface(
-                            onClick = {
-                                onSelectEpisode(episode.id)
-                            },
+                            onClick = { onSelectEpisode(episode.id) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .then(
-                                    if (isEntryEpisode) Modifier.focusRequester(episodeFocusRequester)
-                                    else Modifier
-                                ),
+                                .then(if (isEntryEpisode) Modifier.focusRequester(episodeFocusRequester) else Modifier),
                             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
                             colors = ClickableSurfaceDefaults.colors(
                                 containerColor = if (episode.id == selectedEpisodeId) {
                                     MaterialTheme.colorScheme.primaryContainer
-                                } else MaterialTheme.colorScheme.surfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
                             )
                         ) {
-                            // Let the surface supply its focused content colour.
-                            // A hard-coded onSurfaceVariant colour becomes unreadable
-                            // against the light focused container on TV.
                             Row(
                                 Modifier.fillMaxWidth().padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -547,6 +530,10 @@ private fun EpisodePickerDialog(
                         }
                     }
                 }
+                Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text("Cancel")
+                }
             }
         }
     }
@@ -554,9 +541,9 @@ private fun EpisodePickerDialog(
 
 @Composable
 private fun AssetPickerDialog(
-    candidates: List<me.xdan.aperture.data.remote.dto.TmdbResult>,
+    candidates: List<TmdbResult>,
     loading: Boolean,
-    onSelect: (me.xdan.aperture.data.remote.dto.TmdbResult) -> Unit,
+    onSelect: (TmdbResult) -> Unit,
     onQueryChange: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -566,9 +553,15 @@ private fun AssetPickerDialog(
         delay(400)
         onQueryChange(query)
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            modifier = Modifier.fillMaxSize().padding(52.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
             shape = RoundedCornerShape(28.dp),
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
@@ -594,17 +587,18 @@ private fun AssetPickerDialog(
                 )
                 Spacer(Modifier.height(20.dp))
                 when {
-                    loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator()
+                    loading -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator(size = 72.dp)
                     }
                     candidates.isEmpty() -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         Text("No matching artwork found.")
                     }
                     else -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(112.dp),
+                        columns = GridCells.Adaptive(150.dp),
                         modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         gridItems(candidates, key = { it.id }) { candidate ->
                             Surface(
@@ -612,15 +606,12 @@ private fun AssetPickerDialog(
                                 modifier = Modifier.aspectRatio(2f / 3f),
                                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                                 scale = ClickableSurfaceDefaults.scale(
-                                    focusedScale = 1.04f,
+                                    focusedScale = 1.05f,
                                     pressedScale = 0.98f
                                 ),
                                 border = ClickableSurfaceDefaults.border(
                                     focusedBorder = Border(
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            3.dp,
-                                            Color.White
-                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(3.dp, Color.White),
                                         shape = RoundedCornerShape(12.dp)
                                     )
                                 )
@@ -649,7 +640,8 @@ private fun AssetPickerDialog(
                                             .padding(8.dp),
                                         color = Color.White,
                                         style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 2
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -657,7 +649,9 @@ private fun AssetPickerDialog(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text("Cancel")
+                }
             }
         }
     }
