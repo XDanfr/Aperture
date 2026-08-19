@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
@@ -137,7 +138,7 @@ fun ExpressiveSlider(
         ) {
             val widthPx = constraints.maxWidth.toFloat()
             val thumbSize = 24.dp
-            val thumbRadius = thumbSize.toPx() / 2f
+            val thumbRadius = with(LocalDensity.current) { thumbSize.toPx() / 2f }
             val trackStart = thumbRadius
             val trackEnd = widthPx - thumbRadius
             val trackWidth = (trackEnd - trackStart).coerceAtLeast(0f)
