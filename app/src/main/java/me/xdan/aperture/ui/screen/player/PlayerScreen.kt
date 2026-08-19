@@ -95,6 +95,7 @@ fun PlayerScreen(
     val player = viewModel.player
     val hostView = LocalView.current
     var isQuickMenuVisible by remember { mutableStateOf(false) }
+    var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
     var playbackState by remember(player) { mutableIntStateOf(player.playbackState) }
     val playerFocusRequester = remember { FocusRequester() }
@@ -183,6 +184,10 @@ fun PlayerScreen(
             isQuickMenuVisible -> {
                 isQuickMenuVisible = false
                 viewModel.hideOsd()
+                if (wasPlayingBeforeQuickMenu) {
+                    player.play()
+                }
+                wasPlayingBeforeQuickMenu = false
             }
             isOsdVisible -> viewModel.hideOsd()
             else -> {
@@ -294,6 +299,7 @@ fun PlayerScreen(
                         viewModel.showOsdBriefly()
                     },
                     onQuickMenu = {
+                        wasPlayingBeforeQuickMenu = player.isPlaying
                         player.pause()
                         isQuickMenuVisible = true
                         viewModel.hideOsd()
@@ -318,6 +324,7 @@ fun PlayerScreen(
                         viewModel.showOsdBriefly()
                     },
                     onQuickMenu = {
+                        wasPlayingBeforeQuickMenu = player.isPlaying
                         player.pause()
                         isQuickMenuVisible = true
                         viewModel.hideOsd()
@@ -351,6 +358,14 @@ fun PlayerScreen(
                 videoResizeMode = videoResizeMode.media3Mode,
                 onVideoResizeModeSelected = { mode ->
                     videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode }
+                },
+                onClose = {
+                    isQuickMenuVisible = false
+                    viewModel.hideOsd()
+                    if (wasPlayingBeforeQuickMenu) {
+                        player.play()
+                    }
+                    wasPlayingBeforeQuickMenu = false
                 }
             )
         }

@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.screen.player
 
+import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
@@ -76,7 +78,8 @@ fun QuickMenuPages(
     onSubtitleDelayIncrease: () -> Unit,
     onSubtitleDelayReset: () -> Unit,
     videoResizeMode: Int,
-    onVideoResizeModeSelected: (Int) -> Unit
+    onVideoResizeModeSelected: (Int) -> Unit,
+    onClose: () -> Unit
 ) {
     var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }
     val pageFocusRequester = remember { FocusRequester() }
@@ -95,6 +98,16 @@ fun QuickMenuPages(
 
     Surface(
         modifier = Modifier
+            .onPreviewKeyEvent { event ->
+                if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP
+                ) {
+                    onClose()
+                    true
+                } else {
+                    false
+                }
+            }
             .fillMaxWidth()
             .fillMaxHeight(0.62f)
             .padding(horizontal = 32.dp, vertical = 20.dp),
@@ -169,40 +182,30 @@ private fun QuickMenuCategories(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            quickMenuCategories.chunked(2).forEachIndexed { rowIndex, row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            quickMenuCategories.forEachIndexed { index, category ->
+                Surface(
+                    onClick = { onSelected(category.page) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
-                    row.forEachIndexed { columnIndex, category ->
-                        Surface(
-                            onClick = { onSelected(category.page) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .then(
-                                    if (rowIndex == 0 && columnIndex == 0) {
-                                        Modifier.focusRequester(focusRequester)
-                                    } else Modifier
-                                ),
-                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
-                            colors = ClickableSurfaceDefaults.colors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(22.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(category.icon, contentDescription = null)
-                                Text(category.title, style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(category.icon, contentDescription = null)
+                        Text(category.title, style = MaterialTheme.typography.titleMedium)
                     }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -231,6 +234,7 @@ private fun QuickMenuTrackPage(
     }
 
     val items = getQuickMenuTrackItems(tracks, type).filter { it.isSupported }
+    val selectedItem = items.firstOrNull { it.isSelected }
 
     Column(
         modifier = Modifier
@@ -239,7 +243,15 @@ private fun QuickMenuTrackPage(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            "Selected: ${selectedItem?.name ?: "None"}",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LazyColumn(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             if (items.isEmpty()) {
                 item {
                     Text(
@@ -266,7 +278,7 @@ private fun QuickMenuTrackPage(
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (item.isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.secondaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
                         }
@@ -449,23 +461,34 @@ private fun QuickMenuVideoPage(
             Spacer(Modifier.width(10.dp))
             Text("Video", style = MaterialTheme.typography.headlineMedium)
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(options) { option ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            options.forEachIndexed { index, option ->
                 Surface(
                     onClick = { onSelected(option.media3Mode) },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .then(if (option.media3Mode == options.first().media3Mode) Modifier.focusRequester(firstFocusRequester) else Modifier),
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (option.media3Mode == selectedResizeMode) {
-                            MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.secondaryContainer
                         } else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(option.label, style = MaterialTheme.typography.titleMedium)
-                        Text(option.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            option.description,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
