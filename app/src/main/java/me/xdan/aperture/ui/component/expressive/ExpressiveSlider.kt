@@ -213,7 +213,7 @@ fun ExpressiveSlider(
                     cornerRadius = CornerRadius((trackHeight + with(density) { 2.dp.toPx() }) / 2f)
                 )
 
-                if (neutralValue != null && fillStart < currentX) {
+                if (neutralValue != null && currentX > neutralX) {
                     val leftEnd = minOf(fillEnd, selectorLeft)
                     if (leftEnd > fillStart) {
                         drawRoundRect(
@@ -225,7 +225,7 @@ fun ExpressiveSlider(
                     }
                 }
 
-                if (neutralValue != null && fillEnd > currentX) {
+                if (neutralValue != null && currentX < neutralX) {
                     val rightStart = maxOf(fillStart, selectorRight)
                     if (fillEnd > rightStart) {
                         drawRoundRect(
