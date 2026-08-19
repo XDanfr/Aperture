@@ -152,14 +152,11 @@ fun SettingsScreen(
     }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
-    val overviewFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
         contentEntryFocusRequester
     } else {
         internalDonateFocusRequester
     }
-
-
 
     var currentPage by remember(restoreFocusKey) {
         mutableStateOf(
@@ -179,7 +176,7 @@ fun SettingsScreen(
                 SETTINGS_LICENCES_FOCUS_KEY,
                 SETTINGS_UPDATE_FOCUS_KEY,
                 SETTINGS_TMDB_FOCUS_KEY,
-                fix typoSETTINGS_DONATE_FOCUS_KEY -> SettingsPage.ABOUT
+                SETTINGS_DONATE_FOCUS_KEY -> SettingsPage.ABOUT
                 else -> SettingsPage.OVERVIEW
             }
         )
@@ -192,19 +189,10 @@ fun SettingsScreen(
     LaunchedEffect(currentPage) {
         listState.scrollToItem(0)
         delay(80)
-
-        when (currentPage) {
-            SettingsPage.OVERVIEW -> {
-                runCatching { overviewFocusRequester.requestFocus() }
-            }
-
-            SettingsPage.CUSTOMISATION -> {
-                if (restoreFocusKey == null) {
-                    runCatching { contentEntryFocusRequester.requestFocus() }
-                }
-            }
-
-            else -> Unit
+        if (currentPage == SettingsPage.OVERVIEW) {
+            runCatching { contentEntryFocusRequester.requestFocus() }
+        } else if (currentPage == SettingsPage.CUSTOMISATION && restoreFocusKey == null) {
+            runCatching { contentEntryFocusRequester.requestFocus() }
         }
     }
 
@@ -230,451 +218,438 @@ fun SettingsScreen(
                                 description = "Choose a settings area"
                             )
                         }
-            item {
-                SettingsPageEntry(
-                    title = "Customisation",
-                    description = "Theme, presentation and ambient mode",
-                    icon = Icons.Rounded.Palette,
-                    focusRequester = overviewFocusRequester,
-                    onClick = { currentPage = SettingsPage.CUSTOMISATION }
-                )
-            }
-            item {
-                SettingsPageEntry(
-                    title = "Library & storage",
-                    description = "Folders, hidden titles and library maintenance",
-                    icon = Icons.Rounded.FolderOpen,
-                    onClick = { currentPage = SettingsPage.LIBRARY }
-                )
-            }
-            item {
-                SettingsPageEntry(
-                    title = "Playback & subtitles",
-                    description = "Playback, subtitles and related options",
-                    icon = Icons.Rounded.Subtitles,
-                    onClick = { currentPage = SettingsPage.PLAYBACK }
-                )
-            }
-            item {
-                SettingsPageEntry(
-                    title = "About Aperture",
-                    description = "Updates, licences and project information",
-                    icon = Icons.Rounded.Info,
-                    onClick = { currentPage = SettingsPage.ABOUT }
-                )
-            }
-
+                        item {
+                            SettingsPageEntry(
+                                title = "Customisation",
+                                description = "Theme, presentation and ambient mode",
+                                icon = Icons.Rounded.Palette,
+                                focusRequester = contentEntryFocusRequester,
+                                onClick = { currentPage = SettingsPage.CUSTOMISATION }
+                            )
+                        }
+                        item {
+                            SettingsPageEntry(
+                                title = "Library & storage",
+                                description = "Folders, hidden titles and library maintenance",
+                                icon = Icons.Rounded.FolderOpen,
+                                onClick = { currentPage = SettingsPage.LIBRARY }
+                            )
+                        }
+                        item {
+                            SettingsPageEntry(
+                                title = "Playback & subtitles",
+                                description = "Playback, subtitles and related options",
+                                icon = Icons.Rounded.Subtitles,
+                                onClick = { currentPage = SettingsPage.PLAYBACK }
+                            )
+                        }
+                        item {
+                            SettingsPageEntry(
+                                title = "About Aperture",
+                                description = "Updates, licences and project information",
+                                icon = Icons.Rounded.Info,
+                                onClick = { currentPage = SettingsPage.ABOUT }
+                            )
+                        }
                     }
                     SettingsPage.CUSTOMISATION -> {
-            item {
-                SettingsPageHeader(
-                title = "Customisation",
-                description = "Theme, presentation and ambient mode",
-                onBack = { currentPage = SettingsPage.OVERVIEW }
-                )
-            }
+                        item {
+                            SettingsPageHeader(
+                                title = "Customisation",
+                                description = "Theme, presentation and ambient mode",
+                                onBack = { currentPage = SettingsPage.OVERVIEW }
+                            )
+                        }
 
+                        item {
+                            SettingsItem(
+                                title = "Theme",
+                                subtitle = ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.label
+                                    ?: "Aperture Purple",
+                                icon = Icons.Rounded.Palette,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == null || restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_THEME_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showThemes = true }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Theme",
-                    subtitle = ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.label
-                        ?: "Aperture Purple",
-                    icon = Icons.Rounded.Palette,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == null || restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_THEME_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showThemes = true }
-                )
-            }
+                        item {
+                            SettingsItem(
+                                title = "Ambient mode",
+                                subtitle = buildString {
+                                    append(
+                                        when (ambientSettings.mode) {
+                                            AmbientModeType.CINEMATIC -> "Cinematic backdrops"
+                                            AmbientModeType.POSTER_WALL -> when (ambientSettings.wallBrandPlacement) {
+                                                AmbientBrandPlacement.TOP_LEFT -> "Poster wall · Top left logo"
+                                                AmbientBrandPlacement.CENTRE -> "Poster wall · Centre icon"
+                                            }
+                                        }
+                                    )
+                                    append(if (ambientSettings.showClock) " · Clock on" else " · Clock off")
+                                },
+                                icon = Icons.Rounded.NightsStay,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_AMBIENT_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_AMBIENT_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showAmbientSettings = true }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Ambient mode",
-                    subtitle = buildString {
-                        append(
-                            when (ambientSettings.mode) {
-                                AmbientModeType.CINEMATIC -> "Cinematic backdrops"
-                                AmbientModeType.POSTER_WALL -> when (ambientSettings.wallBrandPlacement) {
-                                    AmbientBrandPlacement.TOP_LEFT -> "Poster wall · Top left logo"
-                                    AmbientBrandPlacement.CENTRE -> "Poster wall · Centre icon"
+                        item {
+                            SettingsItem(
+                                title = "TV show layout",
+                                subtitle = if (showPresentationMode == "grouped") {
+                                    "One card per show with a season and episode selector"
+                                } else {
+                                    "Show every episode in season rows"
+                                },
+                                icon = Icons.Rounded.ViewModule,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_SHOW_LAYOUT_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showShowLayoutPicker = true }
+                            )
+                        }
+
+                        item {
+                            SettingsItem(
+                                title = "Rounded Spotlight",
+                                subtitle = if (spotlightSettings.roundedSpotlight) {
+                                    "Rounded Material 3 Spotlight"
+                                } else {
+                                    "Use the full-width Spotlight layout"
+                                },
+                                icon = Icons.Rounded.ViewModule,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = {
+                                    viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
+                                },
+                                trailingContent = {
+                                    ExpressiveToggle(
+                                        checked = spotlightSettings.roundedSpotlight,
+                                        onCheckedChange = null,
+                                        isFocused = false
+                                    )
                                 }
-                            }
-                        )
-                        append(if (ambientSettings.showClock) " · Clock on" else " · Clock off")
-                    },
-                    icon = Icons.Rounded.NightsStay,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_AMBIENT_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_AMBIENT_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showAmbientSettings = true }
-                )
-            }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "TV show layout",
-                    subtitle = if (showPresentationMode == "grouped") {
-                        "One card per show with a season and episode selector"
-                    } else {
-                        "Show every episode in season rows"
-                    },
-                    icon = Icons.Rounded.ViewModule,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_SHOW_LAYOUT_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showShowLayoutPicker = true }
-                )
-            }
+                        item {
+                            SettingsItem(
+                                title = "Hide finished media from Spotlight",
+                                subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
+                                    "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
+                                } else {
+                                    "Off · Completed titles can appear immediately"
+                                },
+                                icon = Icons.Rounded.VisibilityOff,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = {
+                                    viewModel.setHideFinishedFromSpotlight(
+                                        !spotlightSettings.hideFinishedFromSpotlight
+                                    )
+                                },
+                                trailingContent = {
+                                    ExpressiveToggle(
+                                        checked = spotlightSettings.hideFinishedFromSpotlight,
+                                        onCheckedChange = null,
+                                        isFocused = false
+                                    )
+                                }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Rounded Spotlight",
-                    subtitle = if (spotlightSettings.roundedSpotlight) {
-                        "Rounded Material 3 Spotlight"
-                    } else {
-                        "Use the full-width Spotlight layout"
-                    },
-                    icon = Icons.Rounded.ViewModule,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = {
-                        viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
-                    },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = spotlightSettings.roundedSpotlight,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
-            }
+                        item {
+                            SettingsItem(
+                                title = "Finished Spotlight exclusion period",
+                                subtitle = "${spotlightSettings.exclusionDays} days",
+                                icon = Icons.Rounded.DateRange,
+                                enabled = spotlightSettings.hideFinishedFromSpotlight,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showSpotlightDaysPicker = true }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Hide finished media from Spotlight",
-                    subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
-                        "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
-                    } else {
-                        "Off · Completed titles can appear immediately"
-                    },
-                    icon = Icons.Rounded.VisibilityOff,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = {
-                        viewModel.setHideFinishedFromSpotlight(
-                            !spotlightSettings.hideFinishedFromSpotlight
-                        )
-                    },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = spotlightSettings.hideFinishedFromSpotlight,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Finished Spotlight exclusion period",
-                    subtitle = "${spotlightSettings.exclusionDays} days",
-                    icon = Icons.Rounded.DateRange,
-                    enabled = spotlightSettings.hideFinishedFromSpotlight,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showSpotlightDaysPicker = true }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Classic Player Controls",
-                    subtitle = if (classicPlayerControls) "Use the traditional playback controls" else "Use the default streamlined controls",
-                    icon = Icons.Rounded.Movie,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester -> onContentFocused(requester) },
-                    onClick = { viewModel.setClassicPlayerControls(!classicPlayerControls) },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = classicPlayerControls,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
-            }
-
-
+                        item {
+                            SettingsItem(
+                                title = "Classic Player Controls",
+                                subtitle = if (classicPlayerControls) "Use the traditional playback controls" else "Use the default streamlined controls",
+                                icon = Icons.Rounded.Movie,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester -> onContentFocused(requester) },
+                                onClick = { viewModel.setClassicPlayerControls(!classicPlayerControls) },
+                                trailingContent = {
+                                    ExpressiveToggle(
+                                        checked = classicPlayerControls,
+                                        onCheckedChange = null,
+                                        isFocused = false
+                                    )
+                                }
+                            )
+                        }
                     }
                     SettingsPage.LIBRARY -> {
-            item {
-                SettingsPageHeader(
-                title = "Library & storage",
-                description = "Folders, hidden titles and library maintenance",
-                onBack = { currentPage = SettingsPage.OVERVIEW }
-                )
-            }
+                        item {
+                            SettingsPageHeader(
+                                title = "Library & storage",
+                                description = "Folders, hidden titles and library maintenance",
+                                onBack = { currentPage = SettingsPage.OVERVIEW }
+                            )
+                        }
 
+                        item {
+                            SettingsItem(
+                                title = "Hidden Media",
+                                subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",
+                                icon = Icons.Rounded.Visibility,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_HIDDEN_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showHiddenMedia = true }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Hidden Media",
-                    subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",
-                    icon = Icons.Rounded.Visibility,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_HIDDEN_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showHiddenMedia = true }
-                )
-            }
+                        item {
+                            SettingsItem(
+                                title = "Media folders",
+                                subtitle = when {
+                                    mediaFolderMessage != null -> mediaFolderMessage!!
+                                    !folderPickerAvailable -> "Folder picker unavailable on this device"
+                                    mediaFolders.isEmpty() -> "Add a USB drive or another media location"
+                                    mediaFolders.size == 1 -> mediaFolders.first().name
+                                    else -> "${mediaFolders.size} selected folders"
+                                },
+                                icon = Icons.Rounded.FolderOpen,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_MEDIA_FOLDERS_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showMediaFolders = true }
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Media folders",
-                    subtitle = when {
-                        mediaFolderMessage != null -> mediaFolderMessage!!
-                        !folderPickerAvailable -> "Folder picker unavailable on this device"
-                        mediaFolders.isEmpty() -> "Add a USB drive or another media location"
-                        mediaFolders.size == 1 -> mediaFolders.first().name
-                        else -> "${mediaFolders.size} selected folders"
-                    },
-                    icon = Icons.Rounded.FolderOpen,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_MEDIA_FOLDERS_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showMediaFolders = true }
-                )
-            }
+                        item {
+                            SettingsItem(
+                                title = "Force Rescan Local Files",
+                                subtitle = mediaFolderMessage
+                                    ?: "Update the library from device storage and selected folders",
+                                icon = Icons.Rounded.Refresh,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_RESCAN_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = onForceRescan
+                            )
+                        }
 
-            item {
-                SettingsItem(
-                    title = "Force Rescan Local Files",
-                    subtitle = mediaFolderMessage
-                        ?: "Update the library from device storage and selected folders",
-                    icon = Icons.Rounded.Refresh,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_RESCAN_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = onForceRescan
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Clear Artwork Cache",
-                    subtitle = "Remove downloaded posters and backdrops",
-                    icon = Icons.Rounded.DeleteSweep,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_CLEAR_CACHE_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_CLEAR_CACHE_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = viewModel::clearCache
-                )
-            }
-
-
+                        item {
+                            SettingsItem(
+                                title = "Clear Artwork Cache",
+                                subtitle = "Remove downloaded posters and backdrops",
+                                icon = Icons.Rounded.DeleteSweep,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_CLEAR_CACHE_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_CLEAR_CACHE_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = viewModel::clearCache
+                            )
+                        }
                     }
                     SettingsPage.PLAYBACK -> {
-            item {
-                SettingsPageHeader(
-                title = "Playback & subtitles",
-                description = "Playback, subtitles and related options",
-                onBack = { currentPage = SettingsPage.OVERVIEW }
-                )
-            }
-            item {
-                SettingsItem(
-                    title = "Languages",
-                    subtitle = "Audio and subtitle language preferences · Coming soon",
-                    icon = Icons.Rounded.Language,
-                    enabled = false,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester -> onContentFocused(requester) },
-                    onClick = {}
-                )
-            }
+                        item {
+                            SettingsPageHeader(
+                                title = "Playback & subtitles",
+                                description = "Playback, subtitles and related options",
+                                onBack = { currentPage = SettingsPage.OVERVIEW }
+                            )
+                        }
+                        item {
+                            SettingsItem(
+                                title = "Languages",
+                                subtitle = "Audio and subtitle language preferences · Coming soon",
+                                icon = Icons.Rounded.Language,
+                                enabled = false,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester -> onContentFocused(requester) },
+                                onClick = {}
+                            )
+                        }
 
+                        item {
+                            SettingsItem(
+                                title = "OpenSubtitles.com",
+                                subtitle = when (val session = openSubtitlesSession) {
+                                    is OpenSubtitlesSessionState.SignedIn -> "Signed in as ${session.username}"
+                                    OpenSubtitlesSessionState.SigningIn -> "Signing in…"
+                                    is OpenSubtitlesSessionState.Error -> session.message
+                                    OpenSubtitlesSessionState.SignedOut -> "Sign in to download subtitles"
+                                },
+                                icon = Icons.Rounded.Person,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_OPEN_SUBTITLES_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showOpenSubtitlesDialog = true }
+                            )
+                        }
 
-
-            item {
-                SettingsItem(
-                    title = "OpenSubtitles.com",
-                    subtitle = when (val session = openSubtitlesSession) {
-                        is OpenSubtitlesSessionState.SignedIn -> "Signed in as ${session.username}"
-                        OpenSubtitlesSessionState.SigningIn -> "Signing in…"
-                        is OpenSubtitlesSessionState.Error -> session.message
-                        OpenSubtitlesSessionState.SignedOut -> "Sign in to download subtitles"
-                    },
-                    icon = Icons.Rounded.Person,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_OPEN_SUBTITLES_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showOpenSubtitlesDialog = true }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Subtitle Appearance",
-                    subtitle = "${(subtitleAppearance.textScale * 100).toInt()}% size · ${subtitleAppearance.colour.replaceFirstChar { it.uppercase() }} · ${(subtitleAppearance.backgroundOpacity * 100).toInt()}% background",
-                    icon = Icons.Rounded.Subtitles,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_SUBTITLES_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showSubtitleAppearance = true }
-                )
-            }
-
-
+                        item {
+                            SettingsItem(
+                                title = "Subtitle Appearance",
+                                subtitle = "${(subtitleAppearance.textScale * 100).toInt()}% size · ${subtitleAppearance.colour.replaceFirstChar { it.uppercase() }} · ${(subtitleAppearance.backgroundOpacity * 100).toInt()}% background",
+                                icon = Icons.Rounded.Subtitles,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_SUBTITLES_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showSubtitleAppearance = true }
+                            )
+                        }
                     }
                     SettingsPage.ABOUT -> {
-            item {
-                SettingsPageHeader(
-                title = "About Aperture",
-                description = "Updates, licences and project information",
-                onBack = { currentPage = SettingsPage.OVERVIEW }
-                )
-            }
-
-
-            item {
-                SettingsItem(
-                    title = "Open Source Licences",
-                    subtitle = "Libraries and projects used by Aperture",
-                    icon = Icons.Rounded.Info,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_LICENCES_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_LICENCES_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showLicenses = true }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Check for Updates",
-                    subtitle = when (val update = updateState) {
-                        UpdateCheckState.Checking -> "Checking GitHub…"
-                        is UpdateCheckState.Available -> "${update.version} is available"
-                        is UpdateCheckState.PermissionRequired -> "Allow APK installation to continue"
-                        is UpdateCheckState.Downloading -> "Downloading ${update.update.version} · ${(update.progress * 100).toInt()}%"
-                        is UpdateCheckState.Installing -> "Opening the ${update.version} installer…"
-                        is UpdateCheckState.Current -> "Up to date (${update.version})"
-                        is UpdateCheckState.Error -> update.message
-                        UpdateCheckState.Idle -> "Compare this build with the latest GitHub release"
-                    },
-                    icon = Icons.Rounded.SystemUpdate,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_UPDATE_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = {
-                        showUpdateDialog = true
-                        viewModel.checkForUpdates()
-                    }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "The Movie Database (TMDB)",
-                    subtitle = "This product uses the TMDB API but is not endorsed or certified by TMDB.",
-                    icon = Icons.Rounded.Movie,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_TMDB_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_TMDB_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = { showTmdbQr = true }
-                )
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 28.dp, bottom = 24.dp)
-                ) {
-                    Button(
-                        onClick = { showSponsorsQr = true },
-                        modifier = Modifier
-                            .padding(horizontal = 56.dp)
-                            .fillMaxWidth()
-                            .then(
-                                if (drawerFocusRequester != null) {
-                                    Modifier.focusProperties { left = drawerFocusRequester }
-                                } else Modifier
+                        item {
+                            SettingsPageHeader(
+                                title = "About Aperture",
+                                description = "Updates, licences and project information",
+                                onBack = { currentPage = SettingsPage.OVERVIEW }
                             )
-                            .focusRequester(donateFocusRequester)
-                            .onFocusChanged {
-                                if (it.isFocused) {
-                                    onFocusKeyChanged(SETTINGS_DONATE_FOCUS_KEY)
-                                    onContentFocused(donateFocusRequester)
+                        }
+
+                        item {
+                            SettingsItem(
+                                title = "Open Source Licences",
+                                subtitle = "Libraries and projects used by Aperture",
+                                icon = Icons.Rounded.Info,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_LICENCES_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_LICENCES_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showLicenses = true }
+                            )
+                        }
+
+                        item {
+                            SettingsItem(
+                                title = "Check for Updates",
+                                subtitle = when (val update = updateState) {
+                                    UpdateCheckState.Checking -> "Checking GitHub…"
+                                    is UpdateCheckState.Available -> "${update.version} is available"
+                                    is UpdateCheckState.PermissionRequired -> "Allow APK installation to continue"
+                                    is UpdateCheckState.Downloading -> "Downloading ${update.update.version} · ${(update.progress * 100).toInt()}%"
+                                    is UpdateCheckState.Installing -> "Opening the ${update.version} installer…"
+                                    is UpdateCheckState.Current -> "Up to date (${update.version})"
+                                    is UpdateCheckState.Error -> update.message
+                                    UpdateCheckState.Idle -> "Compare this build with the latest GitHub release"
+                                },
+                                icon = Icons.Rounded.SystemUpdate,
+                                drawerFocusRequester = drawerFocusRequester,
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_UPDATE_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = {
+                                    showUpdateDialog = true
+                                    viewModel.checkForUpdates()
+                                }
+                            )
+                        }
+
+                        item {
+                            SettingsItem(
+                                title = "The Movie Database (TMDB)",
+                                subtitle = "This product uses the TMDB API but is not endorsed or certified by TMDB.",
+                                icon = Icons.Rounded.Movie,
+                                drawerFocusRequester = drawerFocusRequester,
+                                focusRequester = contentEntryFocusRequester.takeIf {
+                                    restoreFocusKey == SETTINGS_TMDB_FOCUS_KEY
+                                },
+                                onFocused = { requester ->
+                                    onFocusKeyChanged(SETTINGS_TMDB_FOCUS_KEY)
+                                    onContentFocused(requester)
+                                },
+                                onClick = { showTmdbQr = true }
+                            )
+                        }
+
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 28.dp, bottom = 24.dp)
+                            ) {
+                                Button(
+                                    onClick = { showSponsorsQr = true },
+                                    modifier = Modifier
+                                        .padding(horizontal = 56.dp)
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (drawerFocusRequester != null) {
+                                                Modifier.focusProperties { left = drawerFocusRequester }
+                                            } else Modifier
+                                        )
+                                        .focusRequester(donateFocusRequester)
+                                        .onFocusChanged {
+                                            if (it.isFocused) {
+                                                onFocusKeyChanged(SETTINGS_DONATE_FOCUS_KEY)
+                                                onContentFocused(donateFocusRequester)
+                                            }
+                                        }
+                                ) {
+                                    Icon(Icons.Rounded.Favorite, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Sponsor XDanfr on GitHub")
                                 }
                             }
-                    ) {
-                        Icon(Icons.Rounded.Favorite, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Sponsor XDanfr on GitHub")
-                    }
-                }
-            }
-            
+                        }
                     }
                 }
             }
@@ -1530,21 +1505,6 @@ private fun ThemeOptionCard(
                     maxLines = 2
                 )
             }
-
-//            Box(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .height(18.dp),
-//                contentAlignment = Alignment.Center
-//            ) {
-//                if (selected) {
-//                    Text(
-//                        "Selected",
-//                        style = MaterialTheme.typography.labelSmall,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                }
-//            }
         }
     }
 }
@@ -1644,7 +1604,15 @@ private fun SettingsPageEntry(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1.02f,
@@ -1735,12 +1703,18 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (focusRequester != null) {
-                    Modifier.focusRequester(focusRequester)
+                if (drawerFocusRequester != null) {
+                    Modifier.focusProperties { left = drawerFocusRequester }
                 } else {
                     Modifier
                 }
-            ),
+            )
+            .focusRequester(itemFocusRequester)
+            .onFocusChanged {
+                if (it.isFocused) {
+                    onFocused(itemFocusRequester)
+                }
+            },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1.015f,
