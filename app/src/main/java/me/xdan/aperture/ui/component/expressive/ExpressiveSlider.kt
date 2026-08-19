@@ -3,7 +3,6 @@ package me.xdan.aperture.ui.component.expressive
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -40,10 +39,11 @@ import kotlin.math.roundToInt
 /**
  * A TV-centric Material 3 Expressive slider.
  *
- * When [neutralValue] is supplied, the active track grows from that value to
- * the current value. Without a neutral value, it grows from the start of the
- * range, making the component suitable for ordinary controls such as opacity.
- * Ticks are optional so continuous controls can stay visually clean.
+ * Uses the expressive slider geometry of a thick 16.dp track with a thin,
+ * tall selector handle that cuts through it. When [neutralValue] is supplied,
+ * the active track grows from that value to the current value. Without a
+ * neutral value, it grows from the start of the range. Ticks are optional so
+ * continuous controls can stay visually clean.
  */
 @Composable
 fun ExpressiveSlider(
@@ -82,10 +82,10 @@ fun ExpressiveSlider(
         animationSpec = ApertureTheme.motion.focus(),
         label = "sliderScale"
     )
-    val animatedThumbScale by animateFloatAsState(
-        targetValue = if (isFocused) 1.12f else 1f,
+    val animatedSelectorScale by animateFloatAsState(
+        targetValue = if (isFocused) 1.04f else 1f,
         animationSpec = ApertureTheme.motion.focus(),
-        label = "sliderThumbScale"
+        label = "sliderSelectorScale"
     )
 
     val trackColor = ApertureTheme.colorScheme.surfaceContainerHigh
@@ -109,7 +109,7 @@ fun ExpressiveSlider(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(52.dp)
                 .onKeyEvent { event ->
                     if (!isFocused || !enabled || event.type != KeyEventType.KeyDown) {
                         return@onKeyEvent false
@@ -138,24 +138,27 @@ fun ExpressiveSlider(
         ) {
             val density = LocalDensity.current
             val widthPx = constraints.maxWidth.toFloat()
-            val thumbSize = 24.dp
-            val thumbRadius = with(density) { thumbSize.toPx() / 2f }
-            val trackStart = thumbRadius
-            val trackEnd = widthPx - thumbRadius
+            val selectorWidth = with(density) { 4.dp.toPx() }
+            val selectorHalfWidth = selectorWidth / 2f
+            val trackHeight = with(density) { 16.dp.toPx() }
+            val selectorHeight = with(density) { 44.dp.toPx() }
+            val trackCenterY = with(density) { 26.dp.toPx() }
+            val trackStart = selectorHalfWidth
+            val trackEnd = widthPx - selectorHalfWidth
             val trackWidth = (trackEnd - trackStart).coerceAtLeast(0f)
-            val trackHeight = with(density) { 8.dp.toPx() }
-            val trackCenterY = with(density) { 20.dp.toPx() }
             val currentX = trackStart + (animatedProgress * trackWidth)
             val neutralX = trackStart + (neutralProgress * trackWidth)
+            val selectorGap = with(density) { 6.dp.toPx() }
             val fillStart = if (neutralValue != null) minOf(currentX, neutralX) else trackStart
             val fillEnd = if (neutralValue != null) maxOf(currentX, neutralX) else currentX
+            val trackCorner = trackHeight / 2f
 
             Canvas(modifier = Modifier.fillMaxWidth()) {
                 drawRoundRect(
                     color = trackColor,
                     topLeft = Offset(trackStart, trackCenterY - trackHeight / 2f),
                     size = Size(trackWidth, trackHeight),
-                    cornerRadius = CornerRadius(trackHeight / 2f)
+                    cornerRadius = CornerRadius(trackCorner)
                 )
 
                 if (abs(fillEnd - fillStart) > 0.5f) {
@@ -163,7 +166,7 @@ fun ExpressiveSlider(
                         color = activeTrackColor,
                         topLeft = Offset(fillStart, trackCenterY - trackHeight / 2f),
                         size = Size(fillEnd - fillStart, trackHeight),
-                        cornerRadius = CornerRadius(trackHeight / 2f)
+                        cornerRadius = CornerRadius(trackCorner)
                     )
                 }
 
@@ -180,7 +183,7 @@ fun ExpressiveSlider(
 
                         drawCircle(
                             color = if (isActive) activeTickColor else inactiveTickColor,
-                            radius = 2.5.dp.toPx(),
+                            radius = with(density) { 2.dp.toPx() },
                             center = Offset(tickX, trackCenterY)
                         )
                     }
@@ -189,10 +192,49 @@ fun ExpressiveSlider(
                 neutralValue?.let {
                     drawRoundRect(
                         color = activeTrackColor,
-                        topLeft = Offset(neutralX - 2.dp.toPx(), trackCenterY - 10.dp.toPx()),
-                        size = Size(4.dp.toPx(), 20.dp.toPx()),
-                        cornerRadius = CornerRadius(2.dp.toPx())
+                        topLeft = Offset(
+                            neutralX - with(density) { 1.dp.toPx() },
+                            trackCenterY - with(density) { 10.dp.toPx() }
+                        ),
+                        size = Size(with(density) { 2.dp.toPx() }, with(density) { 20.dp.toPx() }),
+                        cornerRadius = CornerRadius(with(density) { 1.dp.toPx() })
                     )
+                }
+
+                val selectorLeft = currentX - selectorGap
+                val selectorRight = currentX + selectorGap
+                drawRoundRect(
+                    color = trackColor,
+                    topLeft = Offset(
+                        selectorLeft,
+                        trackCenterY - trackHeight / 2f - with(density) { 1.dp.toPx() }
+                    ),
+                    size = Size(selectorGap * 2f, trackHeight + with(density) { 2.dp.toPx() }),
+                    cornerRadius = CornerRadius((trackHeight + with(density) { 2.dp.toPx() }) / 2f)
+                )
+
+                if (neutralValue != null && fillStart < currentX) {
+                    val leftEnd = minOf(fillEnd, selectorLeft)
+                    if (leftEnd > fillStart) {
+                        drawRoundRect(
+                            color = activeTrackColor,
+                            topLeft = Offset(fillStart, trackCenterY - trackHeight / 2f),
+                            size = Size(leftEnd - fillStart, trackHeight),
+                            cornerRadius = CornerRadius(trackCorner)
+                        )
+                    }
+                }
+
+                if (neutralValue != null && fillEnd > currentX) {
+                    val rightStart = maxOf(fillStart, selectorRight)
+                    if (fillEnd > rightStart) {
+                        drawRoundRect(
+                            color = activeTrackColor,
+                            topLeft = Offset(rightStart, trackCenterY - trackHeight / 2f),
+                            size = Size(fillEnd - rightStart, trackHeight),
+                            cornerRadius = CornerRadius(trackCorner)
+                        )
+                    }
                 }
             }
 
@@ -200,23 +242,16 @@ fun ExpressiveSlider(
                 modifier = Modifier
                     .offset {
                         IntOffset(
-                            (currentX - thumbRadius).roundToInt(),
-                            (trackCenterY - thumbRadius).roundToInt()
+                            (currentX - selectorHalfWidth).roundToInt(),
+                            (trackCenterY - selectorHeight / 2f).roundToInt()
                         )
                     }
-                    .size(thumbSize)
+                    .size(width = 4.dp, height = 44.dp)
                     .graphicsLayer {
-                        scaleX = animatedThumbScale
-                        scaleY = animatedThumbScale
+                        scaleX = animatedSelectorScale
+                        scaleY = animatedSelectorScale
                     }
-                    .background(activeTrackColor, CircleShape)
-                    .then(
-                        if (isFocused) {
-                            Modifier.border(2.dp, ApertureTheme.colorScheme.onPrimary, CircleShape)
-                        } else {
-                            Modifier
-                        }
-                    )
+                    .background(activeTrackColor, RoundedCornerShape(percent = 50))
             )
         }
 
@@ -228,10 +263,6 @@ fun ExpressiveSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(formatSliderValue(valueRange.start), color = ApertureTheme.colorScheme.onSurfaceVariant)
-            Text(
-                formatSliderValue(if (isFocused) clampedValue else (neutralValue ?: valueRange.start)),
-                color = ApertureTheme.colorScheme.onSurfaceVariant
-            )
             Text(formatSliderValue(valueRange.endInclusive), color = ApertureTheme.colorScheme.onSurfaceVariant)
         }
     }
