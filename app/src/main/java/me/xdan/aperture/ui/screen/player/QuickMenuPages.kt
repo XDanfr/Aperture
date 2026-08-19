@@ -1,6 +1,5 @@
 package me.xdan.aperture.ui.screen.player
 
-import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -15,6 +14,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -42,11 +42,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
@@ -85,12 +87,15 @@ fun QuickMenuPages(
 ) {
     var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }
     val pageFocusRequester = remember { FocusRequester() }
+    val closeFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = page != QuickMenuPage.Categories) {
         page = QuickMenuPage.Categories
     }
 
     LaunchedEffect(page) {
+        withFrameNanos { }
+        withFrameNanos { }
         if (page == QuickMenuPage.Categories) {
             focusRequester.requestFocus()
         } else {
@@ -100,16 +105,6 @@ fun QuickMenuPages(
 
     Surface(
         modifier = Modifier
-            .onPreviewKeyEvent { event ->
-                if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
-                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP
-                ) {
-                    onClose()
-                    true
-                } else {
-                    false
-                }
-            }
             .fillMaxWidth()
             .fillMaxHeight(0.62f)
             .padding(horizontal = 32.dp, vertical = 20.dp),
@@ -118,49 +113,67 @@ fun QuickMenuPages(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
         )
     ) {
-        AnimatedContent(
-            targetState = page,
-            modifier = Modifier.fillMaxSize(),
-            transitionSpec = {
-                ContentTransform(
-                    targetContentEnter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                        slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { it / 4 },
-                    initialContentExit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
-                        slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { -it / 6 }
-                )
-            },
-            label = "quickMenuPageTransition"
-        ) { currentPage ->
-            when (currentPage) {
-                QuickMenuPage.Categories -> QuickMenuCategories(
-                    focusRequester = focusRequester,
-                    onSelected = { page = it }
-                )
-                QuickMenuPage.Audio -> QuickMenuTrackPage(
-                    title = "Audio",
-                    type = C.TRACK_TYPE_AUDIO,
-                    player = player,
-                    firstFocusRequester = pageFocusRequester,
-                    emptyLabel = "No audio tracks available."
-                )
-                QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(
-                    player = player,
-                    firstFocusRequester = pageFocusRequester,
-                    subtitleDelayMs = subtitleDelayMs,
-                    onSubtitleDelayDecrease = onSubtitleDelayDecrease,
-                    onSubtitleDelayIncrease = onSubtitleDelayIncrease,
-                    onSubtitleDelayReset = onSubtitleDelayReset
-                )
-                QuickMenuPage.Playback -> QuickMenuPlaybackPage(
-                    player = player,
-                    firstFocusRequester = pageFocusRequester
-                )
-                QuickMenuPage.Video -> QuickMenuVideoPage(
-                    selectedResizeMode = videoResizeMode,
-                    firstFocusRequester = pageFocusRequester,
-                    onSelected = onVideoResizeModeSelected
-                )
-                QuickMenuPage.Other -> QuickMenuOtherPage(firstFocusRequester = pageFocusRequester)
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .size(1.dp)
+                    .focusRequester(closeFocusRequester)
+                    .focusable()
+                    .onFocusChanged { if (it.isFocused) onClose() }
+            )
+
+            AnimatedContent(
+                targetState = page,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    ContentTransform(
+                        targetContentEnter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { it / 4 },
+                        initialContentExit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            slideOutHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { -it / 6 }
+                    )
+                },
+                label = "quickMenuPageTransition"
+            ) { currentPage ->
+                when (currentPage) {
+                    QuickMenuPage.Categories -> QuickMenuCategories(
+                        focusRequester = focusRequester,
+                        closeFocusRequester = closeFocusRequester,
+                        onSelected = { page = it }
+                    )
+                    QuickMenuPage.Audio -> QuickMenuTrackPage(
+                        title = "Audio",
+                        type = C.TRACK_TYPE_AUDIO,
+                        player = player,
+                        firstFocusRequester = pageFocusRequester,
+                        closeFocusRequester = closeFocusRequester,
+                        emptyLabel = "No audio tracks available."
+                    )
+                    QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(
+                        player = player,
+                        firstFocusRequester = pageFocusRequester,
+                        closeFocusRequester = closeFocusRequester,
+                        subtitleDelayMs = subtitleDelayMs,
+                        onSubtitleDelayDecrease = onSubtitleDelayDecrease,
+                        onSubtitleDelayIncrease = onSubtitleDelayIncrease,
+                        onSubtitleDelayReset = onSubtitleDelayReset
+                    )
+                    QuickMenuPage.Playback -> QuickMenuPlaybackPage(
+                        player = player,
+                        firstFocusRequester = pageFocusRequester,
+                        closeFocusRequester = closeFocusRequester
+                    )
+                    QuickMenuPage.Video -> QuickMenuVideoPage(
+                        selectedResizeMode = videoResizeMode,
+                        firstFocusRequester = pageFocusRequester,
+                        closeFocusRequester = closeFocusRequester,
+                        onSelected = onVideoResizeModeSelected
+                    )
+                    QuickMenuPage.Other -> QuickMenuOtherPage(
+                        firstFocusRequester = pageFocusRequester,
+                        closeFocusRequester = closeFocusRequester
+                    )
+                }
             }
         }
     }
@@ -170,6 +183,7 @@ fun QuickMenuPages(
 @Composable
 private fun QuickMenuCategories(
     focusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
     onSelected: (QuickMenuPage) -> Unit
 ) {
     Column(
@@ -195,10 +209,15 @@ private fun QuickMenuCategories(
                     onClick = { onSelected(category.page) },
                     modifier = Modifier
                         .weight(1f)
-                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),
+                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier)
+                        .focusProperties { up = closeFocusRequester },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Column(
@@ -221,6 +240,7 @@ private fun QuickMenuTrackPage(
     type: Int,
     player: androidx.media3.common.Player,
     firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester? = null,
     emptyLabel: String,
     headerContent: (@Composable () -> Unit)? = null
 ) {
@@ -248,11 +268,16 @@ private fun QuickMenuTrackPage(
         Text(title, style = MaterialTheme.typography.headlineMedium)
 
         if (items.isEmpty()) {
-            Text(
-                emptyLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    emptyLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
             return
         }
 
@@ -269,6 +294,7 @@ private fun QuickMenuTrackPage(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 8.dp),
+            contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -283,20 +309,24 @@ private fun QuickMenuTrackPage(
                             )
                             .build()
                     },
-                    modifier = Modifier.then(
-                        if (item == items.firstOrNull()) {
-                            Modifier.focusRequester(firstFocusRequester)
-                        } else {
-                            Modifier
-                        }
-                    ),
+                    modifier = Modifier
+                        .then(if (item == items.firstOrNull()) Modifier.focusRequester(firstFocusRequester) else Modifier)
+                        .focusProperties {
+                            if (items.indexOf(item) < 3 && closeFocusRequester != null) {
+                                up = closeFocusRequester
+                            }
+                        },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (item.isSelected) {
                             MaterialTheme.colorScheme.secondaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
-                        }
+                        },
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Text(
@@ -317,6 +347,7 @@ private fun QuickMenuTimingAdjustmentControl(
     valueMs: Long,
     supportingText: String,
     focusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester? = null,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     onReset: () -> Unit
@@ -335,10 +366,15 @@ private fun QuickMenuTimingAdjustmentControl(
                 onClick = onDecrease,
                 modifier = Modifier
                     .height(40.dp)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .focusProperties { if (closeFocusRequester != null) up = closeFocusRequester },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
                 colors = ClickableSurfaceDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Text("−", modifier = Modifier.padding(horizontal = 16.dp))
@@ -351,7 +387,11 @@ private fun QuickMenuTimingAdjustmentControl(
                     .height(40.dp),
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
                 colors = ClickableSurfaceDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -365,7 +405,11 @@ private fun QuickMenuTimingAdjustmentControl(
                     .height(40.dp),
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
                 colors = ClickableSurfaceDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Text("+", modifier = Modifier.padding(horizontal = 16.dp))
@@ -393,6 +437,7 @@ private fun formatQuickMenuDelay(delayMs: Long): String = when {
 private fun QuickMenuSubtitlesPage(
     player: androidx.media3.common.Player,
     firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
     subtitleDelayMs: Long,
     onSubtitleDelayDecrease: () -> Unit,
     onSubtitleDelayIncrease: () -> Unit,
@@ -405,6 +450,7 @@ private fun QuickMenuSubtitlesPage(
         type = C.TRACK_TYPE_TEXT,
         player = player,
         firstFocusRequester = trackFocusRequester,
+        closeFocusRequester = closeFocusRequester,
         emptyLabel = "No subtitle tracks available.",
         headerContent = {
             QuickMenuTimingAdjustmentControl(
@@ -414,7 +460,8 @@ private fun QuickMenuSubtitlesPage(
                 onDecrease = onSubtitleDelayDecrease,
                 onIncrease = onSubtitleDelayIncrease,
                 onReset = onSubtitleDelayReset,
-                focusRequester = firstFocusRequester
+                focusRequester = firstFocusRequester,
+                closeFocusRequester = closeFocusRequester
             )
         }
     )
@@ -424,7 +471,8 @@ private fun QuickMenuSubtitlesPage(
 @Composable
 private fun QuickMenuPlaybackPage(
     player: androidx.media3.common.Player,
-    firstFocusRequester: FocusRequester
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester
 ) {
     var isPlaying by remember(player) { mutableStateOf(player.isPlaying) }
 
@@ -437,14 +485,14 @@ private fun QuickMenuPlaybackPage(
     }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(2),
         modifier = Modifier
             .fillMaxSize()
             .padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { GridItemSpan(3) }) {
+        item(span = { GridItemSpan(2) }) {
             Text("Playback", style = MaterialTheme.typography.headlineMedium)
         }
         item {
@@ -452,21 +500,29 @@ private fun QuickMenuPlaybackPage(
                 "Restart",
                 Icons.Rounded.Replay,
                 { player.seekTo(0) },
-                firstFocusRequester
+                firstFocusRequester,
+                true,
+                closeFocusRequester
             )
         }
         item {
             QuickMenuAction(
                 "Rewind 10 seconds",
                 Icons.Rounded.FastRewind,
-                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) }
+                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) },
+                null,
+                true,
+                closeFocusRequester
             )
         }
         item {
             QuickMenuAction(
                 "${if (isPlaying) "Pause" else "Play"}",
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                { if (player.isPlaying) player.pause() else player.play() }
+                { if (player.isPlaying) player.pause() else player.play() },
+                null,
+                false,
+                closeFocusRequester
             )
         }
         item {
@@ -476,7 +532,10 @@ private fun QuickMenuPlaybackPage(
                 {
                     val duration = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
                     player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration))
-                }
+                },
+                null,
+                false,
+                closeFocusRequester
             )
         }
     }
@@ -487,6 +546,7 @@ private fun QuickMenuPlaybackPage(
 private fun QuickMenuVideoPage(
     selectedResizeMode: Int,
     firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
     onSelected: (Int) -> Unit
 ) {
     val options = QuickMenuVideoResizeMode.entries
@@ -512,14 +572,19 @@ private fun QuickMenuVideoPage(
                     onClick = { onSelected(option.media3Mode) },
                     modifier = Modifier
                         .weight(1f)
-                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier)
+                        .focusProperties { up = closeFocusRequester },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (option.media3Mode == selectedResizeMode) {
                             MaterialTheme.colorScheme.secondaryContainer
-                        } else MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        focusedContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Column(
@@ -527,10 +592,7 @@ private fun QuickMenuVideoPage(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(option.label, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            option.description,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                        Text(option.description)
                     }
                 }
             }
@@ -540,21 +602,31 @@ private fun QuickMenuVideoPage(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuOtherPage(firstFocusRequester: FocusRequester) {
+private fun QuickMenuOtherPage(
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp)
-            .focusRequester(firstFocusRequester)
-            .focusable(),
+            .padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Other", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "Coming soon!",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(firstFocusRequester)
+                .focusable()
+                .focusProperties { up = closeFocusRequester },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Coming soon!",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            )
+        }
     }
 }
 
@@ -564,15 +636,26 @@ private fun QuickMenuAction(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    closeOnUp: Boolean = false,
+    closeFocusRequester: FocusRequester? = null
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .focusProperties {
+                if (closeOnUp && closeFocusRequester != null) up = closeFocusRequester
+            },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+            pressedContainerColor = MaterialTheme.colorScheme.primary,
+            pressedContentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
