@@ -730,7 +730,16 @@ private fun NavContent(
                     startFromBeginning = destination.startFromBeginning,
                     viewModel = viewModel(),
                     onBack = onPlayerBack,
-                    onFinished = onPlayerBack
+                    onFinished = onPlayerBack,
+                    onLeavePlayerToOpenSubtitles = {
+                        onSettingsFocusKeyChanged("open_subtitles")
+
+                        if (backstack.size > 1) {
+                            backstack.removeAt(backstack.lastIndex)
+                        }
+
+                        backstack.add(Destination.Settings)
+                    }
                 )
                 else -> Box(modifier = Modifier.fillMaxSize()) {
                     Text("Coming Soon", modifier = Modifier.padding(32.dp))
