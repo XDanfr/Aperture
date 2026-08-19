@@ -152,6 +152,7 @@ fun SettingsScreen(
     }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
+    val overviewFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
         contentEntryFocusRequester
     } else {
@@ -191,8 +192,19 @@ fun SettingsScreen(
     LaunchedEffect(currentPage) {
         listState.scrollToItem(0)
         delay(80)
-        if (currentPage == SettingsPage.CUSTOMISATION && restoreFocusKey == null) {
-            runCatching { contentEntryFocusRequester.requestFocus() }
+
+        when (currentPage) {
+            SettingsPage.OVERVIEW -> {
+                runCatching { overviewFocusRequester.requestFocus() }
+            }
+
+            SettingsPage.CUSTOMISATION -> {
+                if (restoreFocusKey == null) {
+                    runCatching { contentEntryFocusRequester.requestFocus() }
+                }
+            }
+
+            else -> Unit
         }
     }
 
@@ -223,6 +235,7 @@ fun SettingsScreen(
                     title = "Customisation",
                     description = "Theme, presentation and ambient mode",
                     icon = Icons.Rounded.Palette,
+                    focusRequester = overviewFocusRequester,
                     onClick = { currentPage = SettingsPage.CUSTOMISATION }
                 )
             }
@@ -1626,7 +1639,8 @@ private fun SettingsPageEntry(
     title: String,
     description: String,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
 ) {
     Surface(
         onClick = onClick,
@@ -1721,14 +1735,12 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (drawerFocusRequester != null) {
-                    Modifier.focusProperties { left = drawerFocusRequester }
-                } else Modifier
-            )
-            .focusRequester(itemFocusRequester)
-            .onFocusChanged {
-                if (it.isFocused) onFocused(itemFocusRequester)
-            },
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
         scale = ClickableSurfaceDefaults.scale(
             focusedScale = 1.015f,
