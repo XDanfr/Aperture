@@ -291,33 +291,56 @@ private fun QuickMenuTimingAdjustmentControl(
     onReset: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge
+        )
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            QuickMenuAction(
-                label = "−",
-                icon = Icons.Rounded.FastRewind,
-                onClick = onDecrease,
-                focusRequester = focusRequester
-            )
             Surface(
-                onClick = onReset,
-                modifier = Modifier.weight(1f),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                onClick = onDecrease,
+                modifier = Modifier
+                    .height(40.dp)
+                    .focusRequester(focusRequester),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Text(formatQuickMenuDelay(valueMs), modifier = Modifier.padding(12.dp))
+                Text("−", modifier = Modifier.padding(horizontal = 16.dp))
             }
-            QuickMenuAction(
-                label = "+",
-                icon = Icons.Rounded.FastForward,
-                onClick = onIncrease
-            )
+
+            Surface(
+                onClick = onReset,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(formatQuickMenuDelay(valueMs))
+                }
+            }
+
+            Surface(
+                onClick = onIncrease,
+                modifier = Modifier
+                    .height(40.dp),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text("+", modifier = Modifier.padding(horizontal = 16.dp))
+            }
         }
+
         Text(
             supportingText,
             style = MaterialTheme.typography.bodySmall,
@@ -328,8 +351,10 @@ private fun QuickMenuTimingAdjustmentControl(
 
 private fun formatQuickMenuDelay(delayMs: Long): String = when {
     delayMs == 0L -> "0 ms"
-    kotlin.math.abs(delayMs) < 1_000L -> String.format(Locale.getDefault(), "%+d ms", delayMs)
-    else -> String.format(Locale.getDefault(), "%+.1f s", delayMs / 1_000f)
+    kotlin.math.abs(delayMs) < 1_000L ->
+        String.format(Locale.getDefault(), "%+d ms", delayMs)
+    else ->
+        String.format(Locale.getDefault(), "%+.1f s", delayMs / 1_000f)
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
