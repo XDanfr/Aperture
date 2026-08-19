@@ -15,6 +15,7 @@ Replace the current all-controls Quick Menu with a focused, category-based TV in
 - D-pad Left/Right does not switch Quick Menu pages.
 - Back returns from a page to the category list, then closes the menu from the category list.
 - Pages that eventually contain deeper settings may expose an explicit Done/Back action.
+- Grid pages should keep the first focusable row connected to the menu close boundary rather than intercepting Up globally.
 
 ## Categories
 
@@ -31,6 +32,7 @@ Replace the current all-controls Quick Menu with a focused, category-based TV in
 - Keep page changes spatially coherent without relying on horizontal D-pad navigation.
 - Give focused TV controls clear expressive focus treatment.
 - Keep the menu large enough to read and operate comfortably from a TV viewing distance.
+- Prefer grids where several related controls can share the available TV space.
 
 ## Implementation phases
 
