@@ -170,6 +170,12 @@ fun SettingsScreen(
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
     }
+    LaunchedEffect(restoreFocusKey) {
+        if (restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY) {
+            delay(120)
+            showOpenSubtitlesDialog = true
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(

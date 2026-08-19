@@ -105,6 +105,7 @@ private enum class QuickMenuSubtitleSubPage {
 @Composable
 fun QuickMenuPages(
     player: androidx.media3.common.Player,
+    settingsViewModel: me.xdan.aperture.ui.screen.settings.SettingsViewModel,
     focusRequester: FocusRequester,
     subtitleDelayMs: Long,
     onSubtitleDelayDecrease: () -> Unit,
@@ -193,7 +194,7 @@ fun QuickMenuPages(
                     openSubtitlesSession = openSubtitlesSession,
                     subtitleAppearance = subtitleAppearance,
                     onSaveSubtitleAppearance = { settings ->
-                        playerViewModel.setSubtitleAppearance(
+                        settingsViewModel.setSubtitleAppearance(
                             textScale = settings.textScale,
                             colour = settings.colour,
                             backgroundOpacity = settings.backgroundOpacity

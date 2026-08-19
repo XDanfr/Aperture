@@ -81,7 +81,8 @@ fun PlayerScreen(
     startFromBeginning: Boolean = false,
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
-    onFinished: () -> Unit = {}
+    onFinished: () -> Unit = {},
+    onLeavePlayerToOpenSubtitles: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
@@ -346,6 +347,7 @@ fun PlayerScreen(
         ) {
             QuickMenuPages(
                 player = player,
+                settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
                 focusRequester = quickMenuFocusRequester,
                 subtitleDelayMs = subtitleDelayMs,
                 onSubtitleDelayDecrease = {
@@ -366,7 +368,8 @@ fun PlayerScreen(
                         player.play()
                     }
                     wasPlayingBeforeQuickMenu = false
-                }
+                },
+                onLeavePlayerToOpenSubtitles = onLeavePlayerToOpenSubtitles
             )
         }
 
