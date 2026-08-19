@@ -136,14 +136,15 @@ fun ExpressiveSlider(
                 .focusable(enabled),
             contentAlignment = Alignment.CenterStart
         ) {
+            val density = LocalDensity.current
             val widthPx = constraints.maxWidth.toFloat()
             val thumbSize = 24.dp
-            val thumbRadius = with(LocalDensity.current) { thumbSize.toPx() / 2f }
+            val thumbRadius = with(density) { thumbSize.toPx() / 2f }
             val trackStart = thumbRadius
             val trackEnd = widthPx - thumbRadius
             val trackWidth = (trackEnd - trackStart).coerceAtLeast(0f)
-            val trackHeight = 8.dp.toPx()
-            val trackCenterY = 20.dp.toPx()
+            val trackHeight = with(density) { 8.dp.toPx() }
+            val trackCenterY = with(density) { 20.dp.toPx() }
             val currentX = trackStart + (animatedProgress * trackWidth)
             val neutralX = trackStart + (neutralProgress * trackWidth)
             val fillStart = if (neutralValue != null) minOf(currentX, neutralX) else trackStart
