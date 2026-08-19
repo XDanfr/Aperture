@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -669,11 +670,14 @@ private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: and
             Text(text = formatTime(duration), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
         }
         if (!isScrubbing) {
-            Text(
-                text = "⌄",
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 76.dp),
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White.copy(alpha = 0.62f)
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = "Open Quick Menu",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .size(56.dp)
+                    .offset(y = 32.dp),
+                tint = Color.White.copy(alpha = 0.62f)
             )
         }
     }
