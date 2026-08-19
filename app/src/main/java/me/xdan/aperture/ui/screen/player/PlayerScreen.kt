@@ -565,7 +565,7 @@ private fun QuickMenu(
                     .filter { it.isSupported },
                 emptyLabel = "No compatible subtitle tracks",
                 headerContent = {
-                    QuickMenuTimingAdjustmentControl(
+                    TimingAdjustmentControl(
                         label = "Subtitle sync",
                         valueMs = subtitleDelayMs,
                         supportingText = "Negative values show subs earlier",
