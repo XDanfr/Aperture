@@ -152,6 +152,10 @@ fun SettingsScreen(
     }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
+    val customisationFocusRequester = remember { FocusRequester() }
+    val libraryFocusRequester = remember { FocusRequester() }
+    val playbackFocusRequester = remember { FocusRequester() }
+    val aboutFocusRequester = remember { FocusRequester() }
     val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
         contentEntryFocusRequester
     } else {
@@ -189,11 +193,16 @@ fun SettingsScreen(
     LaunchedEffect(currentPage) {
         listState.scrollToItem(0)
         delay(80)
-        if (currentPage == SettingsPage.OVERVIEW) {
-            runCatching { contentEntryFocusRequester.requestFocus() }
-        } else if (currentPage == SettingsPage.CUSTOMISATION && restoreFocusKey == null) {
-            runCatching { contentEntryFocusRequester.requestFocus() }
+
+        val requester = when (currentPage) {
+            SettingsPage.OVERVIEW -> contentEntryFocusRequester
+            SettingsPage.CUSTOMISATION -> customisationFocusRequester
+            SettingsPage.LIBRARY -> libraryFocusRequester
+            SettingsPage.PLAYBACK -> playbackFocusRequester
+            SettingsPage.ABOUT -> aboutFocusRequester
         }
+
+        runCatching { requester.requestFocus() }
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -268,8 +277,10 @@ fun SettingsScreen(
                                     ?: "Aperture Purple",
                                 icon = Icons.Rounded.Palette,
                                 drawerFocusRequester = drawerFocusRequester,
-                                focusRequester = contentEntryFocusRequester.takeIf {
-                                    restoreFocusKey == null || restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
+                                focusRequester = if (restoreFocusKey == SETTINGS_THEME_FOCUS_KEY) {
+                                    contentEntryFocusRequester
+                                } else {
+                                    customisationFocusRequester
                                 },
                                 onFocused = { requester ->
                                     onFocusKeyChanged(SETTINGS_THEME_FOCUS_KEY)
@@ -434,6 +445,11 @@ fun SettingsScreen(
                                 title = "Hidden Media",
                                 subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",
                                 icon = Icons.Rounded.Visibility,
+                                focusRequester = if (restoreFocusKey == SETTINGS_HIDDEN_FOCUS_KEY) {
+                                    contentEntryFocusRequester
+                                } else {
+                                    libraryFocusRequester
+                                },
                                 drawerFocusRequester = drawerFocusRequester,
                                 onFocused = { requester ->
                                     onFocusKeyChanged(SETTINGS_HIDDEN_FOCUS_KEY)
@@ -526,8 +542,10 @@ fun SettingsScreen(
                                 },
                                 icon = Icons.Rounded.Person,
                                 drawerFocusRequester = drawerFocusRequester,
-                                focusRequester = contentEntryFocusRequester.takeIf {
-                                    restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY
+                                focusRequester = if (restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY) {
+                                    contentEntryFocusRequester
+                                } else {
+                                    playbackFocusRequester
                                 },
                                 onFocused = { requester ->
                                     onFocusKeyChanged(SETTINGS_OPEN_SUBTITLES_FOCUS_KEY)
@@ -566,8 +584,10 @@ fun SettingsScreen(
                                 subtitle = "Libraries and projects used by Aperture",
                                 icon = Icons.Rounded.Info,
                                 drawerFocusRequester = drawerFocusRequester,
-                                focusRequester = contentEntryFocusRequester.takeIf {
-                                    restoreFocusKey == SETTINGS_LICENCES_FOCUS_KEY
+                                focusRequester = if (restoreFocusKey == SETTINGS_LICENCES_FOCUS_KEY) {
+                                    contentEntryFocusRequester
+                                } else {
+                                    aboutFocusRequester
                                 },
                                 onFocused = { requester ->
                                     onFocusKeyChanged(SETTINGS_LICENCES_FOCUS_KEY)
@@ -1649,7 +1669,7 @@ private fun SettingsPageEntry(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f)
                 )
             }
             Icon(Icons.Rounded.ViewModule, contentDescription = null)
