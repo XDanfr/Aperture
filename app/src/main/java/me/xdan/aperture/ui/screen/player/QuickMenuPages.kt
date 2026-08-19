@@ -488,14 +488,52 @@ private fun QuickMenuSubtitlesMainPage(
     Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Subtitles", style = MaterialTheme.typography.headlineMedium)
         Text("Selected: ${selectedItem?.name ?: "None"}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, firstFocusRequester, onClose, true)
-            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, onClose = onClose, closeOnUp = true)
-            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, onClose = onClose, closeOnUp = true)
-        }
         if (items.isEmpty()) {
-            QuickMenuEmptyMessage("No subtitle tracks available.")
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "No subtitle tracks available.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
             return
+        }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(Modifier.weight(1f)) {
+                QuickMenuAction(
+                    "Sync",
+                    Icons.Rounded.Sync,
+                    onSync,
+                    firstFocusRequester,
+                    onClose,
+                    true
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                QuickMenuAction(
+                    "Customise",
+                    Icons.Rounded.FormatColorText,
+                    onCustomise,
+                    onClose = onClose,
+                    closeOnUp = true
+                )
+            }
+            Box(Modifier.weight(1f)) {
+                QuickMenuAction(
+                    "OpenSubtitles",
+                    Icons.Rounded.CloudDownload,
+                    onOpenSubtitles,
+                    onClose = onClose,
+                    closeOnUp = true
+                )
+            }
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -539,24 +577,77 @@ private fun QuickMenuSubtitleSyncPage(
     onReset: () -> Unit,
     onClose: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Subtitle sync", style = MaterialTheme.typography.headlineMedium)
-        Text("Adjust the subtitle timing for this video.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Surface(
-            onClick = onReset,
-            modifier = Modifier.fillMaxWidth().height(110.dp).focusRequester(firstFocusRequester).closeQuickMenuOnUp(onClose),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedContentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) { Box(contentAlignment = Alignment.Center) { Text(formatQuickMenuDelay(subtitleDelayMs), style = MaterialTheme.typography.headlineSmall) } }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickMenuAction("Earlier", Icons.Rounded.FastRewind, onDecrease, onClose = onClose)
-            QuickMenuAction("Later", Icons.Rounded.FastForward, onIncrease, onClose = onClose)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            "Subtitle sync",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Text(
+            "Adjust the subtitle timing for this video.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.weight(1f)) {
+                QuickMenuAction(
+                    "Earlier",
+                    Icons.Rounded.FastRewind,
+                    onDecrease,
+                    firstFocusRequester,
+                    onClose,
+                    true
+                )
+            }
+
+            Surface(
+                onClick = onReset,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(72.dp),
+                shape = ClickableSurfaceDefaults.shape(
+                    RoundedCornerShape(18.dp)
+                ),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        formatQuickMenuDelay(subtitleDelayMs),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+
+            Box(Modifier.weight(1f)) {
+                QuickMenuAction(
+                    "Later",
+                    Icons.Rounded.FastForward,
+                    onIncrease,
+                    onClose = onClose
+                )
+            }
         }
-        Text("Negative values show subtitles earlier.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+
+        Text(
+            "Negative values show subtitles earlier.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 
