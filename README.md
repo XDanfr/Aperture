@@ -41,7 +41,7 @@
 
 Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device.
 > [!TIP]
-> We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store.
+> We recommend using [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) from the Google Play Store or the [Amazon Appstore](https://www.amazon.com/dp/B01N0BP507/?tag=aftvn-20).
 
 ### Or: Build From Source
 
