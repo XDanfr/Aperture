@@ -1,0 +1,71 @@
+name: Fix Quick Menu subtitle layout
+
+on:
+  push:
+    branches:
+      - feature/expressive-quick-menu
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'chore: remove quick menu patch workflow'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/expressive-quick-menu
+          fetch-depth: 0
+      - name: Patch subtitle pages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt')
+          text = path.read_text()
+
+          old_sig = '''private fun QuickMenuAction(\n    label: String,\n    icon: androidx.compose.ui.graphics.vector.ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null,\n    onClose: (() -> Unit)? = null,\n    closeOnUp: Boolean = false\n) {'''
+          new_sig = '''private fun QuickMenuAction(\n    label: String,\n    icon: androidx.compose.ui.graphics.vector.ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null,\n    onClose: (() -> Unit)? = null,\n    closeOnUp: Boolean = false,\n    modifier: Modifier = Modifier\n) {'''
+          if old_sig not in text:
+              raise SystemExit('QuickMenuAction signature not found')
+          text = text.replace(old_sig, new_sig, 1)
+
+          old_mod = '''        modifier = Modifier.fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)'''
+          new_mod = '''        modifier = modifier\n            .fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)'''
+          if old_mod not in text:
+              raise SystemExit('QuickMenuAction modifier block not found')
+          text = text.replace(old_mod, new_mod, 1)
+
+          replacements = [
+            ('''            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, firstFocusRequester, onClose, true)\n            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, onClose = onClose, closeOnUp = true)\n            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, onClose = onClose, closeOnUp = true)''',
+             '''            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, firstFocusRequester, onClose, true, Modifier.weight(1f))\n            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))\n            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))'''),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit('subtitle action row not found')
+              text = text.replace(old, new, 1)
+
+          main_old = '''        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {\n            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, firstFocusRequester, onClose, true, Modifier.weight(1f))\n            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))\n            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))\n        }\n        if (items.isEmpty()) {\n            QuickMenuEmptyMessage("No subtitle tracks available.")\n            return\n        }'''
+          main_new = '''        if (items.isEmpty()) {\n            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {\n                Text(\n                    "No subtitle tracks available.",\n                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),\n                    style = MaterialTheme.typography.bodyLarge\n                )\n            }\n            return\n        }\n        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {\n            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, firstFocusRequester, onClose, true, Modifier.weight(1f))\n            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))\n            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f))\n        }'''
+          if main_old not in text:
+              raise SystemExit('subtitle empty-state block not found')
+          text = text.replace(main_old, main_new, 1)
+
+          pattern = re.compile(r'@OptIn\(ExperimentalTvMaterial3Api::class\)\n@Composable\nprivate fun QuickMenuSubtitleSyncPage\(.*?\n\n@OptIn\(ExperimentalTvMaterial3Api::class\)\n@Composable\nprivate fun QuickMenuOpenSubtitlesPage', re.S)
+          replacement = '''@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun QuickMenuSubtitleSyncPage(\n    firstFocusRequester: FocusRequester,\n    subtitleDelayMs: Long,\n    onDecrease: () -> Unit,\n    onIncrease: () -> Unit,\n    onReset: () -> Unit,\n    onClose: () -> Unit\n) {\n    Column(\n        Modifier\n            .fillMaxSize()\n            .padding(28.dp),\n        verticalArrangement = Arrangement.spacedBy(16.dp)\n    ) {\n        Text("Subtitle sync", style = MaterialTheme.typography.headlineMedium)\n        Text(\n            "Adjust the subtitle timing for this video.",\n            color = MaterialTheme.colorScheme.onSurfaceVariant\n        )\n        Row(\n            modifier = Modifier.fillMaxWidth(),\n            horizontalArrangement = Arrangement.spacedBy(12.dp),\n            verticalAlignment = Alignment.CenterVertically\n        ) {\n            QuickMenuAction(\n                "Earlier",\n                Icons.Rounded.FastRewind,\n                onDecrease,\n                firstFocusRequester,\n                onClose,\n                true,\n                Modifier.weight(1f)\n            )\n            Surface(\n                onClick = onReset,\n                modifier = Modifier\n                    .weight(1f)\n                    .height(72.dp),\n                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),\n                colors = ClickableSurfaceDefaults.colors(\n                    containerColor = MaterialTheme.colorScheme.surfaceVariant,\n                    focusedContainerColor = MaterialTheme.colorScheme.primary,\n                    focusedContentColor = MaterialTheme.colorScheme.onPrimary\n                )\n            ) {\n                Box(contentAlignment = Alignment.Center) {\n                    Text(formatQuickMenuDelay(subtitleDelayMs), style = MaterialTheme.typography.titleLarge)\n                }\n            }\n            QuickMenuAction(\n                "Later",\n                Icons.Rounded.FastForward,\n                onIncrease,\n                onClose = onClose,\n                modifier = Modifier.weight(1f)\n            )\n        }\n        Text(\n            "Negative values show subtitles earlier.",\n            color = MaterialTheme.colorScheme.onSurfaceVariant,\n            style = MaterialTheme.typography.bodySmall\n        )\n    }\n}\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun QuickMenuOpenSubtitlesPage'''
+          text2, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('sync page block not found')
+          text = text2
+
+          path.write_text(text)
+          PY
+
+      - name: Commit patched file
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt
+          git commit -m 'fix: arrange subtitle quick menu actions'
+          git push
