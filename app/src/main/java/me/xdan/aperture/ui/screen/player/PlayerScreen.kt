@@ -337,13 +337,9 @@ fun PlayerScreen(
             exit = slideOutVertically { it / 2 } + fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            QuickMenu(
+            QuickMenuPages(
                 player = player,
                 focusRequester = quickMenuFocusRequester,
-                onlineSubtitleState = onlineSubtitles,
-                openSubtitlesSession = openSubtitlesSession,
-                videoResizeMode = videoResizeMode,
-                onVideoResizeModeSelected = { videoResizeMode = it },
                 subtitleDelayMs = subtitleDelayMs,
                 onSubtitleDelayDecrease = {
                     viewModel.adjustSubtitleDelay(-PlayerViewModel.SYNC_STEP_MS)
@@ -352,8 +348,10 @@ fun PlayerScreen(
                     viewModel.adjustSubtitleDelay(PlayerViewModel.SYNC_STEP_MS)
                 },
                 onSubtitleDelayReset = viewModel::resetSubtitleDelay,
-                onSearchOnline = viewModel::searchOpenSubtitles,
-                onDownloadOnline = viewModel::downloadOpenSubtitle
+                videoResizeMode = videoResizeMode.media3Mode,
+                onVideoResizeModeSelected = { mode ->
+                    videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode }
+                }
             )
         }
 
