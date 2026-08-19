@@ -40,6 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,18 +88,29 @@ fun QuickMenuPages(
     onClose: () -> Unit
 ) {
     var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }
+    var selectedCategoryIndex by remember { mutableIntStateOf(0) }
     val pageFocusRequester = remember { FocusRequester() }
     val closeFocusRequester = remember { FocusRequester() }
+    val categoryFocusRequesters = remember {
+        List(quickMenuCategories.size) { FocusRequester() }
+    }
+    LaunchedEffect(Unit) {
+        categoryFocusRequesters.first().requestFocus()
+    }
 
     BackHandler(enabled = page != QuickMenuPage.Categories) {
         page = QuickMenuPage.Categories
     }
 
-    LaunchedEffect(page) {
+    LaunchedEffect(page, selectedCategoryIndex) {
         withFrameNanos { }
         withFrameNanos { }
         if (page == QuickMenuPage.Categories) {
-            focusRequester.requestFocus()
+            if (selectedCategoryIndex == 0) {
+                focusRequester.requestFocus()
+            } else {
+                categoryFocusRequesters[selectedCategoryIndex].requestFocus()
+            }
         } else {
             pageFocusRequester.requestFocus()
         }
@@ -140,7 +152,12 @@ fun QuickMenuPages(
                     QuickMenuPage.Categories -> QuickMenuCategories(
                         focusRequester = focusRequester,
                         closeFocusRequester = closeFocusRequester,
-                        onSelected = { page = it }
+                        categoryFocusRequesters = categoryFocusRequesters,
+                        selectedCategoryIndex = selectedCategoryIndex,
+                        onSelected = { index, selectedPage ->
+                            selectedCategoryIndex = index
+                            page = selectedPage
+                        }
                     )
                     QuickMenuPage.Audio -> QuickMenuTrackPage(
                         title = "Audio",
@@ -185,7 +202,9 @@ fun QuickMenuPages(
 private fun QuickMenuCategories(
     focusRequester: FocusRequester,
     closeFocusRequester: FocusRequester,
-    onSelected: (QuickMenuPage) -> Unit
+    categoryFocusRequesters: List<FocusRequester>,
+    selectedCategoryIndex: Int,
+    onSelected: (Int, QuickMenuPage) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -207,11 +226,15 @@ private fun QuickMenuCategories(
         ) {
             quickMenuCategories.forEachIndexed { index, category ->
                 Surface(
-                    onClick = { onSelected(category.page) },
+                    onClick = { onSelected(index, category.page) },
                     modifier = Modifier
                         .weight(1f)
-                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier)
-                        .focusProperties { up = closeFocusRequester },
+                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier.focusRequester(categoryFocusRequesters[index]))
+                        .focusProperties {
+                            up = closeFocusRequester
+                            left = if (index == 0) categoryFocusRequesters[index] else categoryFocusRequesters[index - 1]
+                            right = if (index == quickMenuCategories.lastIndex) categoryFocusRequesters[index] else categoryFocusRequesters[index + 1]
+                        },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
