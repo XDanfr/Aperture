@@ -80,11 +80,12 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 
 ### Planned Features
 
-- [ ] **Transition to Material 3 Expressive**: Very large rewrite planned for v0.5, using official Expressive tokens
+- [X] **Transition to Material 3 Expressive**: Very large rewrite planned for v0.5, using official Expressive tokens (this is complete and will arrive in the next update)
 - [ ] **Complete OpenSubtitles Integration**
 - [ ] **Proper audio synchronisation**: Forwards and backwards
 - [ ] **Default audio track selection**: accessible in settings
 #### Further Out
+- [ ] **Porting to PC**: mobile will come afterwards
 - [ ] **Support for NAS types, Jellyfin and Plex**
 - [ ] **Support for 3D TVs**
 
