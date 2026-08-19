@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -423,7 +424,7 @@ private fun QuickMenuSubtitlesMainPage(
             Surface(
                 onClick = {},
                 modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp).focusRequester(emptyFocusRequester).focusable().focusProperties { up = syncFocusRequester; left = syncFocusRequester; right = openSubtitlesFocusRequester },
-                shape = RoundedCornerShape(18.dp),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                 colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary)
             ) {
                 Box(contentAlignment = Alignment.Center) { Text("No local subtitles available", style = MaterialTheme.typography.bodyLarge) }
@@ -497,10 +498,11 @@ private fun QuickMenuOpenSubtitlesPage(
             OpenSubtitlesSessionState.SigningIn -> "Signing in…"
             else -> "Sign in from Settings to search and download subtitles."
         }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val searchAction: () -> Unit = if (signedIn) onSearch else ({ showLeavePlayerPrompt = true })
         QuickMenuAction(
             if (signedIn && state is OnlineSubtitleState.Loading) "Searching…" else "Search for subtitles",
             Icons.Rounded.CloudDownload,
-            if (signedIn) onSearch else { showLeavePlayerPrompt = true },
+            searchAction,
             focusRequester = searchFocusRequester,
             onClose = onClose,
             closeOnUp = true,
