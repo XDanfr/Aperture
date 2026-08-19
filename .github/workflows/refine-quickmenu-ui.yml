@@ -1,0 +1,127 @@
+name: Refine Quick Menu UI
+
+on:
+  push:
+    branches:
+      - feature/expressive-quick-menu
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Quick Menu UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          pages = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt')
+          text = pages.read_text()
+
+          def replace(old, new, label):
+              global text
+              if old not in text:
+                  raise SystemExit(f'missing expected block: {label}')
+              text = text.replace(old, new, 1)
+
+          replace(
+              'import androidx.activity.compose.BackHandler\n',
+              'import android.view.KeyEvent\nimport androidx.activity.compose.BackHandler\n',
+              'KeyEvent import'
+          )
+          replace(
+              'import androidx.compose.ui.focus.focusRequester\n',
+              'import androidx.compose.ui.focus.focusRequester\nimport androidx.compose.ui.input.key.onPreviewKeyEvent\n',
+              'onPreviewKeyEvent import'
+          )
+          replace(
+              '    onVideoResizeModeSelected: (Int) -> Unit\n) {',
+              '    onVideoResizeModeSelected: (Int) -> Unit,\n    onClose: () -> Unit\n) {',
+              'QuickMenuPages close callback'
+          )
+          replace(
+              '''    Surface(\n        modifier = Modifier\n            .fillMaxWidth()''',
+              '''    Surface(\n        modifier = Modifier\n            .onPreviewKeyEvent { event ->\n                if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&\n                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP\n                ) {\n                    onClose()\n                    true\n                } else {\n                    false\n                }\n            }\n            .fillMaxWidth()''',
+              'QuickMenu root close on up'
+          )
+
+          old_categories = '''        Column(\n            modifier = Modifier.fillMaxWidth(),\n            verticalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            quickMenuCategories.chunked(2).forEachIndexed { rowIndex, row ->\n                Row(\n                    modifier = Modifier.fillMaxWidth(),\n                    horizontalArrangement = Arrangement.spacedBy(12.dp)\n                ) {\n                    row.forEachIndexed { columnIndex, category ->\n                        Surface(\n                            onClick = { onSelected(category.page) },\n                            modifier = Modifier\n                                .weight(1f)\n                                .then(\n                                    if (rowIndex == 0 && columnIndex == 0) {\n                                        Modifier.focusRequester(focusRequester)\n                                    } else Modifier\n                                ),\n                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),\n                            colors = ClickableSurfaceDefaults.colors(\n                                containerColor = MaterialTheme.colorScheme.surfaceVariant\n                            )\n                        ) {\n                            Column(\n                                modifier = Modifier.padding(22.dp),\n                                verticalArrangement = Arrangement.spacedBy(10.dp)\n                            ) {\n                                Icon(category.icon, contentDescription = null)\n                                Text(category.title, style = MaterialTheme.typography.titleMedium)\n                            }\n                        }\n                    }\n                    if (row.size == 1) Spacer(Modifier.weight(1f))\n                }\n            }\n        }'''
+          new_categories = '''        Row(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(horizontal = 8.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            quickMenuCategories.forEachIndexed { index, category ->\n                Surface(\n                    onClick = { onSelected(category.page) },\n                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),\n                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),\n                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = MaterialTheme.colorScheme.surfaceVariant\n                    )\n                ) {\n                    Column(\n                        modifier = Modifier.padding(18.dp),\n                        verticalArrangement = Arrangement.spacedBy(10.dp)\n                    ) {\n                        Icon(category.icon, contentDescription = null)\n                        Text(category.title, style = MaterialTheme.typography.titleMedium)\n                    }\n                }\n            }\n        }'''
+          replace(old_categories, new_categories, 'category layout')
+
+          replace(
+              '''    val items = getQuickMenuTrackItems(tracks, type).filter { it.isSupported }\n\n    Column(''',
+              '''    val items = getQuickMenuTrackItems(tracks, type).filter { it.isSupported }\n    val selectedItem = items.firstOrNull { it.isSelected }\n\n    Column(''',
+              'selected track lookup'
+          )
+          replace(
+              '''        Text(title, style = MaterialTheme.typography.headlineMedium)\n        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {''',
+              '''        Text(title, style = MaterialTheme.typography.headlineMedium)\n        Text(\n            "Selected: ${selectedItem?.name ?: "None"}",\n            style = MaterialTheme.typography.bodyLarge,\n            color = MaterialTheme.colorScheme.onSurfaceVariant\n        )\n        LazyColumn(\n            modifier = Modifier.padding(horizontal = 8.dp),\n            verticalArrangement = Arrangement.spacedBy(10.dp)\n        ) {''',
+              'selected track label'
+          )
+          replace(
+              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (item.isSelected) {\n                            MaterialTheme.colorScheme.primaryContainer\n                        } else {\n                            MaterialTheme.colorScheme.surfaceVariant\n                        }\n                    )''',
+              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (item.isSelected) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else {\n                            MaterialTheme.colorScheme.surfaceVariant\n                        }\n                    )''',
+              'track selection colour'
+          )
+
+          old_video = '''        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {\n            items(options) { option ->\n                Surface(\n                    onClick = { onSelected(option.media3Mode) },\n                    modifier = Modifier\n                        .fillMaxWidth()\n                        .then(if (option.media3Mode == options.first().media3Mode) Modifier.focusRequester(firstFocusRequester) else Modifier),\n                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),\n                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (option.media3Mode == selectedResizeMode) {\n                            MaterialTheme.colorScheme.primaryContainer\n                        } else MaterialTheme.colorScheme.surfaceVariant\n                    )\n                ) {\n                    Column(modifier = Modifier.padding(18.dp)) {\n                        Text(option.label, style = MaterialTheme.typography.titleMedium)\n                        Text(option.description, color = MaterialTheme.colorScheme.onSurfaceVariant)\n                    }\n                }\n            }\n        }'''
+          new_video = '''        Row(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(horizontal = 8.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            options.forEachIndexed { index, option ->\n                Surface(\n                    onClick = { onSelected(option.media3Mode) },\n                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),\n                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),\n                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (option.media3Mode == selectedResizeMode) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else MaterialTheme.colorScheme.surfaceVariant\n                    )\n                ) {\n                    Column(\n                        modifier = Modifier.padding(18.dp),\n                        verticalArrangement = Arrangement.spacedBy(8.dp)\n                    ) {\n                        Text(option.label, style = MaterialTheme.typography.titleMedium)\n                        Text(\n                            option.description,\n                            color = MaterialTheme.colorScheme.onSurfaceVariant\n                        )\n                    }\n                }\n            }\n        }'''
+          replace(old_video, new_video, 'video row layout')
+
+          pages.write_text(text)
+
+          player = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt')
+          text = player.read_text()
+
+          replace_player = lambda old, new, label: None
+          def preplace(old, new, label):
+              global text
+              if old not in text:
+                  raise SystemExit(f'missing PlayerScreen block: {label}')
+              text = text.replace(old, new, 1)
+
+          preplace(
+              '    var isQuickMenuVisible by remember { mutableStateOf(false) }\n',
+              '    var isQuickMenuVisible by remember { mutableStateOf(false) }\n    var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }\n',
+              'quick menu playback state'
+          )
+          preplace(
+              '''            isQuickMenuVisible -> {\n                isQuickMenuVisible = false\n                viewModel.hideOsd()\n            }''',
+              '''            isQuickMenuVisible -> {\n                isQuickMenuVisible = false\n                viewModel.hideOsd()\n                if (wasPlayingBeforeQuickMenu) {\n                    player.play()\n                }\n                wasPlayingBeforeQuickMenu = false\n            }''',
+              'quick menu back close'
+          )
+          old_open = '''                        player.pause()\n                        isQuickMenuVisible = true\n                        viewModel.hideOsd()'''
+          new_open = '''                        wasPlayingBeforeQuickMenu = player.isPlaying\n                        player.pause()\n                        isQuickMenuVisible = true\n                        viewModel.hideOsd()'''
+          if text.count(old_open) != 2:
+              raise SystemExit(f'expected 2 Quick Menu open callbacks, found {text.count(old_open)}')
+          text = text.replace(old_open, new_open)
+          preplace(
+              '''                onSubtitleDelayReset = viewModel::resetSubtitleDelay,\n                videoResizeMode = videoResizeMode.media3Mode,''',
+              '''                onSubtitleDelayReset = viewModel::resetSubtitleDelay,\n                videoResizeMode = videoResizeMode.media3Mode,''',
+              'QuickMenuPages call anchor'
+          )
+          preplace(
+              '''                onVideoResizeModeSelected = { mode ->\n                    videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode }\n                }\n            )''',
+              '''                onVideoResizeModeSelected = { mode ->\n                    videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode }\n                },\n                onClose = {\n                    isQuickMenuVisible = false\n                    viewModel.hideOsd()\n                    if (wasPlayingBeforeQuickMenu) {\n                        player.play()\n                    }\n                    wasPlayingBeforeQuickMenu = false\n                }\n            )''',
+              'QuickMenuPages close callback wiring'
+          )
+
+          player.write_text(text)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt app/src/main/java/me/xdan/aperture/ui/screen/player/PlayerScreen.kt
+          if git diff --cached --quiet; then
+            echo "No changes required"
+            exit 0
+          fi
+          git commit -m "fix: refine Quick Menu UI"
+          git push
