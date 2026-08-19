@@ -179,7 +179,7 @@ fun SettingsScreen(
                 SETTINGS_LICENCES_FOCUS_KEY,
                 SETTINGS_UPDATE_FOCUS_KEY,
                 SETTINGS_TMDB_FOCUS_KEY,
-                SETTINGS_DONATE_FOCUS_KEY -> SettingsPage.ABOUT
+                fix typoSETTINGS_DONATE_FOCUS_KEY -> SettingsPage.ABOUT
                 else -> SettingsPage.OVERVIEW
             }
         )
