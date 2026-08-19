@@ -123,7 +123,6 @@ fun QuickMenuPages(
         listOf(focusRequester) + List(quickMenuCategories.size - 1) { FocusRequester() }
     }
     val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val settingsViewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val onlineSubtitleState by playerViewModel.onlineSubtitles.collectAsState()
     val openSubtitlesSession by playerViewModel.openSubtitlesSession.collectAsState()
     val subtitleAppearance by settingsViewModel.subtitleAppearance.collectAsState()
@@ -194,11 +193,7 @@ fun QuickMenuPages(
                     openSubtitlesSession = openSubtitlesSession,
                     subtitleAppearance = subtitleAppearance,
                     onSaveSubtitleAppearance = { settings ->
-                        settingsViewModel.setSubtitleAppearance(
-                            textScale = settings.textScale,
-                            colour = settings.colour,
-                            backgroundOpacity = settings.backgroundOpacity
-                        )
+                        settingsViewModel.setSubtitleAppearance(settings)
                     },
                     onSearchOnline = playerViewModel::searchOpenSubtitles,
                     onDownloadOnline = playerViewModel::downloadOpenSubtitle,
