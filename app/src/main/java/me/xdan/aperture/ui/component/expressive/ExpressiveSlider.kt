@@ -5,9 +5,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -18,10 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -30,16 +31,18 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Text
 import me.xdan.aperture.ui.theme.ApertureTheme
-import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 /**
- * A TV-centric slider component with Material 3 Expressive aesthetics.
+ * A TV-centric Material 3 Expressive slider.
  *
- * Features a high-fidelity "Wavy" track that morphs to flat when unfocused.
- * Optimized for D-pad navigation with fluid physics-based transitions.
+ * When [neutralValue] is supplied, the active track grows from that value to
+ * the current value. Without a neutral value, it grows from the start of the
+ * range, making the component suitable for ordinary controls such as opacity.
+ * Ticks are optional so continuous controls can stay visually clean.
  */
 @Composable
 fun ExpressiveSlider(
@@ -49,125 +52,194 @@ fun ExpressiveSlider(
     enabled: Boolean = true,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
-    isFocused: Boolean = false
+    isFocused: Boolean = false,
+    neutralValue: Float? = null,
+    showTicks: Boolean = false,
+    tickCount: Int = 21
 ) {
-    val rawProgress = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
-    
-    // Animate progress for fluid D-pad interaction
+    require(valueRange.start < valueRange.endInclusive) {
+        "valueRange must have a smaller start than endInclusive"
+    }
+    require(steps >= 0) { "steps must be non-negative" }
+    require(tickCount >= 2) { "tickCount must be at least 2" }
+
+    val clampedValue = value.coerceIn(valueRange)
+    val totalRange = valueRange.endInclusive - valueRange.start
+    val rawProgress = (clampedValue - valueRange.start) / totalRange
+    val neutralProgress = neutralValue
+        ?.coerceIn(valueRange)
+        ?.let { (it - valueRange.start) / totalRange }
+        ?: 0f
+
     val animatedProgress by animateFloatAsState(
         targetValue = rawProgress,
         animationSpec = ApertureTheme.motion.focus(),
         label = "sliderProgress"
     )
-
     val animatedScale by animateFloatAsState(
-        targetValue = if (isFocused) 1.05f else 1.0f,
+        targetValue = if (isFocused) 1.04f else 1f,
         animationSpec = ApertureTheme.motion.focus(),
         label = "sliderScale"
     )
-
-    val animatedAmplitude by animateFloatAsState(
-        targetValue = if (isFocused) 3f else 0f,
+    val animatedThumbScale by animateFloatAsState(
+        targetValue = if (isFocused) 1.12f else 1f,
         animationSpec = ApertureTheme.motion.focus(),
-        label = "wavyAmplitude"
+        label = "sliderThumbScale"
     )
 
     val trackColor = ApertureTheme.colorScheme.surfaceContainerHigh
-    val activeTrackColor = if (enabled) ApertureTheme.colorScheme.primary else ApertureTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    val activeTrackColor = if (enabled) {
+        ApertureTheme.colorScheme.primary
+    } else {
+        ApertureTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+    val inactiveTickColor = ApertureTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    val activeTickColor = ApertureTheme.colorScheme.onPrimary
 
-    BoxWithConstraints(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp)
             .graphicsLayer {
                 scaleX = animatedScale
                 scaleY = animatedScale
-            }
-            .onKeyEvent { event ->
-                if (!isFocused || !enabled) return@onKeyEvent false
-                if (event.type == KeyEventType.KeyDown) {
-                    val stepSize = if (steps > 0) {
-                        (valueRange.endInclusive - valueRange.start) / (steps + 1)
-                    } else {
-                        (valueRange.endInclusive - valueRange.start) / 20f
+            },
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .onKeyEvent { event ->
+                    if (!isFocused || !enabled || event.type != KeyEventType.KeyDown) {
+                        return@onKeyEvent false
                     }
+
+                    val stepSize = if (steps > 0) {
+                        totalRange / (steps + 1)
+                    } else {
+                        totalRange / 20f
+                    }
+
                     when (event.key) {
                         Key.DirectionLeft -> {
-                            onValueChange((value - stepSize).coerceIn(valueRange))
+                            onValueChange((clampedValue - stepSize).coerceIn(valueRange))
                             true
                         }
                         Key.DirectionRight -> {
-                            onValueChange((value + stepSize).coerceIn(valueRange))
+                            onValueChange((clampedValue + stepSize).coerceIn(valueRange))
                             true
                         }
                         else -> false
                     }
-                } else false
-            }
-            .focusable(enabled)
-            .padding(vertical = 16.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        val widthPx = constraints.maxWidth.toFloat()
-        val thumbSize = 24.dp
+                }
+                .focusable(enabled),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            val widthPx = constraints.maxWidth.toFloat()
+            val thumbSize = 24.dp
+            val thumbRadius = thumbSize.toPx() / 2f
+            val trackStart = thumbRadius
+            val trackEnd = widthPx - thumbRadius
+            val trackWidth = (trackEnd - trackStart).coerceAtLeast(0f)
+            val trackHeight = 8.dp.toPx()
+            val trackCenterY = 20.dp.toPx()
+            val currentX = trackStart + (animatedProgress * trackWidth)
+            val neutralX = trackStart + (neutralProgress * trackWidth)
+            val fillStart = if (neutralValue != null) minOf(currentX, neutralX) else trackStart
+            val fillEnd = if (neutralValue != null) maxOf(currentX, neutralX) else currentX
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val centerY = size.height / 2f
-            val wavelength = 40.dp.toPx() // Wider waves for premium feel
-            
-            // Draw Inactive Track (Full width)
-            val fullPath = Path().apply {
-                moveTo(0f, centerY)
-                var x = 0f
-                while (x < widthPx) {
-                    val relativeX = x / wavelength
-                    val y = centerY + animatedAmplitude.dp.toPx() * sin(relativeX * 2 * PI).toFloat()
-                    lineTo(x, y)
-                    x += 2f
+            Canvas(modifier = Modifier.fillMaxWidth()) {
+                drawRoundRect(
+                    color = trackColor,
+                    topLeft = Offset(trackStart, trackCenterY - trackHeight / 2f),
+                    size = Size(trackWidth, trackHeight),
+                    cornerRadius = CornerRadius(trackHeight / 2f)
+                )
+
+                if (abs(fillEnd - fillStart) > 0.5f) {
+                    drawRoundRect(
+                        color = activeTrackColor,
+                        topLeft = Offset(fillStart, trackCenterY - trackHeight / 2f),
+                        size = Size(fillEnd - fillStart, trackHeight),
+                        cornerRadius = CornerRadius(trackHeight / 2f)
+                    )
+                }
+
+                if (showTicks) {
+                    val intervals = tickCount - 1
+                    repeat(tickCount) { index ->
+                        val tickProgress = index.toFloat() / intervals
+                        val tickX = trackStart + tickProgress * trackWidth
+                        val isActive = if (neutralValue != null) {
+                            tickProgress in minOf(neutralProgress, animatedProgress)..maxOf(neutralProgress, animatedProgress)
+                        } else {
+                            tickProgress <= animatedProgress
+                        }
+
+                        drawCircle(
+                            color = if (isActive) activeTickColor else inactiveTickColor,
+                            radius = 2.5.dp.toPx(),
+                            center = Offset(tickX, trackCenterY)
+                        )
+                    }
+                }
+
+                neutralValue?.let {
+                    drawRoundRect(
+                        color = activeTrackColor,
+                        topLeft = Offset(neutralX - 2.dp.toPx(), trackCenterY - 10.dp.toPx()),
+                        size = Size(4.dp.toPx(), 20.dp.toPx()),
+                        cornerRadius = CornerRadius(2.dp.toPx())
+                    )
                 }
             }
-            drawPath(
-                path = fullPath,
-                color = trackColor,
-                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
-            )
 
-            // Draw Active Track (Clipped by animated progress)
-            val activePath = Path().apply {
-                moveTo(0f, centerY)
-                var x = 0f
-                val activeWidth = widthPx * animatedProgress
-                while (x <= activeWidth) {
-                    val relativeX = x / wavelength
-                    val y = centerY + animatedAmplitude.dp.toPx() * sin(relativeX * 2 * PI).toFloat()
-                    lineTo(x, y)
-                    x += 2f
-                }
-            }
-            drawPath(
-                path = activePath,
-                color = activeTrackColor,
-                style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            (currentX - thumbRadius).roundToInt(),
+                            (trackCenterY - thumbRadius).roundToInt()
+                        )
+                    }
+                    .size(thumbSize)
+                    .graphicsLayer {
+                        scaleX = animatedThumbScale
+                        scaleY = animatedThumbScale
+                    }
+                    .background(activeTrackColor, CircleShape)
+                    .then(
+                        if (isFocused) {
+                            Modifier.border(2.dp, ApertureTheme.colorScheme.onPrimary, CircleShape)
+                        } else {
+                            Modifier
+                        }
+                    )
             )
         }
 
-        // Thumb - Locked vertically to center for cleaner look
-        Box(
+        Row(
             modifier = Modifier
-                .offset {
-                    val xPos = (animatedProgress * (widthPx - thumbSize.toPx()))
-                    IntOffset(xPos.roundToInt(), 0)
-                }
-                .size(thumbSize)
-                .clip(CircleShape)
-                .background(activeTrackColor)
-                .then(
-                    if (isFocused) {
-                        Modifier.border(2.dp, ApertureTheme.colorScheme.onPrimary, CircleShape)
-                    } else {
-                        Modifier
-                    }
-                )
-        )
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(formatSliderValue(valueRange.start), color = ApertureTheme.colorScheme.onSurfaceVariant)
+            Text(
+                formatSliderValue(if (isFocused) clampedValue else (neutralValue ?: valueRange.start)),
+                color = ApertureTheme.colorScheme.onSurfaceVariant
+            )
+            Text(formatSliderValue(valueRange.endInclusive), color = ApertureTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun formatSliderValue(value: Float): String {
+    val rounded = value.roundToInt()
+    return if (abs(value - rounded) < 0.001f) {
+        rounded.toString()
+    } else {
+        "%.2f".format(value).trimEnd('0').trimEnd('.')
     }
 }
