@@ -99,7 +99,7 @@ fun QuickMenuPages(
             .fillMaxHeight(0.62f)
             .padding(horizontal = 32.dp, vertical = 20.dp),
         shape = RoundedCornerShape(32.dp),
-        colors = ClickableSurfaceDefaults.colors(
+        colors = androidx.tv.material3.SurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
         )
     ) {
@@ -281,6 +281,59 @@ private fun QuickMenuTrackPage(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
+private fun QuickMenuTimingAdjustmentControl(
+    label: String,
+    valueMs: Long,
+    supportingText: String,
+    focusRequester: FocusRequester,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onReset: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            QuickMenuAction(
+                label = "−",
+                icon = Icons.Rounded.FastRewind,
+                onClick = onDecrease,
+                focusRequester = focusRequester
+            )
+            Surface(
+                onClick = onReset,
+                modifier = Modifier.weight(1f),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(formatQuickMenuDelay(valueMs), modifier = Modifier.padding(12.dp))
+            }
+            QuickMenuAction(
+                label = "+",
+                icon = Icons.Rounded.FastForward,
+                onClick = onIncrease
+            )
+        }
+        Text(
+            supportingText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private fun formatQuickMenuDelay(delayMs: Long): String = when {
+    delayMs == 0L -> "0 ms"
+    kotlin.math.abs(delayMs) < 1_000L -> String.format(Locale.getDefault(), "%+d ms", delayMs)
+    else -> String.format(Locale.getDefault(), "%+.1f s", delayMs / 1_000f)
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
 private fun QuickMenuSubtitlesPage(
     player: androidx.media3.common.Player,
     firstFocusRequester: FocusRequester,
@@ -297,7 +350,7 @@ private fun QuickMenuSubtitlesPage(
     ) {
         Text("Subtitles", style = MaterialTheme.typography.headlineMedium)
 
-        TimingAdjustmentControl(
+        QuickMenuTimingAdjustmentControl(
             label = "Subtitle sync",
             valueMs = subtitleDelayMs,
             supportingText = "Negative values show subtitles earlier",
