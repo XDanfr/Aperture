@@ -1,0 +1,104 @@
+name: Fix settings page focus and transitions
+
+on:
+  push:
+    branches: [settingsPages]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: settingsPages
+          fetch-depth: 0
+
+      - name: Patch SettingsScreen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/me/xdan/aperture/ui/screen/settings/SettingsScreen.kt')
+          s = p.read_text()
+
+          def replace_once(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'missing {label}')
+              s = s.replace(old, new, 1)
+
+          imports = 'import androidx.compose.animation.AnimatedContent\nimport androidx.compose.animation.fadeIn\nimport androidx.compose.animation.fadeOut\nimport androidx.compose.animation.scaleIn\nimport androidx.compose.animation.togetherWith\nimport androidx.compose.animation.core.tween\n'
+          if 'import androidx.compose.animation.AnimatedContent' not in s:
+              replace_once('import androidx.activity.result.contract.ActivityResultContracts\n', 'import androidx.activity.result.contract.ActivityResultContracts\n' + imports, 'animation imports')
+
+          replace_once(
+              '    val overviewFocusRequester = remember { FocusRequester() }\n    val donateFocusRequester',
+              '    val customisationFocusRequester = remember { FocusRequester() }\n    val libraryFocusRequester = remember { FocusRequester() }\n    val playbackFocusRequester = remember { FocusRequester() }\n    val aboutFocusRequester = remember { FocusRequester() }\n    val donateFocusRequester',
+              'page focus requesters'
+          )
+
+          replace_once(
+              '''    LaunchedEffect(currentPage) {\n        listState.scrollToItem(0)\n        delay(80)\n        if (currentPage == SettingsPage.OVERVIEW) {\n            runCatching { contentEntryFocusRequester.requestFocus() }\n        } else if (currentPage == SettingsPage.CUSTOMISATION && restoreFocusKey == null) {\n            runCatching { contentEntryFocusRequester.requestFocus() }\n        }\n    }''',
+              '''    LaunchedEffect(currentPage) {\n        listState.scrollToItem(0)\n        delay(80)\n        val requester = when (currentPage) {\n            SettingsPage.OVERVIEW -> contentEntryFocusRequester\n            SettingsPage.CUSTOMISATION -> customisationFocusRequester\n            SettingsPage.LIBRARY -> libraryFocusRequester\n            SettingsPage.PLAYBACK -> playbackFocusRequester\n            SettingsPage.ABOUT -> aboutFocusRequester\n        }\n        runCatching { requester.requestFocus() }\n    }''',
+              'page focus effect'
+          )
+
+          # Replace the plain LazyColumn page body with AnimatedContent around it.
+          replace_once(
+              '''            LazyColumn(\n                state = listState,\n                modifier = Modifier\n                    .fillMaxWidth()\n                    .weight(1f)\n                    .padding(start = 72.dp, end = 72.dp, top = 42.dp, bottom = 48.dp),\n                verticalArrangement = Arrangement.spacedBy(14.dp)\n            ) {\n                when (currentPage) {''',
+              '''            androidx.compose.animation.AnimatedContent(\n                targetState = currentPage,\n                modifier = Modifier.fillMaxWidth().weight(1f),\n                transitionSpec = {\n                    (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.96f, animationSpec = tween(260)))\n                        .togetherWith(fadeOut(animationSpec = tween(140)))\n                },\n                label = "settingsPageTransition"\n            ) { page ->\n                LazyColumn(\n                    state = listState,\n                    modifier = Modifier\n                        .fillMaxWidth()\n                        .padding(start = 72.dp, end = 72.dp, top = 42.dp, bottom = 48.dp),\n                    verticalArrangement = Arrangement.spacedBy(14.dp)\n                ) {\n                when (page) {''',
+              'animated page container'
+          )
+          replace_once('''                }\n            }\n        }\n    }\n\n    if (showLicenses) {''', '''                }\n                }\n            }\n        }\n    }\n\n    if (showLicenses) {''', 'animated page closing braces')
+
+          replace_once(
+              '''                                icon = Icons.Rounded.Palette,\n                                focusRequester = contentEntryFocusRequester,\n                                onClick = { currentPage = SettingsPage.CUSTOMISATION }''',
+              '''                                icon = Icons.Rounded.Palette,\n                                focusRequester = customisationFocusRequester,\n                                drawerFocusRequester = drawerFocusRequester,\n                                onClick = { currentPage = SettingsPage.CUSTOMISATION }''',
+              'customisation focus target'
+          )
+          replace_once(
+              '''                                title = "Hidden Media",\n                                subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",\n                                icon = Icons.Rounded.Visibility,\n                                drawerFocusRequester = drawerFocusRequester,''',
+              '''                                title = "Hidden Media",\n                                subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",\n                                icon = Icons.Rounded.Visibility,\n                                drawerFocusRequester = drawerFocusRequester,\n                                focusRequester = libraryFocusRequester,''',
+              'library focus target'
+          )
+          replace_once(
+              '''                                title = "OpenSubtitles.com",\n                                subtitle = when (val session = openSubtitlesSession) {''',
+              '''                                title = "OpenSubtitles.com",\n                                subtitle = when (val session = openSubtitlesSession) {''',
+              'playback marker'
+          )
+          replace_once(
+              '''                                icon = Icons.Rounded.Person,\n                                drawerFocusRequester = drawerFocusRequester,\n                                focusRequester = contentEntryFocusRequester.takeIf {''',
+              '''                                icon = Icons.Rounded.Person,\n                                drawerFocusRequester = drawerFocusRequester,\n                                focusRequester = playbackFocusRequester.takeUnless { restoreFocusKey != null },''',
+              'playback focus target'
+          )
+          replace_once(
+              '''                                title = "Open Source Licences",\n                                subtitle = "Libraries and projects used by Aperture",\n                                icon = Icons.Rounded.Info,\n                                drawerFocusRequester = drawerFocusRequester,\n                                focusRequester = contentEntryFocusRequester.takeIf {''',
+              '''                                title = "Open Source Licences",\n                                subtitle = "Libraries and projects used by Aperture",\n                                icon = Icons.Rounded.Info,\n                                drawerFocusRequester = drawerFocusRequester,\n                                focusRequester = aboutFocusRequester.takeUnless { restoreFocusKey != null },''',
+              'about focus target'
+          )
+
+          # Make page-entry descriptions readable on focused light containers.
+          old = '''private fun SettingsPageEntry(\n    title: String,\n    description: String,\n    icon: ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null\n) {\n    Surface(\n        onClick = onClick,\n        modifier = Modifier.fillMaxWidth(),'''
+          new = '''private fun SettingsPageEntry(\n    title: String,\n    description: String,\n    icon: ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null,\n    drawerFocusRequester: FocusRequester? = null\n) {\n    var isFocused by remember { mutableStateOf(false) }\n    Surface(\n        onClick = onClick,\n        modifier = Modifier\n            .fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)\n            .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)\n            .onFocusChanged { isFocused = it.isFocused },'''
+          replace_once(old, new, 'SettingsPageEntry focus handling')
+          replace_once(
+              '''                    description,\n                    style = MaterialTheme.typography.bodyMedium,\n                    color = MaterialTheme.colorScheme.onSurfaceVariant\n                )''',
+              '''                    description,\n                    style = MaterialTheme.typography.bodyMedium,\n                    color = if (isFocused) {\n                        MaterialTheme.colorScheme.onPrimaryContainer\n                    } else {\n                        MaterialTheme.colorScheme.onSurfaceVariant\n                    }\n                )''',
+              'page entry description contrast'
+          )
+
+          p.write_text(s)
+          PY
+
+      - name: Commit changes and remove workflow
+        run: |
+          rm -f .github/workflows/fix-settings-pages.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/me/xdan/aperture/ui/screen/settings/SettingsScreen.kt .github/workflows/fix-settings-pages.yml
+          git commit -m 'Fix settings page focus and transitions'
+          git push origin settingsPages
