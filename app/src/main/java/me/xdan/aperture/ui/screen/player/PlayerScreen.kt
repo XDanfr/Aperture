@@ -121,10 +121,6 @@ fun PlayerScreen(
     }
 
     DisposableEffect(Unit) {
-        // A TV can otherwise enter the system dream/screensaver while a film is
-        // playing without remote input. View.keepScreenOn maps to Android's
-        // FLAG_KEEP_SCREEN_ON and is cleared as soon as this player route leaves
-        // composition, so normal idle behaviour resumes elsewhere in Aperture.
         val wasKeepingScreenOn = hostView.keepScreenOn
         hostView.keepScreenOn = true
         onDispose {
@@ -165,9 +161,7 @@ fun PlayerScreen(
     }
 
     fun saveProgressAndBack() {
-        if (player.isPlaying) {
-            player.pause()
-        }
+        if (player.isPlaying) player.pause()
         viewModel.saveProgressNow()
         onBack()
     }
@@ -185,9 +179,7 @@ fun PlayerScreen(
             isQuickMenuVisible -> {
                 isQuickMenuVisible = false
                 viewModel.hideOsd()
-                if (wasPlayingBeforeQuickMenu) {
-                    player.play()
-                }
+                if (wasPlayingBeforeQuickMenu) player.play()
                 wasPlayingBeforeQuickMenu = false
             }
             isOsdVisible -> viewModel.hideOsd()
@@ -204,12 +196,8 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { keyEvent ->
-                if (noticeVisible) {
-                    false
-                } else if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    if (isOsdVisible && !isQuickMenuVisible &&
-                        keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK
-                    ) {
+                if (noticeVisible) false else if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                    if (isOsdVisible && !isQuickMenuVisible && keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                         viewModel.showOsdBriefly()
                     }
                     when (keyEvent.nativeKeyEvent.keyCode) {
@@ -240,10 +228,7 @@ fun PlayerScreen(
                                 true
                             } else false
                         }
-                        KeyEvent.KEYCODE_BACK -> {
-                            // BackHandler owns the layered close behaviour.
-                            false
-                        }
+                        KeyEvent.KEYCODE_BACK -> false
                         else -> false
                     }
                 } else false
@@ -271,15 +256,11 @@ fun PlayerScreen(
         SubtitleOverlay(player = player, style = subtitleStyle)
 
         AnimatedVisibility(
-            visible = media != null && playbackState != androidx.media3.common.Player.STATE_READY &&
-                playbackState != androidx.media3.common.Player.STATE_ENDED,
+            visible = media != null && playbackState != androidx.media3.common.Player.STATE_READY && playbackState != androidx.media3.common.Player.STATE_ENDED,
             enter = fadeIn(),
             exit = fadeOut()
-        ) {
-            BufferingOverlay(media = media)
-        }
+        ) { BufferingOverlay(media = media) }
 
-        // OSD
         AnimatedVisibility(
             visible = isOsdVisible && !isQuickMenuVisible,
             enter = fadeIn(animationSpec = tween(220)),
@@ -287,49 +268,26 @@ fun PlayerScreen(
         ) {
             if (classicPlayerControls) {
                 ClassicPlayerOsd(
-                    media = media,
-                    mediaSource = media?.filePath,
-                    player = player,
+                    media = media, mediaSource = media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
                     controlsFocusRequester = controlsFocusRequester,
                     onInteraction = viewModel::showOsdBriefly,
-                    onRestart = {
-                        player.seekTo(0)
-                        viewModel.saveProgressNow()
-                        player.play()
-                        viewModel.showOsdBriefly()
-                    },
-                    onQuickMenu = {
-                        wasPlayingBeforeQuickMenu = player.isPlaying
-                        player.pause()
-                        isQuickMenuVisible = true
-                        viewModel.hideOsd()
-                    },
+                    onRestart = { player.seekTo(0); viewModel.saveProgressNow(); player.play(); viewModel.showOsdBriefly() },
+                    onQuickMenu = { wasPlayingBeforeQuickMenu = player.isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
-                    onPlayerBack = ::saveProgressAndBack,                    initialScrubDirection = pendingScrubDirection,
+                    onPlayerBack = ::saveProgressAndBack,
+                    initialScrubDirection = pendingScrubDirection,
                     onInitialScrubConsumed = { pendingScrubDirection = 0 }
                 )
             } else {
                 ThinPlayerOsd(
-                    media = media,
-                    mediaSource = media?.filePath,
-                    player = player,
+                    media = media, mediaSource = media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
                     controlsFocusRequester = controlsFocusRequester,
                     onInteraction = viewModel::showOsdBriefly,
-                    onRestart = {
-                        player.seekTo(0)
-                        viewModel.saveProgressNow()
-                        player.play()
-                        viewModel.showOsdBriefly()
-                    },
-                    onQuickMenu = {
-                        wasPlayingBeforeQuickMenu = player.isPlaying
-                        player.pause()
-                        isQuickMenuVisible = true
-                        viewModel.hideOsd()
-                    },
+                    onRestart = { player.seekTo(0); viewModel.saveProgressNow(); player.play(); viewModel.showOsdBriefly() },
+                    onQuickMenu = { wasPlayingBeforeQuickMenu = player.isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
                     onPlayerBack = ::saveProgressAndBack,
@@ -338,7 +296,7 @@ fun PlayerScreen(
                 )
             }
         }
-        // Quick Menu
+
         AnimatedVisibility(
             visible = isQuickMenuVisible,
             enter = slideInVertically { it / 2 } + fadeIn(),
@@ -350,23 +308,15 @@ fun PlayerScreen(
                 settingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
                 focusRequester = quickMenuFocusRequester,
                 subtitleDelayMs = subtitleDelayMs,
-                onSubtitleDelayDecrease = {
-                    viewModel.adjustSubtitleDelay(-PlayerViewModel.SYNC_STEP_MS)
-                },
-                onSubtitleDelayIncrease = {
-                    viewModel.adjustSubtitleDelay(PlayerViewModel.SYNC_STEP_MS)
-                },
+                onSubtitleDelayDecrease = { viewModel.adjustSubtitleDelay(-PlayerViewModel.SYNC_STEP_MS) },
+                onSubtitleDelayIncrease = { viewModel.adjustSubtitleDelay(PlayerViewModel.SYNC_STEP_MS) },
                 onSubtitleDelayReset = viewModel::resetSubtitleDelay,
                 videoResizeMode = videoResizeMode.media3Mode,
-                onVideoResizeModeSelected = { mode ->
-                    videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode }
-                },
+                onVideoResizeModeSelected = { mode -> videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode } },
                 onClose = {
                     isQuickMenuVisible = false
                     viewModel.hideOsd()
-                    if (wasPlayingBeforeQuickMenu) {
-                        player.play()
-                    }
+                    if (wasPlayingBeforeQuickMenu) player.play()
                     wasPlayingBeforeQuickMenu = false
                 },
                 onLeavePlayerToOpenSubtitles = onLeavePlayerToOpenSubtitles
@@ -375,31 +325,18 @@ fun PlayerScreen(
 
         compatibilityWarning?.let { warning ->
             PlaybackNotice(
-                title = warning.title,
-                message = warning.message,
-                safeLabel = "Go Back",
-                proceedLabel = warning.proceedLabel,
+                title = warning.title, message = warning.message, safeLabel = "Go Back", proceedLabel = warning.proceedLabel,
                 safeFocusRequester = noticeFocusRequester,
-                onSafe = {
-                    viewModel.dismissCompatibilityWarning()
-                    onBack()
-                },
+                onSafe = { viewModel.dismissCompatibilityWarning(); onBack() },
                 onProceed = viewModel::playDespiteWarning
             )
         }
-
         if (compatibilityWarning == null) {
             playbackFailure?.let { failure ->
                 PlaybackNotice(
-                    title = failure.title,
-                    message = failure.message,
-                    safeLabel = "Go Back",
-                    proceedLabel = "Retry",
+                    title = failure.title, message = failure.message, safeLabel = "Go Back", proceedLabel = "Retry",
                     safeFocusRequester = noticeFocusRequester,
-                    onSafe = {
-                        viewModel.dismissPlaybackFailure()
-                        onBack()
-                    },
+                    onSafe = { viewModel.dismissPlaybackFailure(); onBack() },
                     onProceed = viewModel::retryPlayback
                 )
             }
@@ -412,104 +349,35 @@ private fun BufferingOverlay(media: MediaEntity?) {
     val context = LocalContext.current
     val artworkPath = media?.backdropPath ?: media?.posterPath
     val artworkModel = artworkPath?.let { path ->
-        ImageRequest.Builder(context)
-            .data(
-                TmdbApi.IMAGE_BASE_URL +
-                    (if (media?.backdropPath != null) "w1280" else "w780") + path
-            )
-            .crossfade(true)
-            .build()
+        ImageRequest.Builder(context).data(TmdbApi.IMAGE_BASE_URL + (if (media?.backdropPath != null) "w1280" else "w780") + path).crossfade(true).build()
     }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         artworkModel?.let { model ->
-            AsyncImage(
-                model = model,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.62f))
-        )
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            ExpressiveLoadingIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                size = 52.dp
-            )
-            Text(
-                text = media?.title ?: "Preparing playback…",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White
-            )
-            Text(
-                text = "Buffering…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.8f)
-            )
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.62f)))
+        Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            ExpressiveLoadingIndicator(color = MaterialTheme.colorScheme.primary, size = 52.dp)
+            Text(text = media?.title ?: "Preparing playback…", style = MaterialTheme.typography.titleLarge, color = Color.White)
+            Text(text = "Buffering…", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
         }
     }
 }
 
 @Composable
 private fun PlaybackNotice(
-    title: String,
-    message: String,
-    safeLabel: String,
-    proceedLabel: String,
-    safeFocusRequester: FocusRequester,
-    onSafe: () -> Unit,
-    onProceed: () -> Unit
+    title: String, message: String, safeLabel: String, proceedLabel: String, safeFocusRequester: FocusRequester,
+    onSafe: () -> Unit, onProceed: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.82f))
-            .padding(48.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier.widthIn(max = 680.dp),
-            colors = SurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
-            ),
-            shape = RoundedCornerShape(32.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(32.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).padding(48.dp), contentAlignment = Alignment.Center) {
+        Surface(modifier = Modifier.widthIn(max = 680.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)), shape = RoundedCornerShape(32.dp)) {
+            Column(modifier = Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = onSafe,
-                        modifier = Modifier.focusRequester(safeFocusRequester)
-                    ) {
-                        Text(safeLabel)
-                    }
+                Text(message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onSafe, modifier = Modifier.focusRequester(safeFocusRequester)) { Text(safeLabel) }
                     Spacer(Modifier.width(12.dp))
-                    OutlinedButton(onClick = onProceed) {
-                        Text(proceedLabel)
-                    }
+                    OutlinedButton(onClick = onProceed) { Text(proceedLabel) }
                 }
             }
         }
@@ -517,135 +385,38 @@ private fun PlaybackNotice(
 }
 
 @Composable
-private fun QuickMenu(
-    player: androidx.media3.common.Player,
-    focusRequester: FocusRequester,
-    onlineSubtitleState: OnlineSubtitleState,
-    openSubtitlesSession: OpenSubtitlesSessionState,
-    videoResizeMode: VideoResizeMode,
-    onVideoResizeModeSelected: (VideoResizeMode) -> Unit,
-    subtitleDelayMs: Long,
-    onSubtitleDelayDecrease: () -> Unit,
-    onSubtitleDelayIncrease: () -> Unit,
-    onSubtitleDelayReset: () -> Unit,
-    onSearchOnline: () -> Unit,
-    onDownloadOnline: (OnlineSubtitleOption) -> Unit
-) {
+private fun QuickMenu(player: androidx.media3.common.Player, focusRequester: FocusRequester, onlineSubtitleState: OnlineSubtitleState, openSubtitlesSession: OpenSubtitlesSessionState, videoResizeMode: VideoResizeMode, onVideoResizeModeSelected: (VideoResizeMode) -> Unit, subtitleDelayMs: Long, onSubtitleDelayDecrease: () -> Unit, onSubtitleDelayIncrease: () -> Unit, onSubtitleDelayReset: () -> Unit, onSearchOnline: () -> Unit, onDownloadOnline: (OnlineSubtitleOption) -> Unit) {
     var tracks by remember(player) { mutableStateOf(player.currentTracks) }
     DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks }
-        }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        val listener = object : androidx.media3.common.Player.Listener { override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks } }
+        player.addListener(listener); onDispose { player.removeListener(listener) }
     }
-    
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.54f)
-            .padding(horizontal = 32.dp, vertical = 20.dp),
-        colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
-        shape = RoundedCornerShape(32.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            QuickMenuColumn(
-                title = "Audio",
-                icon = Icons.Rounded.Audiotrack,
-                items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO)
-                    .filter { it.isSupported },
-                emptyLabel = "No compatible audio tracks",
-                onItemSelected = { trackGroup, index ->
-                    if (trackGroup.isTrackSupported(index)) {
-                        player.trackSelectionParameters = player.trackSelectionParameters
-                            .buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                            .setOverrideForType(
-                                TrackSelectionOverride(
-                                    trackGroup.mediaTrackGroup,
-                                    index
-                                )
-                            )
-                            .build()
-                    }
-                }
-            )
-            
-            QuickMenuColumn(
-                title = "Subtitles",
-                icon = Icons.Rounded.Subtitles,
-                items = getTrackItems(tracks, C.TRACK_TYPE_TEXT)
-                    .filter { it.isSupported },
-                emptyLabel = "No compatible subtitle tracks",
-                headerContent = {
-                    TimingAdjustmentControl(
-                        label = "Subtitle sync",
-                        valueMs = subtitleDelayMs,
-                        supportingText = "Negative values show subs earlier",
-                        focusRequester = focusRequester,
-                        onDecrease = onSubtitleDelayDecrease,
-                        onIncrease = onSubtitleDelayIncrease,
-                        onReset = onSubtitleDelayReset
-                    )
-                },
-                onItemSelected = { trackGroup, index ->
-                    if (trackGroup.isTrackSupported(index)) {
-                        player.trackSelectionParameters = player.trackSelectionParameters
-                            .buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            .setOverrideForType(
-                                TrackSelectionOverride(
-                                    trackGroup.mediaTrackGroup,
-                                    index
-                                )
-                            )
-                            .build()
-                    }
-                },
-                onDisable = {
-                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                        .build()
-                },
-                disableLabel = "Off"
-            )
-
-            OnlineSubtitlesColumn(
-                state = onlineSubtitleState,
-                session = openSubtitlesSession,
-                onSearch = onSearchOnline,
-                onDownload = onDownloadOnline
-            )
-
-            PlaybackOptionsColumn(
-                selectedResizeMode = videoResizeMode,
-                onResizeModeSelected = onVideoResizeModeSelected
-            )
+    Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.54f).padding(horizontal = 32.dp, vertical = 20.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)), shape = RoundedCornerShape(32.dp)) {
+        Row(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            QuickMenuColumn(title = "Audio", icon = Icons.Rounded.Audiotrack, items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO).filter { it.isSupported }, emptyLabel = "No compatible audio tracks", onItemSelected = { trackGroup, index ->
+                if (trackGroup.isTrackSupported(index)) player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false).setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index)).build()
+            })
+            QuickMenuColumn(title = "Subtitles", icon = Icons.Rounded.Subtitles, items = getTrackItems(tracks, C.TRACK_TYPE_TEXT).filter { it.isSupported }, emptyLabel = "No compatible subtitle tracks", headerContent = {
+                TimingAdjustmentControl(label = "Subtitle sync", valueMs = subtitleDelayMs, supportingText = "Negative values show subs earlier", focusRequester = focusRequester, onDecrease = onSubtitleDelayDecrease, onIncrease = onSubtitleDelayIncrease, onReset = onSubtitleDelayReset)
+            }, onItemSelected = { trackGroup, index ->
+                if (trackGroup.isTrackSupported(index)) player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index)).build()
+            }, onDisable = {
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).clearOverridesOfType(C.TRACK_TYPE_TEXT).build()
+            }, disableLabel = "Off")
+            OnlineSubtitlesColumn(state = onlineSubtitleState, session = openSubtitlesSession, onSearch = onSearchOnline, onDownload = onDownloadOnline)
+            PlaybackOptionsColumn(selectedResizeMode = videoResizeMode, onResizeModeSelected = onVideoResizeModeSelected)
         }
     }
 }
 
-private enum class VideoResizeMode(
-    val label: String,
-    val description: String,
-    val media3Mode: Int
-) {
+private enum class VideoResizeMode(val label: String, val description: String, val media3Mode: Int) {
     FIT("Fit", "Show the complete picture", AspectRatioFrameLayout.RESIZE_MODE_FIT),
     FILL("Stretch", "Fill the screen without preserving shape", AspectRatioFrameLayout.RESIZE_MODE_FILL),
     ZOOM("Zoom", "Fill the screen and crop the edges", AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
 }
 
 @Composable
-private fun RowScope.PlaybackOptionsColumn(
-    selectedResizeMode: VideoResizeMode,
-    onResizeModeSelected: (VideoResizeMode) -> Unit
-) {
+private fun RowScope.PlaybackOptionsColumn(selectedResizeMode: VideoResizeMode, onResizeModeSelected: (VideoResizeMode) -> Unit) {
     Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.AspectRatio, null, tint = MaterialTheme.colorScheme.primary)
@@ -655,25 +426,10 @@ private fun RowScope.PlaybackOptionsColumn(
         Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(VideoResizeMode.entries) { resizeMode ->
-                Surface(
-                    onClick = { onResizeModeSelected(resizeMode) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (resizeMode == selectedResizeMode) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            Color.Transparent
-                        }
-                    )
-                ) {
+                Surface(onClick = { onResizeModeSelected(resizeMode) }, modifier = Modifier.fillMaxWidth(), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = if (resizeMode == selectedResizeMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)) {
                     Column(modifier = Modifier.padding(8.dp)) {
                         Text(resizeMode.label, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            resizeMode.description,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Text(resizeMode.description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -681,82 +437,28 @@ private fun RowScope.PlaybackOptionsColumn(
     }
 }
 
-data class TrackItem(
-    val name: String,
-    val isSelected: Boolean,
-    val isSupported: Boolean,
-    val group: Tracks.Group,
-    val index: Int
-)
+data class TrackItem(val name: String, val isSelected: Boolean, val isSupported: Boolean, val group: Tracks.Group, val index: Int)
 
 @Composable
-private fun RowScope.QuickMenuColumn(
-    title: String,
-    icon: ImageVector,
-    items: List<Any>,
-    onItemSelected: (Tracks.Group, Int) -> Unit,
-    emptyLabel: String = "No tracks found",
-    headerContent: (@Composable () -> Unit)? = null,
-    onDisable: (() -> Unit)? = null,
-    disableLabel: String? = null
-) {
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-    ) {
+private fun RowScope.QuickMenuColumn(title: String, icon: ImageVector, items: List<Any>, onItemSelected: (Tracks.Group, Int) -> Unit, emptyLabel: String = "No tracks found", headerContent: (@Composable () -> Unit)? = null, onDisable: (() -> Unit)? = null, disableLabel: String? = null) {
+    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
             Text(title, style = MaterialTheme.typography.titleMedium)
         }
-        headerContent?.let {
-            Spacer(Modifier.height(12.dp))
-            it()
-        }
+        headerContent?.let { Spacer(Modifier.height(12.dp)); it() }
         Spacer(Modifier.height(12.dp))
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (items.isEmpty()) {
-                item {
-                    Text(
-                        emptyLabel,
-                        modifier = Modifier.padding(8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-            if (onDisable != null && disableLabel != null) {
-                item {
-                    Surface(
-                        onClick = onDisable,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
-                    ) { Text(disableLabel, modifier = Modifier.padding(8.dp)) }
-                }
+        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (items.isEmpty()) item { Text(emptyLabel, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
+            if (onDisable != null && disableLabel != null) item {
+                Surface(onClick = onDisable, modifier = Modifier.fillMaxWidth(), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))) { Text(disableLabel, modifier = Modifier.padding(8.dp)) }
             }
             items(items) { item ->
                 val label = if (item is TrackItem) item.name else item.toString()
                 val isSelected = if (item is TrackItem) item.isSelected else false
-                
-                Surface(
-                    onClick = { 
-                        if (item is TrackItem) onItemSelected(item.group, item.index)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    )
-                ) {
-                    Text(
-                        label,
-                        modifier = Modifier.padding(8.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                Surface(onClick = { if (item is TrackItem) onItemSelected(item.group, item.index) }, modifier = Modifier.fillMaxWidth(), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)) {
+                    Text(label, modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -764,70 +466,22 @@ private fun RowScope.QuickMenuColumn(
 }
 
 @Composable
-private fun TimingAdjustmentControl(
-    label: String,
-    valueMs: Long,
-    supportingText: String,
-    focusRequester: FocusRequester? = null,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    onReset: () -> Unit
-) {
+private fun TimingAdjustmentControl(label: String, valueMs: Long, supportingText: String, focusRequester: FocusRequester? = null, onDecrease: () -> Unit, onIncrease: () -> Unit, onReset: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TimingButton(
-                label = "−",
-                onClick = onDecrease,
-                modifier = if (focusRequester != null) {
-                    Modifier.focusRequester(focusRequester)
-                } else {
-                    Modifier
-                }
-            )
-            TimingButton(
-                label = formatDelay(valueMs),
-                onClick = onReset,
-                modifier = Modifier.weight(1f)
-            )
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            TimingButton(label = "−", onClick = onDecrease, modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            TimingButton(label = formatDelay(valueMs), onClick = onReset, modifier = Modifier.weight(1f))
             TimingButton(label = "+", onClick = onIncrease)
         }
-        Text(
-            supportingText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
+        Text(supportingText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
 
 @Composable
-private fun TimingButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(38.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            focusedContainerColor = MaterialTheme.colorScheme.primary,
-            focusedContentColor = MaterialTheme.colorScheme.onPrimary
-        )
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
+private fun TimingButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, modifier = modifier.height(38.dp), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary)) {
+        Box(modifier = Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
@@ -840,12 +494,7 @@ private fun formatDelay(delayMs: Long): String = when {
 }
 
 @Composable
-private fun RowScope.OnlineSubtitlesColumn(
-    state: OnlineSubtitleState,
-    session: OpenSubtitlesSessionState,
-    onSearch: () -> Unit,
-    onDownload: (OnlineSubtitleOption) -> Unit
-) {
+private fun RowScope.OnlineSubtitlesColumn(state: OnlineSubtitleState, session: OpenSubtitlesSessionState, onSearch: () -> Unit, onDownload: (OnlineSubtitleOption) -> Unit) {
     Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.primary)
@@ -854,50 +503,23 @@ private fun RowScope.OnlineSubtitlesColumn(
         }
         Spacer(Modifier.height(16.dp))
         if (session !is OpenSubtitlesSessionState.SignedIn) {
-            Text(
-                "Sign in from Settings",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text("Sign in from Settings", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
-            Surface(
-                onClick = onSearch,
-                enabled = state !is OnlineSubtitleState.Loading &&
-                    state !is OnlineSubtitleState.Downloading,
-                modifier = Modifier.fillMaxWidth(),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
-            ) {
-                Text(
-                    if (state is OnlineSubtitleState.Loading) "Searching…" else "Search online",
-                    modifier = Modifier.padding(8.dp)
-                )
+            Surface(onClick = onSearch, enabled = state !is OnlineSubtitleState.Loading && state !is OnlineSubtitleState.Downloading, modifier = Modifier.fillMaxWidth(), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))) {
+                Text(if (state is OnlineSubtitleState.Loading) "Searching…" else "Search online", modifier = Modifier.padding(8.dp))
             }
             Spacer(Modifier.height(8.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (state) {
                     is OnlineSubtitleState.Results -> {
-                        if (state.options.isEmpty()) {
-                            item { Text("No subtitles found", style = MaterialTheme.typography.bodySmall) }
-                        }
+                        if (state.options.isEmpty()) item { Text("No subtitles found", style = MaterialTheme.typography.bodySmall) }
                         items(state.options, key = { it.fileId }) { option ->
-                            Surface(
-                                onClick = { onDownload(option) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))
-                            ) {
-                                Text(option.label, modifier = Modifier.padding(8.dp))
-                            }
+                            Surface(onClick = { onDownload(option) }, modifier = Modifier.fillMaxWidth(), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp))) { Text(option.label, modifier = Modifier.padding(8.dp)) }
                         }
                     }
-                    is OnlineSubtitleState.Downloading -> item {
-                        Text("Downloading ${state.label}…", style = MaterialTheme.typography.bodySmall)
-                    }
-                    is OnlineSubtitleState.Attached -> item {
-                        Text("Attached ${state.label}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    is OnlineSubtitleState.Error -> item {
-                        Text(state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
+                    is OnlineSubtitleState.Downloading -> item { Text("Downloading ${state.label}…", style = MaterialTheme.typography.bodySmall) }
+                    is OnlineSubtitleState.Attached -> item { Text("Attached ${state.label}", style = MaterialTheme.typography.bodySmall) }
+                    is OnlineSubtitleState.Error -> item { Text(state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     else -> Unit
                 }
             }
@@ -906,190 +528,76 @@ private fun RowScope.OnlineSubtitlesColumn(
 }
 
 @Composable
-private fun SubtitleOverlay(
-    player: androidx.media3.common.Player,
-    style: PlayerSubtitleStyle
-) {
+private fun SubtitleOverlay(player: androidx.media3.common.Player, style: PlayerSubtitleStyle) {
     var cues by remember(player) { mutableStateOf(CueGroup.EMPTY_TIME_ZERO) }
     DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onCues(cueGroup: CueGroup) { cues = cueGroup }
-        }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        val listener = object : androidx.media3.common.Player.Listener { override fun onCues(cueGroup: CueGroup) { cues = cueGroup } }
+        player.addListener(listener); onDispose { player.removeListener(listener) }
     }
-    val textColour = when (style.colour) {
-        "yellow" -> android.graphics.Color.YELLOW
-        "cyan" -> android.graphics.Color.CYAN
-        else -> android.graphics.Color.WHITE
-    }
-    val backgroundColour = android.graphics.Color.argb(
-        (style.backgroundOpacity.coerceIn(0f, 0.9f) * 255).toInt(), 12, 12, 14
-    )
-    AndroidView(
-        factory = { context ->
-            SubtitleView(context).apply {
-                // Use Aperture's subtitle appearance settings instead of
-                // letting embedded cue styling replace the configured colors.
-                setApplyEmbeddedStyles(false)
-            }
-        },
-        update = { view ->
-            view.setCues(cues.cues)
-            view.setFractionalTextSize(0.0533f * style.textScale)
-            view.setStyle(
-                CaptionStyleCompat(
-                    textColour,
-                    android.graphics.Color.TRANSPARENT,
-                    backgroundColour,
-                    CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
-                    android.graphics.Color.BLACK,
-                    android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
-                )
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    )
+    val textColour = when (style.colour) { "yellow" -> android.graphics.Color.YELLOW; "cyan" -> android.graphics.Color.CYAN; else -> android.graphics.Color.WHITE }
+    val backgroundColour = android.graphics.Color.argb((style.backgroundOpacity.coerceIn(0f, 0.9f) * 255).toInt(), 12, 12, 14)
+    AndroidView(factory = { context -> SubtitleView(context).apply { setApplyEmbeddedStyles(false) } }, update = { view ->
+        view.setCues(cues.cues)
+        view.setFractionalTextSize(0.0533f * style.textScale)
+        view.setStyle(CaptionStyleCompat(textColour, android.graphics.Color.TRANSPARENT, backgroundColour, CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW, android.graphics.Color.BLACK, android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)))
+    }, modifier = Modifier.fillMaxSize())
 }
 
 private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
     val items = mutableListOf<TrackItem>()
     tracks.groups.forEach { group ->
-        if (group.type == type) {
-            for (i in 0 until group.length) {
-                items.add(
-                    TrackItem(
-                        name = group.getTrackFormat(i).let { format ->
-                            format.label ?: format.language?.uppercase() ?: when (type) {
-                                C.TRACK_TYPE_AUDIO -> "Audio ${i + 1}"
-                                C.TRACK_TYPE_TEXT -> "Subtitle ${i + 1}"
-                                else -> "Track ${i + 1}"
-                            }
-                        },
-                        isSelected = group.isTrackSelected(i),
-                        isSupported = group.isTrackSupported(i),
-                        group = group,
-                        index = i
-                    )
-                )
-            }
+        if (group.type == type) for (i in 0 until group.length) {
+            items.add(TrackItem(name = group.getTrackFormat(i).let { format -> format.label ?: format.language?.uppercase() ?: when (type) { C.TRACK_TYPE_AUDIO -> "Audio ${i + 1}"; C.TRACK_TYPE_TEXT -> "Subtitle ${i + 1}"; else -> "Track ${i + 1}" } }, isSelected = group.isTrackSelected(i), isSupported = group.isTrackSupported(i), group = group, index = i))
         }
     }
     return items
 }
 
 @Composable
-private fun ThinPlayerOsd(
-    media: MediaEntity?,
-    mediaSource: String?,
-    player: androidx.media3.common.Player,
-    isVisible: Boolean,
-    controlsFocusRequester: FocusRequester,
-    onInteraction: () -> Unit,
-    onRestart: () -> Unit,
-    onQuickMenu: () -> Unit,
-    onScrubbingChanged: (Boolean) -> Unit,
-    onCloseOsd: () -> Unit,
-    onPlayerBack: () -> Unit,
-    initialScrubDirection: Int = 0,
-    onInitialScrubConsumed: () -> Unit = {}
-) {
+private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: androidx.media3.common.Player, isVisible: Boolean, controlsFocusRequester: FocusRequester, onInteraction: () -> Unit, onRestart: () -> Unit, onQuickMenu: () -> Unit, onScrubbingChanged: (Boolean) -> Unit, onCloseOsd: () -> Unit, onPlayerBack: () -> Unit, initialScrubDirection: Int = 0, onInitialScrubConsumed: () -> Unit = {}) {
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
     var isPlaying by remember { mutableStateOf(player.isPlaying) }
     var isScrubbing by remember { mutableStateOf(false) }
     var playFocused by remember { mutableStateOf(false) }
     val topFocusRequester = remember { FocusRequester() }
-
     var originalPosition by remember { mutableLongStateOf(player.currentPosition) }
     var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
     var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
     var holdDirection by remember { mutableIntStateOf(0) }
     var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val scope = rememberCoroutineScope()
-
-    val uiAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isScrubbing) 0f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(180),
-        label = "thinOsdUiAlpha"
-    )
-    val backgroundAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isScrubbing) 0.76f else 0.52f,
-        animationSpec = androidx.compose.animation.core.tween(220),
-        label = "thinOsdBackgroundAlpha"
-    )
-    val entryAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isVisible) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(150),
-        label = "thinOsdEntryAlpha"
-    )
-    val entryScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isVisible) 1f else 0.92f,
-        animationSpec = androidx.compose.animation.core.spring(
-            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
-            dampingRatio = 0.72f
-        ),
-        label = "thinOsdEntryScale"
-    )
-
+    val uiAlpha by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isScrubbing) 0f else 1f, animationSpec = androidx.compose.animation.core.tween(180), label = "thinOsdUiAlpha")
+    val backgroundAlpha by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isScrubbing) 0.76f else 0.52f, animationSpec = androidx.compose.animation.core.tween(220), label = "thinOsdBackgroundAlpha")
+    val entryAlpha by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isVisible) 1f else 0f, animationSpec = androidx.compose.animation.core.tween(150), label = "thinOsdEntryAlpha")
+    val entryScale by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isVisible) 1f else 0.92f, animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow, dampingRatio = 0.72f), label = "thinOsdEntryScale")
     DisposableEffect(player) {
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlaybackStateChanged(state: Int) { duration = player.duration }
         }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        player.addListener(listener); onDispose { player.removeListener(listener) }
     }
-
     LaunchedEffect(player) {
         while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-            currentPosition = player.currentPosition
-            duration = player.duration
-            kotlinx.coroutines.delay(33)
+            currentPosition = player.currentPosition; duration = player.duration; kotlinx.coroutines.delay(33)
         }
     }
-
-    fun endHold() {
-        holdDirection = 0
-        seekJob?.cancel()
-        seekJob = null
-    }
-
+    fun endHold() { holdDirection = 0; seekJob?.cancel(); seekJob = null }
     fun beginScrubbing(direction: Int, startHold: Boolean = true) {
         if (!isScrubbing) {
-            originalPosition = player.currentPosition
-            seekPosition = originalPosition
-            wasPlayingBeforeScrub = player.isPlaying
-            isScrubbing = true
-            onScrubbingChanged(true)
-            player.pause()
+            originalPosition = player.currentPosition; seekPosition = originalPosition; wasPlayingBeforeScrub = player.isPlaying; isScrubbing = true; onScrubbingChanged(true); player.pause()
         }
-
-        seekPosition = if (direction < 0) {
-            (seekPosition - 10_000L).coerceAtLeast(0L)
-        } else {
-            (seekPosition + 10_000L).coerceAtMost(duration)
-        }
-
+        seekPosition = if (direction < 0) (seekPosition - 10_000L).coerceAtLeast(0L) else (seekPosition + 10_000L).coerceAtMost(duration)
         if (!startHold) return
         if (holdDirection == direction && seekJob?.isActive == true) return
-
-        holdDirection = direction
-        seekJob?.cancel()
+        holdDirection = direction; seekJob?.cancel()
         seekJob = scope.launch {
-            val startedAt = android.os.SystemClock.elapsedRealtime()
-            var lastStepAt = startedAt
-            seekPosition = if (direction < 0) {
-                (seekPosition - 10_000L).coerceAtLeast(0L)
-            } else {
-                (seekPosition + 10_000L).coerceAtMost(duration)
-            }
-
+            val startedAt = android.os.SystemClock.elapsedRealtime(); var lastStepAt = startedAt
+            seekPosition = if (direction < 0) (seekPosition - 10_000L).coerceAtLeast(0L) else (seekPosition + 10_000L).coerceAtMost(duration)
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                val now = android.os.SystemClock.elapsedRealtime()
-                val elapsed = now - startedAt
-                val interval: Long
-                val step: Long
+                val now = android.os.SystemClock.elapsedRealtime(); val elapsed = now - startedAt
+                val interval: Long; val step: Long
                 when {
                     elapsed < 1_000L -> { interval = 250L; step = 10_000L }
                     elapsed < 2_500L -> { interval = 220L; step = 20_000L }
@@ -1097,215 +605,75 @@ private fun ThinPlayerOsd(
                     elapsed < 8_000L -> { interval = 140L; step = 60_000L }
                     else -> { interval = 110L; step = 120_000L }
                 }
-                if (now - lastStepAt >= interval) {
-                    seekPosition = if (direction < 0) {
-                        (seekPosition - step).coerceAtLeast(0L)
-                    } else {
-                        (seekPosition + step).coerceAtMost(duration)
-                    }
-                    lastStepAt = now
-                }
+                if (now - lastStepAt >= interval) { seekPosition = if (direction < 0) (seekPosition - step).coerceAtLeast(0L) else (seekPosition + step).coerceAtMost(duration); lastStepAt = now }
                 kotlinx.coroutines.delay(16L)
             }
         }
     }
-
     LaunchedEffect(initialScrubDirection) {
-        if (initialScrubDirection != 0) {
-            beginScrubbing(initialScrubDirection, startHold = false)
-            onInitialScrubConsumed()
-        }
+        if (initialScrubDirection != 0) { beginScrubbing(initialScrubDirection, startHold = false); onInitialScrubConsumed() }
     }
-
     fun commitScrubbing() {
         if (!isScrubbing) return
-        endHold()
-        player.seekTo(seekPosition.coerceIn(0L, duration))
-        isScrubbing = false
-        onScrubbingChanged(false)
-        if (wasPlayingBeforeScrub) player.play()
+        endHold(); player.seekTo(seekPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play()
     }
-
     fun cancelScrubbing(closeOsd: Boolean = false) {
         if (!isScrubbing) return
-        endHold()
-        player.seekTo(originalPosition.coerceIn(0L, duration))
-        isScrubbing = false
-        onScrubbingChanged(false)
-        if (wasPlayingBeforeScrub) player.play()
-        controlsFocusRequester.requestFocus()
-        if (closeOsd) onCloseOsd()
+        endHold(); player.seekTo(originalPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play(); controlsFocusRequester.requestFocus(); if (closeOsd) onCloseOsd()
     }
-
-    BackHandler(enabled = isScrubbing) {
-        cancelScrubbing()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = backgroundAlpha))
-            .padding(48.dp)
-            .onPreviewKeyEvent { event ->
-                val keyCode = event.nativeKeyEvent.keyCode
-                when (event.nativeKeyEvent.action) {
-                    KeyEvent.ACTION_DOWN -> when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (isScrubbing || playFocused) { beginScrubbing(-1); true } else false
-                        }
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (isScrubbing || playFocused) { beginScrubbing(1); true } else false
-                        }
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                            if (isScrubbing) { commitScrubbing(); true } else false
-                        }
-                        KeyEvent.KEYCODE_DPAD_UP -> {
-                            if (isScrubbing) {
-                                cancelScrubbing(closeOsd = true)
-                                true
-                            } else if (playFocused) {
-                                topFocusRequester.requestFocus()
-                                true
-                            } else false
-                        }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            if (isScrubbing) {
-                                cancelScrubbing()
-                                onQuickMenu()
-                                true
-                            } else if (playFocused) {
-                                onQuickMenu()
-                                true
-                            } else false
-                        }
-                        else -> false
-                    }
-                    KeyEvent.ACTION_UP -> when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            endHold(); true
-                        }
-                        else -> false
-                    }
-                    else -> false
-                }
+    BackHandler(enabled = isScrubbing) { cancelScrubbing() }
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = backgroundAlpha)).padding(48.dp).onPreviewKeyEvent { event ->
+        val keyCode = event.nativeKeyEvent.keyCode
+        when (event.nativeKeyEvent.action) {
+            KeyEvent.ACTION_DOWN -> when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (isScrubbing || playFocused) { beginScrubbing(-1); true } else false
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (isScrubbing || playFocused) { beginScrubbing(1); true } else false
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> if (isScrubbing) { commitScrubbing(); true } else false
+                KeyEvent.KEYCODE_DPAD_UP -> if (isScrubbing) { cancelScrubbing(closeOsd = true); true } else if (playFocused) { topFocusRequester.requestFocus(); true } else false
+                KeyEvent.KEYCODE_DPAD_DOWN -> if (isScrubbing) { cancelScrubbing(); onQuickMenu(); true } else if (playFocused) { onQuickMenu(); true } else false
+                else -> false
             }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopStart)
-                .graphicsLayer {
-                    alpha = uiAlpha * entryAlpha
-                    val scale = (0.97f + (0.03f * uiAlpha)) * entryScale
-                    scaleX = scale
-                    scaleY = scale
-                    translationY = -16f * (1f - uiAlpha)
-                }
-        ) {
+            KeyEvent.ACTION_UP -> when (keyCode) { KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { endHold(); true }; else -> false }
+            else -> false
+        }
+    }) {
+        Column(modifier = Modifier.fillMaxWidth().align(Alignment.TopStart).graphicsLayer {
+            alpha = uiAlpha * entryAlpha
+            val scale = (0.97f + (0.03f * uiAlpha)) * entryScale
+            scaleX = scale; scaleY = scale; translationY = -16f * (1f - uiAlpha)
+        }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.Replay,
-                    contentDescription = "Restart",
-                    onClick = onRestart,
-                    modifier = Modifier.focusRequester(topFocusRequester)
-                )
+                PlayerControlIconButton(icon = Icons.Rounded.Replay, contentDescription = "Restart", onClick = onRestart, modifier = Modifier.focusRequester(topFocusRequester))
                 Spacer(Modifier.width(8.dp))
-                PlayerControlIconButton(
-                    icon = Icons.Rounded.ArrowBack,
-                    contentDescription = "Close player controls",
-                    onClick = onPlayerBack
-                )
+                PlayerControlIconButton(icon = Icons.Rounded.ArrowBack, contentDescription = "Close player controls", onClick = onPlayerBack)
             }
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = media?.title ?: "",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White
-            )
+            Text(text = media?.title ?: "", style = MaterialTheme.typography.titleLarge, color = Color.White)
             if (media?.type == "EPISODE") {
                 val episodeLabel = buildString {
-                    if (media.seasonNumber != null && media.episodeNumber != null) {
-                        append("S%02d:E%02d".format(media.seasonNumber, media.episodeNumber))
-                    }
-                    if (!media.episodeTitle.isNullOrBlank()) {
-                        if (isNotEmpty()) append(" ")
-                        append('"')
-                        append(media.episodeTitle)
-                        append('"')
-                    }
+                    if (media.seasonNumber != null && media.episodeNumber != null) append("S%02d:E%02d".format(media.seasonNumber, media.episodeNumber))
+                    if (!media.episodeTitle.isNullOrBlank()) { if (isNotEmpty()) append(" "); append('"'); append(media.episodeTitle); append('"') }
                 }
-                if (episodeLabel.isNotBlank()) {
-                    Text(
-                        text = episodeLabel,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.82f),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+                if (episodeLabel.isNotBlank()) Text(text = episodeLabel, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.82f), modifier = Modifier.padding(top = 4.dp))
             }
         }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomStart),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.graphicsLayer {
-                    alpha = uiAlpha * entryAlpha
-                    val scale = (0.97f + (0.03f * uiAlpha)) * entryScale
-                    scaleX = scale
-                    scaleY = scale
-                },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PlayerControlIconButton(
-                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    iconSize = 56.dp,
-                    onClick = {
-                        if (isPlaying) player.pause() else player.play()
-                        onInteraction()
-                    },
-                    modifier = Modifier
-                        .focusRequester(controlsFocusRequester)
-                        .onFocusChanged { playFocused = it.isFocused }
-                )
+        Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.graphicsLayer { alpha = uiAlpha * entryAlpha; val scale = (0.97f + (0.03f * uiAlpha)) * entryScale; scaleX = scale; scaleY = scale }, verticalAlignment = Alignment.CenterVertically) {
+                PlayerControlIconButton(icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (isPlaying) "Pause" else "Play", iconSize = 56.dp, onClick = { if (isPlaying) player.pause() else player.play(); onInteraction() }, modifier = Modifier.focusRequester(controlsFocusRequester).onFocusChanged { playFocused = it.isFocused })
             }
-
             Spacer(Modifier.width(12.dp))
-
-            Text(
-                text = formatTime(currentPosition),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
-                modifier = Modifier.graphicsLayer {
-                    alpha = uiAlpha
-                }
-            )
-
+            Text(text = formatTime(currentPosition), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
             Spacer(Modifier.width(10.dp))
-
-            PlayerSeekProgress(
-                player = player,
-                mediaSource = mediaSource,
-                progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f,
-                isPlaying = isPlaying,
-                scrubbing = isScrubbing,
-                seekPosition = seekPosition,
-                modifier = Modifier.weight(1f).height(24.dp)
-            )
-
+            PlayerSeekProgress(player = player, mediaSource = mediaSource, progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f, isPlaying = isPlaying, scrubbing = isScrubbing, seekPosition = seekPosition, modifier = Modifier.weight(1f).height(24.dp))
             Spacer(Modifier.width(10.dp))
-
+            Text(text = formatTime(duration), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
+        }
+        if (!isScrubbing) {
             Text(
-                text = formatTime(duration),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
-                modifier = Modifier.graphicsLayer {
-                    alpha = uiAlpha
-                }
+                text = "⌄",
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 76.dp),
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White.copy(alpha = 0.62f)
             )
         }
     }
@@ -1313,150 +681,49 @@ private fun ThinPlayerOsd(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PlayerSeekProgress(
-    player: androidx.media3.common.Player,
-    mediaSource: String?,
-    progress: Float,
-    isPlaying: Boolean,
-    scrubbing: Boolean,
-    seekPosition: Long,
-    modifier: Modifier = Modifier
-) {
+private fun PlayerSeekProgress(player: androidx.media3.common.Player, mediaSource: String?, progress: Float, isPlaying: Boolean, scrubbing: Boolean, seekPosition: Long, modifier: Modifier = Modifier) {
     val duration = player.duration.coerceAtLeast(0L)
     val context = LocalContext.current
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val previewLoader = remember(context) { PreviewFrameLoader(context) }
-
-    val targetProgress = if (scrubbing && duration > 0L) {
-        (seekPosition.toFloat() / duration).coerceIn(0f, 1f)
-    } else {
-        progress.coerceIn(0f, 1f)
-    }
-    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = targetProgress,
-        animationSpec = androidx.compose.animation.core.tween(80),
-        label = "thinSeekProgress"
-    )
-    val waveAmplitude =
-        if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
+    val targetProgress = if (scrubbing && duration > 0L) (seekPosition.toFloat() / duration).coerceIn(0f, 1f) else progress.coerceIn(0f, 1f)
+    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(targetValue = targetProgress, animationSpec = androidx.compose.animation.core.tween(80), label = "thinSeekProgress")
+    val waveAmplitude = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
     val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
-
     LaunchedEffect(previewPosition, scrubbing, mediaSource) {
         previewBitmap = null
         if (!scrubbing || mediaSource.isNullOrBlank() || previewPosition < 0L) return@LaunchedEffect
-        delay(100)
-        previewBitmap = previewLoader.load(mediaSource, previewPosition)
+        delay(100); previewBitmap = previewLoader.load(mediaSource, previewPosition)
     }
-
-    DisposableEffect(previewLoader) {
-        onDispose { previewLoader.clear() }
-    }
-
-    BoxWithConstraints(
-        modifier = modifier.layout { measurable, constraints ->
-            val relaxed = constraints.copy(maxHeight = maxOf(constraints.maxHeight, 240.dp.roundToPx()))
-            val placeable = measurable.measure(relaxed)
-            val reportedHeight = 24.dp.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
-            layout(constraints.maxWidth, reportedHeight) {
-                placeable.placeRelative(0, (reportedHeight - placeable.height) / 2)
-            }
-        }
-    ) {
+    DisposableEffect(previewLoader) { onDispose { previewLoader.clear() } }
+    BoxWithConstraints(modifier = modifier.layout { measurable, constraints ->
+        val relaxed = constraints.copy(maxHeight = maxOf(constraints.maxHeight, 240.dp.roundToPx()))
+        val placeable = measurable.measure(relaxed)
+        val reportedHeight = 24.dp.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(constraints.maxWidth, reportedHeight) { placeable.placeRelative(0, (reportedHeight - placeable.height) / 2) }
+    }) {
         if (scrubbing) {
-            val previewWidth = 320.dp
-            val previewHeight = 180.dp
-            val previewX = ((maxWidth - previewWidth) * animatedProgress)
-                .coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
-            Surface(
-                modifier = Modifier
-                    .width(previewWidth)
-                    .wrapContentHeight()
-                    .offset(x = previewX, y = -(previewHeight + 28.dp) / 2)
-                    .align(Alignment.CenterStart),
-                shape = RoundedCornerShape(24.dp),
-                colors = SurfaceDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
-                ),
-                tonalElevation = 6.dp
-            ) {
+            val previewWidth = 320.dp; val previewHeight = 180.dp
+            val previewX = ((maxWidth - previewWidth) * animatedProgress).coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
+            Surface(modifier = Modifier.width(previewWidth).wrapContentHeight().offset(x = previewX, y = -(previewHeight + 28.dp) / 2).align(Alignment.CenterStart), shape = RoundedCornerShape(24.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)), tonalElevation = 6.dp) {
                 Column {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(previewHeight)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (previewBitmap != null) {
-                            Image(
-                                bitmap = previewBitmap!!.asImageBitmap(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            ExpressiveLoadingIndicator(
-                                color = MaterialTheme.colorScheme.primary,
-                                size = 28.dp
-                            )
-                        }
+                    Box(modifier = Modifier.fillMaxWidth().height(previewHeight).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                        if (previewBitmap != null) Image(bitmap = previewBitmap!!.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) else ExpressiveLoadingIndicator(color = MaterialTheme.colorScheme.primary, size = 28.dp)
                     }
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = formatTime(seekPosition),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                        Text(text = formatTime(seekPosition), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
         }
-
-        LinearWavyProgressIndicator(
-            progress = { animatedProgress },
-            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
-            stopSize = 0.dp,
-            amplitude = { waveAmplitude },
-            wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
-        )
+        LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { waveAmplitude }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
     }
 }
+
 @Composable
-private fun PlayerControlIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 48.dp
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.then(Modifier.clip(CircleShape)),
-        colors = IconButtonDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = Color.White,
-            focusedContainerColor = MaterialTheme.colorScheme.primary,
-            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
-            pressedContainerColor = MaterialTheme.colorScheme.primary,
-            pressedContentColor = MaterialTheme.colorScheme.onPrimary
-        ),
-        scale = IconButtonDefaults.scale(
-            scale = 1f,
-            focusedScale = 1.12f,
-            pressedScale = 0.84f
-        )
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(iconSize)
-        )
+private fun PlayerControlIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier, iconSize: Dp = 48.dp) {
+    IconButton(onClick = onClick, modifier = modifier.then(Modifier.clip(CircleShape)), colors = IconButtonDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary), scale = IconButtonDefaults.scale(scale = 1f, focusedScale = 1.12f, pressedScale = 0.84f)) {
+        Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(iconSize))
     }
 }
 
@@ -1465,9 +732,5 @@ private fun formatTime(ms: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
-    } else {
-        "%02d:%02d".format(minutes, seconds)
-    }
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%02d:%02d".format(minutes, seconds)
 }
