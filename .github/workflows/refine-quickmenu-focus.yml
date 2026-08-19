@@ -14,247 +14,602 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch Quick Menu focus and empty states
+      - name: Patch Quick Menu focus and styling
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          pages_path = Path('app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt')
-          text = pages_path.read_text()
+          path = Path("app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt")
+          text = path.read_text()
 
           def replace(old: str, new: str, label: str, count: int = 1) -> None:
-              global text
-              if text.count(old) != count:
-                  raise SystemExit(f'{label}: expected {count}, found {text.count(old)}')
-              text = text.replace(old, new, count)
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f"{label}: expected {count}, found {actual}")
+              globals()["text"] = text.replace(old, new, count)
+
+          # Imports used by the focus boundary and centered empty states.
+          replace(
+              "import android.view.KeyEvent\n", "", "remove KeyEvent import"
+          )
+          replace(
+              "import androidx.compose.ui.input.key.onPreviewKeyEvent\n", "", "remove key handler import"
+          )
+          replace(
+              "import androidx.compose.foundation.layout.padding\n",
+              "import androidx.compose.foundation.layout.PaddingValues\nimport androidx.compose.foundation.layout.padding\n",
+              "PaddingValues import"
+          )
+          replace(
+              "import androidx.compose.runtime.setValue\n",
+              "import androidx.compose.runtime.setValue\nimport androidx.compose.runtime.withFrameNanos\n",
+              "frame import"
+          )
+          replace(
+              "import androidx.compose.ui.focus.focusRequester\n",
+              "import androidx.compose.ui.focus.focusProperties\nimport androidx.compose.ui.focus.focusRequester\nimport androidx.compose.ui.focus.onFocusChanged\n",
+              "focus imports"
+          )
+
+          # Root focus boundary and page-entry focus timing.
+          replace(
+              "    var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }\n    val pageFocusRequester = remember { FocusRequester() }",
+              "    var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }\n    val pageFocusRequester = remember { FocusRequester() }\n    val closeFocusRequester = remember { FocusRequester() }",
+              "close requester"
+          )
+          replace(
+              '''    LaunchedEffect(page) {
+        if (page == QuickMenuPage.Categories) {
+            focusRequester.requestFocus()
+        } else {
+            pageFocusRequester.requestFocus()
+        }
+    }''',
+              '''    LaunchedEffect(page) {
+        withFrameNanos { }
+        withFrameNanos { }
+        if (page == QuickMenuPage.Categories) {
+            focusRequester.requestFocus()
+        } else {
+            pageFocusRequester.requestFocus()
+        }
+    }''',
+              "page focus timing"
+          )
+          replace(
+              '''    Surface(
+        modifier = Modifier
+            .onPreviewKeyEvent { event ->
+                if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP
+                ) {
+                    onClose()
+                    true
+                } else {
+                    false
+                }
+            }
+            .fillMaxWidth()''',
+              '''    Surface(
+        modifier = Modifier
+            .fillMaxWidth()''',
+              "remove root Up handler"
+          )
+          replace(
+              '''    ) {
+        AnimatedContent(''',
+              '''    ) {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .size(1.dp)
+                    .focusRequester(closeFocusRequester)
+                    .focusable()
+                    .onFocusChanged { if (it.isFocused) onClose() }
+            )
+
+        AnimatedContent(''',
+              "close focus target"
+          )
+          replace(
+              '''            }
+        }
+    }
+}''',
+              '''            }
+        }
+        }
+    }
+}''',
+              "close focus wrapper"
+          )
+
+          # Thread the close target through every page.
+          replace(
+              '''                QuickMenuPage.Categories -> QuickMenuCategories(
+                    focusRequester = focusRequester,
+                    onSelected = { page = it }
+                )''',
+              '''                QuickMenuPage.Categories -> QuickMenuCategories(
+                    focusRequester = focusRequester,
+                    closeFocusRequester = closeFocusRequester,
+                    onSelected = { page = it }
+                )''',
+              "category close requester"
+          )
+          replace(
+              '''                    firstFocusRequester = pageFocusRequester,
+                    emptyLabel = "No audio tracks available."''',
+              '''                    firstFocusRequester = pageFocusRequester,
+                    closeFocusRequester = closeFocusRequester,
+                    emptyLabel = "No audio tracks available."''',
+              "audio close requester"
+          )
+          replace(
+              '''                QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(
+                    player = player,
+                    firstFocusRequester = pageFocusRequester,''',
+              '''                QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(
+                    player = player,
+                    firstFocusRequester = pageFocusRequester,
+                    closeFocusRequester = closeFocusRequester,''',
+              "subtitle close requester"
+          )
+          replace(
+              '''                QuickMenuPage.Playback -> QuickMenuPlaybackPage(
+                    player = player,
+                    firstFocusRequester = pageFocusRequester
+                )''',
+              '''                QuickMenuPage.Playback -> QuickMenuPlaybackPage(
+                    player = player,
+                    firstFocusRequester = pageFocusRequester,
+                    closeFocusRequester = closeFocusRequester
+                )''',
+              "playback close requester"
+          )
+          replace(
+              '''                QuickMenuPage.Video -> QuickMenuVideoPage(
+                    selectedResizeMode = videoResizeMode,
+                    firstFocusRequester = pageFocusRequester,
+                    onSelected = onVideoResizeModeSelected
+                )''',
+              '''                QuickMenuPage.Video -> QuickMenuVideoPage(
+                    selectedResizeMode = videoResizeMode,
+                    firstFocusRequester = pageFocusRequester,
+                    closeFocusRequester = closeFocusRequester,
+                    onSelected = onVideoResizeModeSelected
+                )''',
+              "video close requester"
+          )
+          replace(
+              "                QuickMenuPage.Other -> QuickMenuOtherPage(firstFocusRequester = pageFocusRequester)",
+              "                QuickMenuPage.Other -> QuickMenuOtherPage(firstFocusRequester = pageFocusRequester, closeFocusRequester = closeFocusRequester)",
+              "other close requester"
+          )
+
+          # Categories are one row, so Up from any category card closes the menu.
+          replace(
+              '''private fun QuickMenuCategories(
+    focusRequester: FocusRequester,
+    onSelected: (QuickMenuPage) -> Unit
+) {''',
+              '''private fun QuickMenuCategories(
+    focusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
+    onSelected: (QuickMenuPage) -> Unit
+) {''',
+              "category signature"
+          )
+          replace(
+              '''                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),''',
+              '''                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier)
+                        .focusProperties { up = closeFocusRequester },''',
+              "category Up boundary"
+          )
+
+          # Track grid: leave the normal grid alone below the first row.
+          replace(
+              '''    firstFocusRequester: FocusRequester,
+    emptyLabel: String,
+    headerContent: (@Composable () -> Unit)? = null
+) {''',
+              '''    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester? = null,
+    emptyLabel: String,
+    headerContent: (@Composable () -> Unit)? = null
+) {''',
+              "track page signature"
+          )
+          replace(
+              '''        if (items.isEmpty()) {
+            Text(
+                emptyLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            return
+        }''',
+              '''        if (items.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    emptyLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+            return
+        }''',
+              "track empty state"
+          )
+          replace(
+              '''        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {''',
+              '''        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {''',
+              "track grid padding"
+          )
+          replace(
+              '''                    modifier = Modifier.then(
+                        if (item == items.firstOrNull()) {
+                            Modifier.focusRequester(firstFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                    ),''',
+              '''                    modifier = Modifier
+                        .then(if (item == items.firstOrNull()) Modifier.focusRequester(firstFocusRequester) else Modifier)
+                        .focusProperties {
+                            if (items.indexOf(item) < 3 && closeFocusRequester != null) {
+                                up = closeFocusRequester
+                            }
+                        },''',
+              "track Up boundary"
+          )
+          replace(
+              '''                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (item.isSelected) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )''',
+              '''                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (item.isSelected) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                    )''',
+              "track focus colour"
+          )
+
+          # Timing controls use the same OSD focus colour and close from the top.
+          replace(
+              '''    focusRequester: FocusRequester,
+    onDecrease: () -> Unit,''',
+              '''    focusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester? = null,
+    onDecrease: () -> Unit,''',
+              "timing signature"
+          )
+          replace(
+              '''                modifier = Modifier
+                    .height(40.dp)
+                    .focusRequester(focusRequester),''',
+              '''                modifier = Modifier
+                    .height(40.dp)
+                    .focusRequester(focusRequester)
+                    .focusProperties { if (closeFocusRequester != null) up = closeFocusRequester },''',
+              "timing Up boundary"
+          )
+          replace(
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )''',
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                )''',
+              "timing minus focus colour",
+              1
+          )
+          replace(
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )''',
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                )''',
+              "timing value focus colour",
+              1
+          )
+          replace(
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )''',
+              '''                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                )''',
+              "timing plus focus colour",
+              1
+          )
 
           replace(
-              'import androidx.compose.foundation.layout.padding\n',
-              'import androidx.compose.foundation.layout.PaddingValues\nimport androidx.compose.foundation.layout.padding\n',
-              'PaddingValues import'
+              '''private fun QuickMenuSubtitlesPage(
+    player: androidx.media3.common.Player,
+    firstFocusRequester: FocusRequester,
+    subtitleDelayMs: Long,''',
+              '''private fun QuickMenuSubtitlesPage(
+    player: androidx.media3.common.Player,
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
+    subtitleDelayMs: Long,''',
+              "subtitle signature"
           )
           replace(
-              'import androidx.compose.ui.focus.focusRequester\n',
-              'import androidx.compose.ui.focus.focusProperties\nimport androidx.compose.ui.focus.focusRequester\nimport androidx.compose.ui.focus.onFocusChanged\n',
-              'focus imports'
+              '''                onReset = onSubtitleDelayReset,
+                focusRequester = firstFocusRequester
+            )''',
+              '''                onReset = onSubtitleDelayReset,
+                focusRequester = firstFocusRequester,
+                closeFocusRequester = closeFocusRequester
+            )''',
+              "subtitle timing Up boundary"
           )
           replace(
-              'import androidx.compose.runtime.setValue\n',
-              'import androidx.compose.runtime.setValue\nimport androidx.compose.runtime.withFrameNanos\n',
-              'frame import'
+              '''        firstFocusRequester = trackFocusRequester,
+        emptyLabel = "No subtitle tracks available.",''',
+              '''        firstFocusRequester = trackFocusRequester,
+        closeFocusRequester = closeFocusRequester,
+        emptyLabel = "No subtitle tracks available.",''',
+              "subtitle track close boundary"
+          )
+
+          # Playback is naturally a 2x2 grid. Only the top row closes on Up.
+          replace(
+              '''private fun QuickMenuPlaybackPage(
+    player: androidx.media3.common.Player,
+    firstFocusRequester: FocusRequester
+) {''',
+              '''private fun QuickMenuPlaybackPage(
+    player: androidx.media3.common.Player,
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester
+) {''',
+              "playback signature"
           )
           replace(
-              'var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }\n    val pageFocusRequester = remember { FocusRequester() }',
-              'var page by remember { mutableStateOf<QuickMenuPage>(QuickMenuPage.Categories) }\n    val pageFocusRequester = remember { FocusRequester() }\n    val closeFocusRequester = remember { FocusRequester() }',
-              'close requester'
+              '''    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),''',
+              '''    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),''',
+              "playback columns"
           )
           replace(
-              '''    LaunchedEffect(page) {\n        if (page == QuickMenuPage.Categories) {\n            focusRequester.requestFocus()\n        } else {\n            pageFocusRequester.requestFocus()\n        }\n    }''',
-              '''    LaunchedEffect(page) {\n        withFrameNanos { }\n        withFrameNanos { }\n        if (page == QuickMenuPage.Categories) {\n            focusRequester.requestFocus()\n        } else {\n            pageFocusRequester.requestFocus()\n        }\n    }''',
-              'page focus timing'
+              '''        item(span = { GridItemSpan(3) }) {''',
+              '''        item(span = { GridItemSpan(2) }) {''',
+              "playback title span"
           )
           replace(
-              '''    Surface(\n        modifier = Modifier\n            .onPreviewKeyEvent { event ->\n                if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&\n                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP\n                ) {\n                    onClose()\n                    true\n                } else {\n                    false\n                }\n            }\n            .fillMaxWidth()''',
-              '''    Surface(\n        modifier = Modifier\n            .fillMaxWidth()''',
-              'remove root up handler'
+              '''                { player.seekTo(0) },
+                firstFocusRequester
+            )''',
+              '''                { player.seekTo(0) },
+                firstFocusRequester,
+                true,
+                closeFocusRequester
+            )''',
+              "restart action"
           )
           replace(
-              '''    ) {\n        AnimatedContent(''',
-              '''    ) {\n        Box(Modifier.fillMaxSize()) {\n            Box(\n                modifier = Modifier\n                    .size(1.dp)\n                    .focusRequester(closeFocusRequester)\n                    .focusable()\n                    .onFocusChanged { if (it.isFocused) onClose() }\n            )\n\n        AnimatedContent(''',
-              'close focus target'
+              '''                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) }
+            )''',
+              '''                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) },
+                null,
+                true,
+                closeFocusRequester
+            )''',
+              "rewind action"
           )
           replace(
-              '''                QuickMenuPage.Categories -> QuickMenuCategories(\n                    focusRequester = focusRequester,\n                    onSelected = { page = it }\n                )''',
-              '''                QuickMenuPage.Categories -> QuickMenuCategories(\n                    focusRequester = focusRequester,\n                    closeFocusRequester = closeFocusRequester,\n                    onSelected = { page = it }\n                )''',
-              'category close requester'
+              '''                { if (player.isPlaying) player.pause() else player.play() }
+            )''',
+              '''                { if (player.isPlaying) player.pause() else player.play() },
+                null,
+                false,
+                closeFocusRequester
+            )''',
+              "play action"
           )
           replace(
-              '''                    firstFocusRequester = pageFocusRequester,\n                    emptyLabel = "No audio tracks available."''',
-              '''                    firstFocusRequester = pageFocusRequester,\n                    closeFocusRequester = closeFocusRequester,\n                    emptyLabel = "No audio tracks available."''',
-              'audio close requester'
+              '''                    player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration))
+                }
+            )''',
+              '''                    player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration))
+                },
+                null,
+                false,
+                closeFocusRequester
+            )''',
+              "forward action"
+          )
+
+          # Video has one row, so Up can always close from its options.
+          replace(
+              '''private fun QuickMenuVideoPage(
+    selectedResizeMode: Int,
+    firstFocusRequester: FocusRequester,
+    onSelected: (Int) -> Unit
+) {''',
+              '''private fun QuickMenuVideoPage(
+    selectedResizeMode: Int,
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester,
+    onSelected: (Int) -> Unit
+) {''',
+              "video signature"
           )
           replace(
-              '''                QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(\n                    player = player,\n                    firstFocusRequester = pageFocusRequester,''',
-              '''                QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(\n                    player = player,\n                    firstFocusRequester = pageFocusRequester,\n                    closeFocusRequester = closeFocusRequester,''',
-              'subtitle close requester'
+              '''                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),''',
+              '''                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier)
+                        .focusProperties { up = closeFocusRequester },''',
+              "video Up boundary"
           )
           replace(
-              '''                QuickMenuPage.Playback -> QuickMenuPlaybackPage(\n                    player = player,\n                    firstFocusRequester = pageFocusRequester\n                )''',
-              '''                QuickMenuPage.Playback -> QuickMenuPlaybackPage(\n                    player = player,\n                    firstFocusRequester = pageFocusRequester,\n                    closeFocusRequester = closeFocusRequester\n                )''',
-              'playback close requester'
+              '''                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (option.media3Mode == selectedResizeMode) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        focusedContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )''',
+              '''                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (option.media3Mode == selectedResizeMode) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                    )''',
+              "video focus colour"
           )
           replace(
-              '''                QuickMenuPage.Video -> QuickMenuVideoPage(\n                    selectedResizeMode = videoResizeMode,\n                    firstFocusRequester = pageFocusRequester,\n                    onSelected = onVideoResizeModeSelected\n                )''',
-              '''                QuickMenuPage.Video -> QuickMenuVideoPage(\n                    selectedResizeMode = videoResizeMode,\n                    firstFocusRequester = pageFocusRequester,\n                    closeFocusRequester = closeFocusRequester,\n                    onSelected = onVideoResizeModeSelected\n                )''',
-              'video close requester'
+              '''                        Text(
+                            option.description,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )''',
+              '''                        Text(
+                            option.description,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )''',
+              "video focused description"
+          )
+
+          # Other is informational, not interactive.
+          replace(
+              '''private fun QuickMenuOtherPage(firstFocusRequester: FocusRequester) {''',
+              '''private fun QuickMenuOtherPage(
+    firstFocusRequester: FocusRequester,
+    closeFocusRequester: FocusRequester
+) {''',
+              "other signature"
           )
           replace(
-              '''                QuickMenuPage.Other -> QuickMenuOtherPage(firstFocusRequester = pageFocusRequester)''',
-              '''                QuickMenuPage.Other -> QuickMenuOtherPage(firstFocusRequester = pageFocusRequester, closeFocusRequester = closeFocusRequester)''',
-              'other close requester'
+              '''        Text("Other", style = MaterialTheme.typography.headlineMedium)
+        Surface(
+            onClick = {},
+            modifier = Modifier.fillMaxWidth().focusRequester(firstFocusRequester),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Text("More player options can live here", modifier = Modifier.padding(18.dp))
+        }''',
+              '''        Text("Other", style = MaterialTheme.typography.headlineMedium)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(firstFocusRequester)
+                .focusable()
+                .focusProperties { up = closeFocusRequester },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Coming soon!",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            )
+        }''',
+              "other empty state"
+          )
+
+          # Generic playback action focus boundary and consistent OSD colours.
+          replace(
+              '''private fun QuickMenuAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {''',
+              '''private fun QuickMenuAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    closeOnUp: Boolean = false,
+    closeFocusRequester: FocusRequester? = null
+) {''',
+              "action signature"
           )
           replace(
-              '''            }\n        }\n    }\n}\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun QuickMenuCategories(\n    focusRequester: FocusRequester,\n    onSelected: (QuickMenuPage) -> Unit\n) {''',
-              '''            }\n        }\n        }\n    }\n}\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun QuickMenuCategories(\n    focusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester,\n    onSelected: (QuickMenuPage) -> Unit\n) {''',
-              'close box closure and category signature'
-          )
-          replace(
-              '''                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),''',
-              '''                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier)\n                        .focusProperties { if (index < quickMenuCategories.size) up = closeFocusRequester },''',
-              'category up focus'
-          )
-          replace(
-              '''    firstFocusRequester: FocusRequester,\n    emptyLabel: String,\n    headerContent: (@Composable () -> Unit)? = null\n) {''',
-              '''    firstFocusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester? = null,\n    emptyLabel: String,\n    headerContent: (@Composable () -> Unit)? = null\n) {''',
-              'track page signature'
-          )
-          replace(
-              '''        if (items.isEmpty()) {\n            Text(\n                emptyLabel,\n                color = MaterialTheme.colorScheme.onSurfaceVariant,\n                style = MaterialTheme.typography.bodyLarge\n            )\n            return\n        }''',
-              '''        if (items.isEmpty()) {\n            Box(\n                modifier = Modifier.fillMaxSize(),\n                contentAlignment = Alignment.Center\n            ) {\n                Text(\n                    emptyLabel,\n                    color = MaterialTheme.colorScheme.onSurfaceVariant,\n                    style = MaterialTheme.typography.bodyLarge\n                )\n            }\n            return\n        }''',
-              'track empty state'
-          )
-          replace(
-              '''            verticalArrangement = Arrangement.spacedBy(12.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {''',
-              '''            contentPadding = PaddingValues(vertical = 10.dp, horizontal = 4.dp),\n            verticalArrangement = Arrangement.spacedBy(12.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {''',
-              'track grid padding',
-              1
-          )
-          replace(
-              '''                    modifier = Modifier.then(\n                        if (item == items.firstOrNull()) {\n                            Modifier.focusRequester(firstFocusRequester)\n                        } else {\n                            Modifier\n                        }\n                    ),''',
-              '''                    modifier = Modifier\n                        .focusProperties {\n                            if (item == items.firstOrNull() && closeFocusRequester != null) {\n                                up = closeFocusRequester\n                            }\n                        }\n                        .then(if (item == items.firstOrNull()) Modifier.focusRequester(firstFocusRequester) else Modifier),''',
-              'track item focus boundary'
-          )
-          replace(
-              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (item.isSelected) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else {\n                            MaterialTheme.colorScheme.surfaceVariant\n                        }\n                    )''',
-              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (item.isSelected) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else {\n                            MaterialTheme.colorScheme.surfaceVariant\n                        },\n                        focusedContainerColor = MaterialTheme.colorScheme.primary,\n                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,\n                        pressedContainerColor = MaterialTheme.colorScheme.primary,\n                        pressedContentColor = MaterialTheme.colorScheme.onPrimary\n                    )''',
-              'track focus colours'
-          )
-          replace(
-              '''    focusRequester: FocusRequester,\n    onDecrease: () -> Unit,''',
-              '''    focusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester? = null,\n    onDecrease: () -> Unit,''',
-              'timing focus signature'
-          )
-          replace(
-              '''                modifier = Modifier\n                    .height(40.dp)\n                    .focusRequester(focusRequester),''',
-              '''                modifier = Modifier\n                    .height(40.dp)\n                    .focusRequester(focusRequester)\n                    .focusProperties { if (closeFocusRequester != null) up = closeFocusRequester },''',
-              'timing up focus'
-          )
-          replace(
-              '''                colors = ClickableSurfaceDefaults.colors(\n                    containerColor = MaterialTheme.colorScheme.surfaceVariant\n                )''',
-              '''                colors = ClickableSurfaceDefaults.colors(\n                    containerColor = MaterialTheme.colorScheme.surfaceVariant,\n                    focusedContainerColor = MaterialTheme.colorScheme.primary,\n                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,\n                    pressedContainerColor = MaterialTheme.colorScheme.primary,\n                    pressedContentColor = MaterialTheme.colorScheme.onPrimary\n                )''',
-              'timing focus colours',
-              1
-          )
-          replace(
-              '''        firstFocusRequester: FocusRequester,\n        subtitleDelayMs: Long,''',
-              '''        firstFocusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester,\n        subtitleDelayMs: Long,''',
-              'subtitle signature'
-          )
-          replace(
-              '''                onReset = onSubtitleDelayReset,\n                focusRequester = firstFocusRequester\n            )''',
-              '''                onReset = onSubtitleDelayReset,\n                focusRequester = firstFocusRequester,\n                closeFocusRequester = closeFocusRequester\n            )''',
-              'subtitle timing focus'
-          )
-          replace(
-              '''            player = player,\n            firstFocusRequester = trackFocusRequester,\n            emptyLabel = "No subtitle tracks available.",''',
-              '''            player = player,\n            firstFocusRequester = trackFocusRequester,\n            closeFocusRequester = null,\n            emptyLabel = "No subtitle tracks available.",''',
-              'subtitle track focus boundary'
-          )
-          replace(
-              '''private fun QuickMenuPlaybackPage(\n    player: androidx.media3.common.Player,\n    firstFocusRequester: FocusRequester\n) {''',
-              '''private fun QuickMenuPlaybackPage(\n    player: androidx.media3.common.Player,\n    firstFocusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester\n) {''',
-              'playback signature'
-          )
-          replace(
-              '''    LazyVerticalGrid(\n        columns = GridCells.Fixed(3),''',
-              '''    LazyVerticalGrid(\n        columns = GridCells.Fixed(2),''',
-              'playback grid columns'
-          )
-          replace(
-              '''            Text("Playback", style = MaterialTheme.typography.headlineMedium)\n        }''',
-              '''            Text("Playback", style = MaterialTheme.typography.headlineMedium)\n        }''',
-              'playback title anchor'
-          )
-          replace(
-              '''                "Restart",\n                Icons.Rounded.Replay,\n                { player.seekTo(0) },\n                firstFocusRequester\n            )''',
-              '''                "Restart",\n                Icons.Rounded.Replay,\n                { player.seekTo(0) },\n                firstFocusRequester,\n                closeFocusRequester\n            )''',
-              'restart focus boundary'
-          )
-          replace(
-              '''                "Rewind 10 seconds",\n                Icons.Rounded.FastRewind,\n                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) }\n            )''',
-              '''                "Rewind 10 seconds",\n                Icons.Rounded.FastRewind,\n                { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) },\n                null,\n                closeFocusRequester\n            )''',
-              'rewind focus boundary'
-          )
-          replace(
-              '''                "${if (isPlaying) "Pause" else "Play"}",\n                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,\n                { if (player.isPlaying) player.pause() else player.play() }\n            )''',
-              '''                "${if (isPlaying) "Pause" else "Play"}",\n                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,\n                { if (player.isPlaying) player.pause() else player.play() },\n                null,\n                closeFocusRequester\n            )''',
-              'play focus boundary'
-          )
-          replace(
-              '''                "Forward 10 seconds",\n                Icons.Rounded.FastForward,''',
-              '''                "Forward 10 seconds",\n                Icons.Rounded.FastForward,''',
-              'forward anchor'
-          )
-          replace(
-              '''                    val duration = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE\n                    player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration))\n                }\n            )''',
-              '''                    val duration = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE\n                    player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration))\n                },\n                null,\n                closeFocusRequester\n            )''',
-              'forward focus boundary'
-          )
-          replace(
-              '''private fun QuickMenuVideoPage(\n    selectedResizeMode: Int,\n    firstFocusRequester: FocusRequester,\n    onSelected: (Int) -> Unit\n) {''',
-              '''private fun QuickMenuVideoPage(\n    selectedResizeMode: Int,\n    firstFocusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester,\n    onSelected: (Int) -> Unit\n) {''',
-              'video signature'
-          )
-          replace(
-              '''            modifier = Modifier\n                .fillMaxWidth()\n                .padding(horizontal = 8.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {''',
-              '''            modifier = Modifier\n                .fillMaxWidth()\n                .padding(horizontal = 8.dp),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {''',
-              'video row anchor'
-          )
-          replace(
-              '''                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),''',
-              '''                    modifier = Modifier\n                        .weight(1f)\n                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier)\n                        .focusProperties { if (index < options.size) up = closeFocusRequester },''',
-              'video up focus'
-          )
-          replace(
-              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (option.media3Mode == selectedResizeMode) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else MaterialTheme.colorScheme.surfaceVariant\n                    )''',
-              '''                    colors = ClickableSurfaceDefaults.colors(\n                        containerColor = if (option.media3Mode == selectedResizeMode) {\n                            MaterialTheme.colorScheme.secondaryContainer\n                        } else MaterialTheme.colorScheme.surfaceVariant,\n                        focusedContainerColor = MaterialTheme.colorScheme.primary,\n                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,\n                        pressedContainerColor = MaterialTheme.colorScheme.primary,\n                        pressedContentColor = MaterialTheme.colorScheme.onPrimary\n                    )''',
-              'video focus colours'
-          )
-          replace(
-              '''private fun QuickMenuOtherPage(firstFocusRequester: FocusRequester) {\n    Column(''',
-              '''private fun QuickMenuOtherPage(\n    firstFocusRequester: FocusRequester,\n    closeFocusRequester: FocusRequester\n) {\n    Column(''',
-              'other signature'
-          )
-          replace(
-              '''        Text("Other", style = MaterialTheme.typography.headlineMedium)\n        Surface(\n            onClick = {},\n            modifier = Modifier.fillMaxWidth().focusRequester(firstFocusRequester),\n            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),\n            colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant)\n        ) {\n            Text("More player options can live here", modifier = Modifier.padding(18.dp))\n        }''',
-              '''        Box(\n            modifier = Modifier\n                .fillMaxSize()\n                .focusRequester(firstFocusRequester)\n                .focusable(),\n            contentAlignment = Alignment.Center\n        ) {\n            Text(\n                "Coming soon!",\n                style = MaterialTheme.typography.bodyLarge,\n                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)\n            )\n        }''',
-              'coming soon empty state'
-          )
-          replace(
-              '''private fun QuickMenuAction(\n    label: String,\n    icon: androidx.compose.ui.graphics.vector.ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null\n) {''',
-              '''private fun QuickMenuAction(\n    label: String,\n    icon: androidx.compose.ui.graphics.vector.ImageVector,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null,\n    closeFocusRequester: FocusRequester? = null\n) {''',
-              'action signature'
-          )
-          replace(
-              '''            .fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),''',
-              '''            .fillMaxWidth()\n            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)\n            .focusProperties { if (closeFocusRequester != null) up = closeFocusRequester },''',
-              'action focus boundary',
-              1
+              '''            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),''',
+              '''            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .focusProperties {
+                if (closeOnUp && closeFocusRequester != null) up = closeFocusRequester
+            },''',
+              "action focus boundary"
           )
           replace(
               '''        colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant)''',
-              '''        colors = ClickableSurfaceDefaults.colors(\n            containerColor = MaterialTheme.colorScheme.surfaceVariant,\n            focusedContainerColor = MaterialTheme.colorScheme.primary,\n            focusedContentColor = MaterialTheme.colorScheme.onPrimary,\n            pressedContainerColor = MaterialTheme.colorScheme.primary,\n            pressedContentColor = MaterialTheme.colorScheme.onPrimary\n        )''',
-              'action focus colours'
+              '''        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+            pressedContainerColor = MaterialTheme.colorScheme.primary,
+            pressedContentColor = MaterialTheme.colorScheme.onPrimary
+        )''',
+              "action focus colour"
           )
 
-          pages_path.write_text(text)
+          path.write_text(text)
           PY
 
       - name: Commit patch and remove workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm .github/workflows/refine-quickmenu-focus.yml
-          git add app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt .github/workflows/refine-quickmenu-focus.yml
-          git commit -m "fix: refine Quick Menu focus navigation"
+          git add app/src/main/java/me/xdan/aperture/ui/screen/player/QuickMenuPages.kt
+          git rm .github/workflows/refine-quickmenu-focus.yml
+          git commit -m "fix: refine Quick Menu focus and styling"
           git push
