@@ -37,6 +37,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private val AMBIENT_WALL_BRAND_PLACEMENT = stringPreferencesKey("ambient_wall_brand_placement")
     private val AMBIENT_SHOW_CLOCK = booleanPreferencesKey("ambient_show_clock")
     private val CLASSIC_PLAYER_CONTROLS = booleanPreferencesKey("classic_player_controls")
+    private val SHOULD_SHOW_COMPATIBILITY_WARNING = booleanPreferencesKey("should_show_compatibility_warning")
 
     override val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -83,6 +84,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val classicPlayerControls: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[CLASSIC_PLAYER_CONTROLS] ?: false }
+
+    override val shouldShowCompatibilityWarning: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] ?: true }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->
@@ -150,5 +154,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setClassicPlayerControls(enabled: Boolean) {
         context.dataStore.edit { preferences -> preferences[CLASSIC_PLAYER_CONTROLS] = enabled }
+    }
+
+    override suspend fun setShouldShowCompatibilityWarning(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] = enabled }
     }
 }

@@ -86,7 +86,7 @@ fun MyListScreen(
 
     Box(modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(6),
+            columns = GridCells.Fixed(5),
             modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
             contentPadding = PaddingValues(top = ApertureTheme.spacing.huge, bottom = ApertureTheme.spacing.large, start = 32.dp, end = 32.dp),
             verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
@@ -106,7 +106,7 @@ fun MyListScreen(
                             onClick = { requester -> onMediaClick(item.id, requester) },
                             modifier = Modifier.fillMaxWidth(),
                             focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
-                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 6 == 0 },
+                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
                             onFocused = {
                                 isFocused = true
                                 onContentFocused(it)

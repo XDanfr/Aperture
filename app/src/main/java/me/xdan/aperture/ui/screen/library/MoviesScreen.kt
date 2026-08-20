@@ -55,7 +55,7 @@ fun MoviesScreen(
         Spacer(Modifier.height(ApertureTheme.spacing.large))
         Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(6),
+                columns = GridCells.Fixed(5),
                 modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
                 contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
                 verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
@@ -67,7 +67,7 @@ fun MoviesScreen(
                         AnimatedMovieCard(
                             media = item,
                             isFirst = item.id == movies.first().id,
-                            isLeftmost = index % 6 == 0,
+                            isLeftmost = index % 5 == 0,
                             onMediaClick = onMediaClick,
                             onMediaLongClick = onMediaLongClick,
                             drawerFocusRequester = drawerFocusRequester,

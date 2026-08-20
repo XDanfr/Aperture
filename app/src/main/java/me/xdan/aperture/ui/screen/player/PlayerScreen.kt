@@ -327,9 +327,11 @@ fun PlayerScreen(
         compatibilityWarning?.let { warning ->
             PlaybackNotice(
                 title = warning.title, message = warning.message, safeLabel = "Go Back", proceedLabel = warning.proceedLabel,
+                extraLabel = "Don't show again",
                 safeFocusRequester = noticeFocusRequester,
                 onSafe = { viewModel.dismissCompatibilityWarning(); onBack() },
-                onProceed = viewModel::playDespiteWarning
+                onProceed = { viewModel.playDespiteWarning() },
+                onExtra = { viewModel.playDespiteWarning(dontShowAgain = true) }
             )
         }
         if (compatibilityWarning == null) {
@@ -367,17 +369,24 @@ private fun BufferingOverlay(media: MediaEntity?) {
 
 @Composable
 private fun PlaybackNotice(
-    title: String, message: String, safeLabel: String, proceedLabel: String, safeFocusRequester: FocusRequester,
-    onSafe: () -> Unit, onProceed: () -> Unit
+    title: String, message: String, safeLabel: String, proceedLabel: String,
+    extraLabel: String? = null,
+    safeFocusRequester: FocusRequester,
+    onSafe: () -> Unit, onProceed: () -> Unit,
+    onExtra: (() -> Unit)? = null
 ) {
     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).padding(48.dp), contentAlignment = Alignment.Center) {
         Surface(modifier = Modifier.widthIn(max = 680.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)), shape = RoundedCornerShape(32.dp)) {
             Column(modifier = Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall)
                 Text(message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     Button(onClick = onSafe, modifier = Modifier.focusRequester(safeFocusRequester)) { Text(safeLabel) }
                     Spacer(Modifier.width(12.dp))
+                    if (extraLabel != null && onExtra != null) {
+                        OutlinedButton(onClick = onExtra) { Text(extraLabel) }
+                        Spacer(Modifier.width(12.dp))
+                    }
                     OutlinedButton(onClick = onProceed) { Text(proceedLabel) }
                 }
             }

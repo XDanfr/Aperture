@@ -80,7 +80,7 @@ fun SearchScreen(
         Spacer(modifier = Modifier.height(ApertureTheme.spacing.large))
         
         LazyVerticalGrid(
-            columns = GridCells.Fixed(6),
+            columns = GridCells.Fixed(5),
             contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
             verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
             horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
@@ -93,7 +93,7 @@ fun SearchScreen(
                         media = media,
                         onClick = { requester -> onMediaClick(media.id, requester) },
                         modifier = Modifier.fillMaxWidth(),
-                        drawerFocusRequester = drawerFocusRequester.takeIf { index % 6 == 0 },
+                        drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
                         onFocused = {
                             isFocused = true
                             onContentFocused(it)

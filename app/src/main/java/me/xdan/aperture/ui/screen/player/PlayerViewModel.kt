@@ -46,7 +46,7 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     val player: ExoPlayer,
     private val repository: MediaRepository,
-    preferences: UserPreferencesRepository,
+    private val preferences: UserPreferencesRepository,
     private val openSubtitlesApi: OpenSubtitlesApi,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val okHttpClient: OkHttpClient,
@@ -72,6 +72,12 @@ class PlayerViewModel @Inject constructor(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         false
+    )
+
+    val shouldShowCompatibilityWarning: StateFlow<Boolean> = preferences.shouldShowCompatibilityWarning.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true
     )
 
     val subtitleStyle = combine(
@@ -149,9 +155,13 @@ class PlayerViewModel @Inject constructor(
                 pendingPlayback = pending
 
                 if (compatibility != null) {
-                    player.stop()
-                    _compatibilityWarning.value = compatibility
-                    return@launch
+                    if (shouldShowCompatibilityWarning.value) {
+                        player.stop()
+                        _compatibilityWarning.value = compatibility
+                        return@launch
+                    } else {
+                        showCompatibilityToast()
+                    }
                 }
 
                 startPlayback(pending)
@@ -159,9 +169,22 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun playDespiteWarning() {
+    private fun showCompatibilityToast() {
+        android.widget.Toast.makeText(
+            context,
+            "Playback may be unstable on this device",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    fun playDespiteWarning(dontShowAgain: Boolean = false) {
         val pending = pendingPlayback ?: return
         _compatibilityWarning.value = null
+        if (dontShowAgain) {
+            viewModelScope.launch {
+                preferences.setShouldShowCompatibilityWarning(false)
+            }
+        }
         viewModelScope.launch { startPlayback(pending) }
     }
 
