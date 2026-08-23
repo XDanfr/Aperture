@@ -20,6 +20,9 @@ interface UserPreferencesRepository {
     val ambientShowClock: Flow<Boolean>
     val classicPlayerControls: Flow<Boolean>
     val shouldShowCompatibilityWarning: Flow<Boolean>
+    val tunnelingEnabled: Flow<Boolean>
+    val softwareVideoDecoding: Flow<Boolean>
+    val playbackEngine: Flow<String>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setHideFinishedFromSpotlight(enabled: Boolean)
@@ -36,4 +39,7 @@ interface UserPreferencesRepository {
     suspend fun setAmbientShowClock(enabled: Boolean)
     suspend fun setClassicPlayerControls(enabled: Boolean)
     suspend fun setShouldShowCompatibilityWarning(enabled: Boolean)
+    suspend fun setTunnelingEnabled(enabled: Boolean)
+    suspend fun setSoftwareVideoDecoding(enabled: Boolean)
+    suspend fun setPlaybackEngine(engine: String)
 }

@@ -105,7 +105,7 @@ private enum class QuickMenuSubtitleFocusTarget {
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun QuickMenuPages(
-    player: androidx.media3.common.Player,
+    player: PlayerEngine,
     settingsViewModel: SettingsViewModel,
     focusRequester: FocusRequester,
     subtitleDelayMs: Long,
@@ -244,13 +244,8 @@ private fun QuickMenuCategories(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuTrackPage(title: String, type: Int, player: androidx.media3.common.Player, firstFocusRequester: FocusRequester, emptyLabel: String, onClose: () -> Unit) {
-    var tracks by remember(player) { mutableStateOf(player.currentTracks) }
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener { override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks } }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
+private fun QuickMenuTrackPage(title: String, type: Int, player: PlayerEngine, firstFocusRequester: FocusRequester, emptyLabel: String, onClose: () -> Unit) {
+    val tracks by player.tracks.collectAsState()
     val items = getQuickMenuTrackItems(tracks, type).filter { it.isSupported }
     val selectedItem = items.firstOrNull { it.isSelected }
     Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -261,7 +256,10 @@ private fun QuickMenuTrackPage(title: String, type: Int, player: androidx.media3
             items(items, key = { "${it.group.mediaTrackGroup.id}-${it.index}" }) { item ->
                 val isFirstRow = items.indexOf(item) < 3
                 Surface(
-                    onClick = { player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(type, false).setOverrideForType(TrackSelectionOverride(item.group.mediaTrackGroup, item.index)).build() },
+                    onClick = {
+                        player.setTrackTypeDisabled(type, false)
+                        player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                    },
                     modifier = Modifier.then(if (item == items.firstOrNull()) Modifier.focusRequester(firstFocusRequester) else Modifier).then(if (isFirstRow) Modifier.closeQuickMenuOnUp(onClose) else Modifier),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(
@@ -286,7 +284,7 @@ private fun formatQuickMenuDelay(delayMs: Long): String = when {
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun QuickMenuSubtitlesPage(
-    player: androidx.media3.common.Player,
+    player: PlayerEngine,
     firstFocusRequester: FocusRequester,
     subtitleDelayMs: Long,
     onSubtitleDelayDecrease: () -> Unit,
@@ -393,7 +391,7 @@ private fun QuickMenuSubtitlesPage(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun QuickMenuSubtitlesMainPage(
-    player: androidx.media3.common.Player,
+    player: PlayerEngine,
     syncFocusRequester: FocusRequester,
     customiseFocusRequester: FocusRequester,
     openSubtitlesFocusRequester: FocusRequester,
@@ -404,12 +402,7 @@ private fun QuickMenuSubtitlesMainPage(
     onOpenSubtitles: () -> Unit,
     onClose: () -> Unit
 ) {
-    var tracks by remember(player) { mutableStateOf(player.currentTracks) }
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener { override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks } }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
+    val tracks by player.tracks.collectAsState()
     val items = getQuickMenuTrackItems(tracks, C.TRACK_TYPE_TEXT).filter { it.isSupported }
     val selectedItem = items.firstOrNull { it.isSelected }
     Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -436,7 +429,10 @@ private fun QuickMenuSubtitlesMainPage(
                 val itemIndex = items.indexOf(item)
                 val isFirstRow = itemIndex < 3
                 Surface(
-                    onClick = { player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(item.group.mediaTrackGroup, item.index)).build() },
+                    onClick = {
+                        player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                    },
                     modifier = Modifier.then(if (item == items.firstOrNull()) Modifier.focusRequester(trackFocusRequester) else Modifier).focusProperties { if (isFirstRow) up = when (itemIndex) { 0 -> syncFocusRequester; 1 -> customiseFocusRequester; else -> openSubtitlesFocusRequester } },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = if (item.isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary)
@@ -563,18 +559,13 @@ private fun QuickMenuEmptyMessage(message: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuPlaybackPage(player: androidx.media3.common.Player, firstFocusRequester: FocusRequester, onClose: () -> Unit) {
-    var isPlaying by remember(player) { mutableStateOf(player.isPlaying) }
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener { override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing } }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
+private fun QuickMenuPlaybackPage(player: PlayerEngine, firstFocusRequester: FocusRequester, onClose: () -> Unit) {
+    val isPlaying by player.isPlaying.collectAsState()
     LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         item(span = { GridItemSpan(2) }) { Text("Playback", style = MaterialTheme.typography.headlineMedium) }
         item { QuickMenuAction("Restart", Icons.Rounded.Replay, { player.seekTo(0) }, focusRequester = firstFocusRequester, onClose = onClose, closeOnUp = true) }
         item { QuickMenuAction("Rewind 10 seconds", Icons.Rounded.FastRewind, { player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L)) }, onClose = onClose, closeOnUp = true) }
-        item { QuickMenuAction(if (isPlaying) "Pause" else "Play", if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, { if (player.isPlaying) player.pause() else player.play() }, onClose = onClose) }
+        item { QuickMenuAction(if (isPlaying) "Pause" else "Play", if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, { if (isPlaying) player.pause() else player.play() }, onClose = onClose) }
         item { QuickMenuAction("Forward 10 seconds", Icons.Rounded.FastForward, { val duration = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE; player.seekTo((player.currentPosition + 10_000L).coerceAtMost(duration)) }, onClose = onClose) }
     }
 }

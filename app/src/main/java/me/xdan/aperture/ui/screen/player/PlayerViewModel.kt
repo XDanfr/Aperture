@@ -3,6 +3,7 @@
 package me.xdan.aperture.ui.screen.player
 
 import android.content.Context
+import android.util.Log
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
@@ -11,12 +12,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.anilbeesetti.nextlib.media3ext.renderer.subtitleDelayMilliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,7 +42,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    val player: ExoPlayer,
+    val player: PlayerEngine,
     private val repository: MediaRepository,
     private val preferences: UserPreferencesRepository,
     private val openSubtitlesApi: OpenSubtitlesApi,
@@ -65,8 +63,23 @@ class PlayerViewModel @Inject constructor(
     val compatibilityWarning: StateFlow<PlaybackCompatibilityWarning?> = _compatibilityWarning
     private val _playbackFailure = MutableStateFlow<PlaybackFailure?>(null)
     val playbackFailure: StateFlow<PlaybackFailure?> = _playbackFailure
+    private val _isCurrentMediaHdr = MutableStateFlow(false)
+    val isCurrentMediaHdr: StateFlow<Boolean> = _isCurrentMediaHdr
     private val _subtitleDelayMs = MutableStateFlow(0L)
     val subtitleDelayMs: StateFlow<Long> = _subtitleDelayMs
+    private val _isDisplayHdrCapable = MutableStateFlow(false)
+    val isDisplayHdrCapable: StateFlow<Boolean> = _isDisplayHdrCapable
+    
+    private val _videoDecoderName = MutableStateFlow<String?>(null)
+    val videoDecoderName: StateFlow<String?> = _videoDecoderName
+    private val _audioDecoderName = MutableStateFlow<String?>(null)
+    val audioDecoderName: StateFlow<String?> = _audioDecoderName
+
+    val playbackEngine: StateFlow<String> = preferences.playbackEngine.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "auto"
+    )
 
     val classicPlayerControls: StateFlow<Boolean> = preferences.classicPlayerControls.stateIn(
         viewModelScope,
@@ -102,7 +115,7 @@ class PlayerViewModel @Inject constructor(
         Context.MODE_PRIVATE
     )
 
-    private val playerListener = object : Player.Listener {
+    private val playerListener = object : PlayerEngine.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (isPlaying) {
                 if (_isOsdVisible.value) resetOsdTimer()
@@ -112,7 +125,10 @@ class PlayerViewModel @Inject constructor(
             }
         }
 
-        override fun onPlayerError(error: PlaybackException) {
+        override fun onPlaybackStateChanged(state: Int) {}
+        override fun onPositionDiscontinuity(reason: Int) {}
+
+        override fun onPlayerError(error: Throwable) {
             progressTrackerJob?.cancel()
             osdTimerJob?.cancel()
             _isOsdVisible.value = false
@@ -123,7 +139,7 @@ class PlayerViewModel @Inject constructor(
                     title = "This video could not be decoded",
                     message = "The device failed to play this Dolby Vision video. Try a non-Dolby Vision version, such as standard HEVC or H.264."
                 )
-                error.errorCodeName.contains("DECODING") -> PlaybackFailure(
+                error.message?.contains("DECODING") == true -> PlaybackFailure(
                     title = "This video could not be decoded",
                     message = "The device failed to decode this video. It may use a format or profile that this device does not support."
                 )
@@ -137,25 +153,62 @@ class PlayerViewModel @Inject constructor(
 
     init {
         player.addListener(playerListener)
+        viewModelScope.launch {
+            player.videoDecoderName.collect { _videoDecoderName.value = it }
+        }
+        viewModelScope.launch {
+            player.audioDecoderName.collect { _audioDecoderName.value = it }
+        }
+        checkDisplayCapabilities()
+    }
+
+    private fun checkDisplayCapabilities() {
+        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val hdrCapabilities = display?.hdrCapabilities
+        _isDisplayHdrCapable.value = hdrCapabilities?.supportedHdrTypes?.isNotEmpty() == true
     }
 
     fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
         viewModelScope.launch {
+            Log.d("PlayerViewModel", "Loading media: $mediaId")
             val mediaEntity = repository.getMediaById(mediaId)
+            if (mediaEntity == null) {
+                Log.e("PlayerViewModel", "Media not found in repository: $mediaId")
+                return@launch
+            }
+            Log.d("PlayerViewModel", "File path: ${mediaEntity.filePath}")
+            
             _media.value = mediaEntity
             _compatibilityWarning.value = null
             _playbackFailure.value = null
+            _isCurrentMediaHdr.value = false
+            _videoDecoderName.value = null
+            _audioDecoderName.value = null
             restoreSyncSettings(mediaId)
 
-            mediaEntity?.let { media ->
+            mediaEntity.let { media ->
+                Log.d("PlayerViewModel", "Checking file existence: ${media.filePath}")
+                val file = java.io.File(media.filePath)
+                Log.d("PlayerViewModel", "Exists: ${file.exists()}, Readable: ${file.canRead()}")
+                
+                val tunneling = preferences.tunnelingEnabled.first()
+                player.setTunnelingEnabled(tunneling)
+
                 val compatibility = withContext(Dispatchers.IO) {
                     inspectPlaybackCompatibility(media.filePath)
                 }
+                
+                if (compatibility != null) {
+                    _isCurrentMediaHdr.value = compatibility.hasHdr10 || compatibility.is10Bit || compatibility.hasDolbyVision
+                }
+
                 val pending = PendingPlayback(media, startFromBeginning, compatibility)
                 pendingPlayback = pending
 
                 if (compatibility != null) {
-                    if (shouldShowCompatibilityWarning.value) {
+                    val shouldShowWarning = preferences.shouldShowCompatibilityWarning.first()
+                    if (shouldShowWarning) {
                         player.stop()
                         _compatibilityWarning.value = compatibility
                         return@launch
@@ -214,21 +267,14 @@ class PlayerViewModel @Inject constructor(
         _onlineSubtitles.value = OnlineSubtitleState.Idle
         val progress = repository.getProgress(media.id)
 
-        player.subtitleDelayMilliseconds = _subtitleDelayMs.value
-        player.stop()
-        player.clearMediaItems()
+        player.setSubtitleDelay(_subtitleDelayMs.value)
+        
+        player.setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+        player.clearTrackOverrides(C.TRACK_TYPE_AUDIO)
+        player.setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
 
-        // Track overrides belong to the previous MediaItem. In particular,
-        // forcing an unsupported audio track can otherwise leave this singleton
-        // player stuck at 00:00 for every file opened afterwards.
-        player.trackSelectionParameters = player.trackSelectionParameters
-            .buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-            .build()
-
-        player.setMediaItem(buildMediaItem(media))
-        player.prepare()
+        val mediaItem = buildMediaItem(media)
+        player.setMedia(mediaItem.localConfiguration!!.uri, mediaItem.localConfiguration!!.subtitleConfigurations)
 
         val hasActiveProgress = progress?.let {
             it.duration > 0 &&
@@ -253,7 +299,7 @@ class PlayerViewModel @Inject constructor(
             progress?.let { player.seekTo(it.position) }
         }
 
-        player.playWhenReady = true
+        player.play()
         startProgressTracker(media.id)
         resetOsdTimer()
     }
@@ -269,7 +315,7 @@ class PlayerViewModel @Inject constructor(
     private fun setSubtitleDelay(value: Long) {
         val adjusted = value.coerceIn(-MAX_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
         _subtitleDelayMs.value = adjusted
-        player.subtitleDelayMilliseconds = adjusted
+        player.setSubtitleDelay(adjusted)
         persistSyncSettings()
     }
 
@@ -279,7 +325,7 @@ class PlayerViewModel @Inject constructor(
             0L
         ).coerceIn(-MAX_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
         _subtitleDelayMs.value = subtitleDelay
-        player.subtitleDelayMilliseconds = subtitleDelay
+        player.setSubtitleDelay(subtitleDelay)
     }
 
     private fun persistSyncSettings() {
@@ -341,23 +387,55 @@ class PlayerViewModel @Inject constructor(
             }
             var hasDolbyVision = false
             var hasEac3 = false
+            var hasTrueHd = false
+            var isHevc = false
+            var is4k = false
+            var hasHdr10 = false
+            var is10Bit = false
 
             repeat(extractor.trackCount) { index ->
-                val mime = extractor.getTrackFormat(index)
-                    .getString(MediaFormat.KEY_MIME)
-                    ?.lowercase()
-                    ?: return@repeat
+                val format = extractor.getTrackFormat(index)
+                val mime = format.getString(MediaFormat.KEY_MIME)?.lowercase() ?: return@repeat
 
                 when (mime) {
                     "video/dolby-vision" -> hasDolbyVision = true
                     "audio/eac3", "audio/eac3-joc" -> hasEac3 = true
+                    "audio/true-hd" -> hasTrueHd = true
+                    "video/hevc" -> {
+                        isHevc = true
+                        val width = if (format.containsKey(MediaFormat.KEY_WIDTH)) {
+                            format.getInteger(MediaFormat.KEY_WIDTH)
+                        } else 0
+                        val height = if (format.containsKey(MediaFormat.KEY_HEIGHT)) {
+                            format.getInteger(MediaFormat.KEY_HEIGHT)
+                        } else 0
+                        if (width >= 3840 || height >= 2160) is4k = true
+                        
+                        val transfer = if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
+                            format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
+                        } else -1
+                        if (transfer == MediaFormat.COLOR_TRANSFER_ST2084 || 
+                            transfer == MediaFormat.COLOR_TRANSFER_HLG) {
+                            hasHdr10 = true
+                        }
+
+                        val profile = if (format.containsKey(MediaFormat.KEY_PROFILE)) {
+                            format.getInteger(MediaFormat.KEY_PROFILE)
+                        } else -1
+                        // HEVCProfileMain10 = 2
+                        if (profile == 2) is10Bit = true
+                    }
                 }
             }
 
             PlaybackCompatibilityWarning(
                 hasDolbyVision = hasDolbyVision,
-                hasEac3 = hasEac3
-            ).takeIf { it.hasDolbyVision || it.hasEac3 }
+                hasEac3 = hasEac3,
+                hasTrueHd = hasTrueHd,
+                is4kHevc = is4k && isHevc,
+                hasHdr10 = hasHdr10,
+                is10Bit = is10Bit
+            ).takeIf { it.hasDolbyVision || it.hasEac3 || it.hasTrueHd || it.is4kHevc || it.hasHdr10 || it.is10Bit }
         } catch (_: Exception) {
             null
         } finally {
@@ -500,10 +578,11 @@ class PlayerViewModel @Inject constructor(
                 }
                 downloadedSubtitleFiles += destination
                 val position = player.currentPosition
-                val playWhenReady = player.playWhenReady
-                player.setMediaItem(buildMediaItem(media), position)
-                player.prepare()
-                player.playWhenReady = playWhenReady
+                val isPlaying = player.isPlaying.value
+                val mediaItem = buildMediaItem(media)
+                player.setMedia(mediaItem.localConfiguration!!.uri, mediaItem.localConfiguration!!.subtitleConfigurations)
+                player.seekTo(position)
+                if (isPlaying) player.play()
                 OnlineSubtitleState.Attached(option.label)
             }.getOrElse {
                 handleExpiredOpenSubtitlesSession(it)
@@ -522,7 +601,7 @@ class PlayerViewModel @Inject constructor(
         progressTrackerJob?.cancel()
         progressTrackerJob = viewModelScope.launch {
             while (true) {
-                if (player.isPlaying) {
+                if (player.isPlaying.value) {
                     saveProgressSnapshot(mediaId, player.currentPosition, player.duration, false)
                 }
                 delay(5000)
@@ -573,11 +652,11 @@ class PlayerViewModel @Inject constructor(
     }
     private fun resetOsdTimer() {
         osdTimerJob?.cancel()
-        if (!player.isPlaying) return
+        if (!player.isPlaying.value) return
 
         osdTimerJob = viewModelScope.launch {
             delay(3000)
-            if (player.isPlaying) {
+            if (player.isPlaying.value) {
                 _isOsdVisible.value = false
             }
         }
@@ -591,6 +670,7 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         player.removeListener(playerListener)
         player.stop()
+        player.release()
         progressTrackerJob?.cancel()
         osdTimerJob?.cancel()
         super.onCleared()
@@ -606,27 +686,43 @@ class PlayerViewModel @Inject constructor(
 
 data class PlaybackCompatibilityWarning(
     val hasDolbyVision: Boolean,
-    val hasEac3: Boolean
+    val hasEac3: Boolean,
+    val hasTrueHd: Boolean = false,
+    val is4kHevc: Boolean = false,
+    val hasHdr10: Boolean = false,
+    val is10Bit: Boolean = false
 ) {
     val title: String
-        get() = if (hasDolbyVision && !hasEac3) {
-            "Dolby Vision may not be supported"
-        } else {
-            "Playback may be unstable"
+        get() = when {
+            hasDolbyVision -> "Dolby Vision may not be supported"
+            hasTrueHd -> "High-quality audio warning"
+            is4kHevc -> "4K HEVC Playback"
+            hasHdr10 || is10Bit -> "10-bit HDR Video detected"
+            else -> "Playback may be unstable"
         }
 
     val message: String
         get() = when {
             hasDolbyVision && hasEac3 ->
-                "This video uses Dolby Vision video and E-AC-3 audio, which this device may not decode correctly. Playback could fail, flicker, stutter, or have missing audio."
+                "This video uses Dolby Vision and E-AC-3 audio. Your device may not support these, leading to discolouring (purple/green tints) or lag."
             hasDolbyVision ->
-                "This video uses Dolby Vision, which this device may not decode correctly. Playback could fail, flicker, or stutter."
+                "This video uses Dolby Vision. If your device doesn't support the specific profile, you may see discoloured video (purple/green tints)."
+            hasTrueHd ->
+                "This video uses Dolby TrueHD audio. This often requires software decoding which is very CPU-intensive and can cause lag on 4K files."
+            is10Bit && !hasHdr10 ->
+                "This is a 10-bit HEVC file. Many older devices only support 8-bit hardware decoding. If this video flickers green, try disabling 'Experimental Tunneling' in Settings."
+            is4kHevc && hasHdr10 ->
+                "This is a 4K HDR10 file. If the device hardware decoder is unstable, it may fall back to software decoding, causing severe lag and washed-out colors."
+            hasHdr10 ->
+                "This is an HDR10 file. If your device hardware struggles, you may see flickering or green tints. Try disabling 'Experimental Tunneling' in Settings if issues occur."
+            is4kHevc ->
+                "This is a 4K HEVC file. If playback is laggy, it may be due to the device struggling with hardware decoding or falling back to software."
             else ->
                 "This video uses E-AC-3 audio, which this device may not decode correctly. Continuing could cause flickering, stuttering, or missing audio."
         }
 
     val proceedLabel: String
-        get() = if (hasDolbyVision) "Try Anyway" else "Watch Anyway"
+        get() = if (hasDolbyVision || is4kHevc || hasTrueHd || hasHdr10 || is10Bit) "Try Anyway" else "Watch Anyway"
 }
 
 data class PlaybackFailure(

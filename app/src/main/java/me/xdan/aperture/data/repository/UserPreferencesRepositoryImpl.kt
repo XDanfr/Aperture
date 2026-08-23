@@ -38,6 +38,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private val AMBIENT_SHOW_CLOCK = booleanPreferencesKey("ambient_show_clock")
     private val CLASSIC_PLAYER_CONTROLS = booleanPreferencesKey("classic_player_controls")
     private val SHOULD_SHOW_COMPATIBILITY_WARNING = booleanPreferencesKey("should_show_compatibility_warning")
+    private val TUNNELING_ENABLED = booleanPreferencesKey("tunneling_enabled")
+    private val SOFTWARE_VIDEO_DECODING = booleanPreferencesKey("software_video_decoding")
+    private val PLAYBACK_ENGINE = stringPreferencesKey("playback_engine")
 
     override val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -87,6 +90,15 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val shouldShowCompatibilityWarning: Flow<Boolean> = context.dataStore.data
         .map { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] ?: true }
+
+    override val tunnelingEnabled: Flow<Boolean> = context.dataStore.data
+        .map { it[TUNNELING_ENABLED] ?: true }
+
+    override val softwareVideoDecoding: Flow<Boolean> = context.dataStore.data
+        .map { it[SOFTWARE_VIDEO_DECODING] ?: true }
+
+    override val playbackEngine: Flow<String> = context.dataStore.data
+        .map { it[PLAYBACK_ENGINE] ?: "auto" }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->
@@ -158,5 +170,17 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setShouldShowCompatibilityWarning(enabled: Boolean) {
         context.dataStore.edit { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] = enabled }
+    }
+
+    override suspend fun setTunnelingEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[TUNNELING_ENABLED] = enabled }
+    }
+
+    override suspend fun setSoftwareVideoDecoding(enabled: Boolean) {
+        context.dataStore.edit { it[SOFTWARE_VIDEO_DECODING] = enabled }
+    }
+
+    override suspend fun setPlaybackEngine(engine: String) {
+        context.dataStore.edit { it[PLAYBACK_ENGINE] = engine }
     }
 }

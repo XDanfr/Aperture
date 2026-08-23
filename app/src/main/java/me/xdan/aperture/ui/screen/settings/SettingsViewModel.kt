@@ -81,6 +81,21 @@ class SettingsViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         false
     )
+    val tunnelingEnabled = userPreferencesRepository.tunnelingEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true
+    )
+    val softwareVideoDecoding = userPreferencesRepository.softwareVideoDecoding.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true
+    )
+    val playbackEngine = userPreferencesRepository.playbackEngine.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "auto"
+    )
 
     val ambientSettings: StateFlow<AmbientSettings> = combine(
         userPreferencesRepository.ambientMode,
@@ -166,6 +181,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setClassicPlayerControls(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setClassicPlayerControls(enabled) }
+    }
+
+    fun setTunnelingEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setTunnelingEnabled(enabled) }
+    }
+
+    fun setSoftwareVideoDecoding(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setSoftwareVideoDecoding(enabled) }
+    }
+
+    fun setPlaybackEngine(engine: String) {
+        viewModelScope.launch { userPreferencesRepository.setPlaybackEngine(engine) }
     }
 
     fun setTheme(themeId: String) {

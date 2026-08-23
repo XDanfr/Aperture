@@ -62,8 +62,11 @@ import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
 fun ClassicPlayerOsd(
     media: MediaEntity?,
     mediaSource: String?,
-    player: androidx.media3.common.Player,
+    player: PlayerEngine,
     isVisible: Boolean,
+    videoDecoderName: String?,
+    audioDecoderName: String?,
+    isHdr: Boolean = false,
     controlsFocusRequester: FocusRequester,
     onInteraction: () -> Unit,
     onRestart: () -> Unit,
@@ -74,9 +77,9 @@ fun ClassicPlayerOsd(
     initialScrubDirection: Int = 0,
     onInitialScrubConsumed: () -> Unit = {}
 ) {
+    val isPlaying by player.isPlaying.collectAsState()
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
-    var isPlaying by remember { mutableStateOf(player.playWhenReady) }
     var isScrubbing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -106,20 +109,6 @@ fun ClassicPlayerOsd(
         ),
         label = "classicOsdEntryScale"
     )
-
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                isPlaying = playWhenReady
-            }
-
-            override fun onPlaybackStateChanged(state: Int) {
-                duration = player.duration
-            }
-        }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
 
     LaunchedEffect(player) {
         while (currentCoroutineContext().isActive) {
@@ -171,6 +160,12 @@ fun ClassicPlayerOsd(
                             color = Color.White.copy(alpha = 0.82f),
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                    }
+                }
+                if (videoDecoderName != null || audioDecoderName != null) {
+                    Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DecoderBadge(label = "VID", name = videoDecoderName, isHdr = isHdr)
+                        DecoderBadge(label = "AUD", name = audioDecoderName)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -276,7 +271,7 @@ fun ClassicPlayerOsd(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ClassicPlayerSeekProgress(
-    player: androidx.media3.common.Player,
+    player: PlayerEngine,
     mediaSource: String?,
     progress: Float,
     isPlaying: Boolean,
@@ -337,7 +332,7 @@ private fun ClassicPlayerSeekProgress(
         if (scrubbing) return
         originalPosition = player.currentPosition
         seekPosition = originalPosition
-        wasPlayingBeforeScrub = player.isPlaying
+        wasPlayingBeforeScrub = player.isPlaying.value
         scrubbing = true
         onScrubbingChanged(true)
         player.pause()
@@ -449,7 +444,7 @@ private fun ClassicPlayerSeekProgress(
                         KeyEvent.KEYCODE_DPAD_RIGHT -> { beginHold(1); true }
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                             endHold()
-                            if (scrubbing) commitScrubbing() else if (player.isPlaying) player.pause() else player.play()
+                            if (scrubbing) commitScrubbing() else if (player.isPlaying.value) player.pause() else player.play()
                             true
                         }
                         KeyEvent.KEYCODE_DPAD_UP -> {
@@ -587,6 +582,23 @@ private fun ClassicPlayerControlIconButton(
             contentDescription = contentDescription,
             modifier = Modifier.size(iconSize)
         )
+    }
+}
+
+@Composable
+private fun DecoderBadge(label: String, name: String?, isHdr: Boolean = false) {
+    if (name == null) return
+    val isSoftware = name.lowercase().contains("ffmpeg") || name.lowercase().contains("google")
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        colors = SurfaceDefaults.colors(
+            containerColor = if (isSoftware) Color(0xFFE57373).copy(alpha = 0.8f) else Color.White.copy(alpha = 0.14f)
+        )
+    ) {
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(text = label, style = MaterialTheme.typography.labelSmall, color = if (isSoftware) Color.White else MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 6.dp))
+            Text(text = if (isHdr) "$name (HDR)" else name, style = MaterialTheme.typography.labelSmall, color = Color.White)
+        }
     }
 }
 

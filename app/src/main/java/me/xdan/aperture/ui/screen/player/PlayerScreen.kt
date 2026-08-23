@@ -3,6 +3,8 @@
 package me.xdan.aperture.ui.screen.player
 
 import android.graphics.Bitmap
+import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
@@ -94,12 +96,25 @@ fun PlayerScreen(
     val compatibilityWarning by viewModel.compatibilityWarning.collectAsState()
     val playbackFailure by viewModel.playbackFailure.collectAsState()
     val subtitleDelayMs by viewModel.subtitleDelayMs.collectAsState()
+    val videoDecoderName by viewModel.videoDecoderName.collectAsState()
+    val audioDecoderName by viewModel.audioDecoderName.collectAsState()
+    val playbackEngine by viewModel.playbackEngine.collectAsState()
+    val isCurrentMediaHdr by viewModel.isCurrentMediaHdr.collectAsState()
+    val isDisplayHdrCapable by viewModel.isDisplayHdrCapable.collectAsState()
     val player = viewModel.player
+    val nativePlayer by player.nativePlayer.collectAsState()
     val hostView = LocalView.current
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
-    var playbackState by remember(player) { mutableIntStateOf(player.playbackState) }
+    val playbackState by player.playbackState.collectAsState()
+    val isPlaying by player.isPlaying.collectAsState()
+    
+    val useGLSurface = remember(playbackEngine, videoDecoderName, isDisplayHdrCapable) {
+        (playbackEngine == "compatibility") || 
+        (videoDecoderName?.lowercase()?.contains("ffmpeg") == true && !isDisplayHdrCapable)
+    }
+
     val playerFocusRequester = remember { FocusRequester() }
     val controlsFocusRequester = remember { FocusRequester() }
     val quickMenuFocusRequester = remember { FocusRequester() }
@@ -112,10 +127,11 @@ fun PlayerScreen(
     }
 
     DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                playbackState = state
-            }
+        val listener = object : PlayerEngine.Listener {
+            override fun onPlaybackStateChanged(state: Int) {}
+            override fun onIsPlayingChanged(isPlaying: Boolean) {}
+            override fun onPlayerError(error: Throwable) {}
+            override fun onPositionDiscontinuity(reason: Int) {}
         }
         player.addListener(listener)
         onDispose { player.removeListener(listener) }
@@ -136,14 +152,17 @@ fun PlayerScreen(
 
     DisposableEffect(player) {
         var hasReturned = false
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == androidx.media3.common.Player.STATE_ENDED && !hasReturned) {
+        val listener = object : PlayerEngine.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == androidx.media3.common.Player.STATE_ENDED && !hasReturned) {
                     hasReturned = true
                     viewModel.saveProgressNow(markCompleted = true)
                     onFinished()
                 }
             }
+            override fun onIsPlayingChanged(isPlaying: Boolean) {}
+            override fun onPlayerError(error: Throwable) {}
+            override fun onPositionDiscontinuity(reason: Int) {}
         }
         player.addListener(listener)
         onDispose { player.removeListener(listener) }
@@ -162,7 +181,7 @@ fun PlayerScreen(
     }
 
     fun saveProgressAndBack() {
-        if (player.isPlaying) player.pause()
+        if (isPlaying) player.pause()
         viewModel.saveProgressNow()
         onBack()
     }
@@ -185,7 +204,7 @@ fun PlayerScreen(
             }
             isOsdVisible -> viewModel.hideOsd()
             else -> {
-                if (player.isPlaying) player.pause()
+                if (isPlaying) player.pause()
                 viewModel.saveProgressNow()
                 onBack()
             }
@@ -204,7 +223,7 @@ fun PlayerScreen(
                     when (keyEvent.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                             if (!isOsdVisible && !isQuickMenuVisible) {
-                                if (player.isPlaying) player.pause() else player.play()
+                                if (isPlaying) player.pause() else player.play()
                                 viewModel.showOsdBriefly()
                                 true
                             } else false
@@ -237,22 +256,33 @@ fun PlayerScreen(
             .focusRequester(playerFocusRequester)
             .focusable()
     ) {
+    key(useGLSurface) {
         AndroidView(
             factory = { context ->
-                PlayerView(context).apply {
+                val themedContext = if (useGLSurface) {
+                    ContextThemeWrapper(context, me.xdan.aperture.R.style.PlayerViewGL)
+                } else {
+                    context
+                }
+                Log.d("PlayerScreen", "Creating PlayerView, initial nativePlayer: ${nativePlayer != null}, useGLSurface: $useGLSurface")
+                PlayerView(themedContext).apply {
                     useController = false
                     subtitleView?.visibility = View.GONE
-                    this.player = player
+                    this.player = nativePlayer
                 }
             },
             update = { view ->
+                if (view.player != nativePlayer) {
+                    Log.d("PlayerScreen", "Updating PlayerView player: ${nativePlayer != null}")
+                    view.player = nativePlayer
+                }
                 view.useController = false
                 view.subtitleView?.visibility = View.GONE
-                view.player = player
                 view.resizeMode = videoResizeMode.media3Mode
             },
             modifier = Modifier.fillMaxSize()
         )
+    }
 
         SubtitleOverlay(player = player, style = subtitleStyle)
 
@@ -271,10 +301,13 @@ fun PlayerScreen(
                 ClassicPlayerOsd(
                     media = media, mediaSource = media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
+                    videoDecoderName = videoDecoderName,
+                    audioDecoderName = audioDecoderName,
+                    isHdr = isCurrentMediaHdr,
                     controlsFocusRequester = controlsFocusRequester,
                     onInteraction = viewModel::showOsdBriefly,
                     onRestart = { player.seekTo(0); viewModel.saveProgressNow(); player.play(); viewModel.showOsdBriefly() },
-                    onQuickMenu = { wasPlayingBeforeQuickMenu = player.isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
+                    onQuickMenu = { wasPlayingBeforeQuickMenu = isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
                     onPlayerBack = ::saveProgressAndBack,
@@ -285,10 +318,13 @@ fun PlayerScreen(
                 ThinPlayerOsd(
                     media = media, mediaSource = media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
+                    videoDecoderName = videoDecoderName,
+                    audioDecoderName = audioDecoderName,
+                    isHdr = isCurrentMediaHdr,
                     controlsFocusRequester = controlsFocusRequester,
                     onInteraction = viewModel::showOsdBriefly,
                     onRestart = { player.seekTo(0); viewModel.saveProgressNow(); player.play(); viewModel.showOsdBriefly() },
-                    onQuickMenu = { wasPlayingBeforeQuickMenu = player.isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
+                    onQuickMenu = { wasPlayingBeforeQuickMenu = isPlaying; player.pause(); isQuickMenuVisible = true; viewModel.hideOsd() },
                     onScrubbingChanged = viewModel::setScrubbing,
                     onCloseOsd = viewModel::hideOsd,
                     onPlayerBack = ::saveProgressAndBack,
@@ -395,23 +431,23 @@ private fun PlaybackNotice(
 }
 
 @Composable
-private fun QuickMenu(player: androidx.media3.common.Player, focusRequester: FocusRequester, onlineSubtitleState: OnlineSubtitleState, openSubtitlesSession: OpenSubtitlesSessionState, videoResizeMode: VideoResizeMode, onVideoResizeModeSelected: (VideoResizeMode) -> Unit, subtitleDelayMs: Long, onSubtitleDelayDecrease: () -> Unit, onSubtitleDelayIncrease: () -> Unit, onSubtitleDelayReset: () -> Unit, onSearchOnline: () -> Unit, onDownloadOnline: (OnlineSubtitleOption) -> Unit) {
-    var tracks by remember(player) { mutableStateOf(player.currentTracks) }
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener { override fun onTracksChanged(newTracks: Tracks) { tracks = newTracks } }
-        player.addListener(listener); onDispose { player.removeListener(listener) }
-    }
+private fun QuickMenu(player: PlayerEngine, focusRequester: FocusRequester, onlineSubtitleState: OnlineSubtitleState, openSubtitlesSession: OpenSubtitlesSessionState, videoResizeMode: VideoResizeMode, onVideoResizeModeSelected: (VideoResizeMode) -> Unit, subtitleDelayMs: Long, onSubtitleDelayDecrease: () -> Unit, onSubtitleDelayIncrease: () -> Unit, onSubtitleDelayReset: () -> Unit, onSearchOnline: () -> Unit, onDownloadOnline: (OnlineSubtitleOption) -> Unit) {
+    val tracks by player.tracks.collectAsState()
     Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.54f).padding(horizontal = 32.dp, vertical = 20.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)), shape = RoundedCornerShape(32.dp)) {
         Row(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             QuickMenuColumn(title = "Audio", icon = Icons.Rounded.Audiotrack, items = getTrackItems(tracks, C.TRACK_TYPE_AUDIO).filter { it.isSupported }, emptyLabel = "No compatible audio tracks", onItemSelected = { trackGroup, index ->
-                if (trackGroup.isTrackSupported(index)) player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false).setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index)).build()
+                if (trackGroup.isTrackSupported(index)) player.setTrackSelectionOverride(trackGroup.mediaTrackGroup, index)
             })
             QuickMenuColumn(title = "Subtitles", icon = Icons.Rounded.Subtitles, items = getTrackItems(tracks, C.TRACK_TYPE_TEXT).filter { it.isSupported }, emptyLabel = "No compatible subtitle tracks", headerContent = {
                 TimingAdjustmentControl(label = "Subtitle sync", valueMs = subtitleDelayMs, supportingText = "Negative values show subs earlier", focusRequester = focusRequester, onDecrease = onSubtitleDelayDecrease, onIncrease = onSubtitleDelayIncrease, onReset = onSubtitleDelayReset)
             }, onItemSelected = { trackGroup, index ->
-                if (trackGroup.isTrackSupported(index)) player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index)).build()
+                if (trackGroup.isTrackSupported(index)) {
+                    player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    player.setTrackSelectionOverride(trackGroup.mediaTrackGroup, index)
+                }
             }, onDisable = {
-                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).clearOverridesOfType(C.TRACK_TYPE_TEXT).build()
+                player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                player.clearTrackOverrides(C.TRACK_TYPE_TEXT)
             }, disableLabel = "Off")
             OnlineSubtitlesColumn(state = onlineSubtitleState, session = openSubtitlesSession, onSearch = onSearchOnline, onDownload = onDownloadOnline)
             PlaybackOptionsColumn(selectedResizeMode = videoResizeMode, onResizeModeSelected = onVideoResizeModeSelected)
@@ -538,12 +574,8 @@ private fun RowScope.OnlineSubtitlesColumn(state: OnlineSubtitleState, session: 
 }
 
 @Composable
-private fun SubtitleOverlay(player: androidx.media3.common.Player, style: PlayerSubtitleStyle) {
-    var cues by remember(player) { mutableStateOf(CueGroup.EMPTY_TIME_ZERO) }
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener { override fun onCues(cueGroup: CueGroup) { cues = cueGroup } }
-        player.addListener(listener); onDispose { player.removeListener(listener) }
-    }
+private fun SubtitleOverlay(player: PlayerEngine, style: PlayerSubtitleStyle) {
+    val cues by player.cues.collectAsState()
     val textColour = when (style.colour) { "yellow" -> android.graphics.Color.YELLOW; "cyan" -> android.graphics.Color.CYAN; else -> android.graphics.Color.WHITE }
     val backgroundColour = android.graphics.Color.argb((style.backgroundOpacity.coerceIn(0f, 0.9f) * 255).toInt(), 12, 12, 14)
     AndroidView(factory = { context -> SubtitleView(context).apply { setApplyEmbeddedStyles(false) } }, update = { view ->
@@ -564,10 +596,27 @@ private fun getTrackItems(tracks: Tracks, type: Int): List<TrackItem> {
 }
 
 @Composable
-private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: androidx.media3.common.Player, isVisible: Boolean, controlsFocusRequester: FocusRequester, onInteraction: () -> Unit, onRestart: () -> Unit, onQuickMenu: () -> Unit, onScrubbingChanged: (Boolean) -> Unit, onCloseOsd: () -> Unit, onPlayerBack: () -> Unit, initialScrubDirection: Int = 0, onInitialScrubConsumed: () -> Unit = {}) {
+private fun ThinPlayerOsd(
+    media: MediaEntity?,
+    mediaSource: String?,
+    player: PlayerEngine,
+    isVisible: Boolean,
+    videoDecoderName: String?,
+    audioDecoderName: String?,
+    isHdr: Boolean = false,
+    controlsFocusRequester: FocusRequester,
+    onInteraction: () -> Unit,
+    onRestart: () -> Unit,
+    onQuickMenu: () -> Unit,
+    onScrubbingChanged: (Boolean) -> Unit,
+    onCloseOsd: () -> Unit,
+    onPlayerBack: () -> Unit,
+    initialScrubDirection: Int = 0,
+    onInitialScrubConsumed: () -> Unit = {}
+) {
+    val isPlaying by player.isPlaying.collectAsState()
     var currentPosition by remember { mutableLongStateOf(player.currentPosition) }
     var duration by remember { mutableLongStateOf(player.duration) }
-    var isPlaying by remember { mutableStateOf(player.isPlaying) }
     var isScrubbing by remember { mutableStateOf(false) }
     var playFocused by remember { mutableStateOf(false) }
     val topFocusRequester = remember { FocusRequester() }
@@ -581,13 +630,7 @@ private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: and
     val backgroundAlpha by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isScrubbing) 0.76f else 0.52f, animationSpec = androidx.compose.animation.core.tween(220), label = "thinOsdBackgroundAlpha")
     val entryAlpha by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isVisible) 1f else 0f, animationSpec = androidx.compose.animation.core.tween(150), label = "thinOsdEntryAlpha")
     val entryScale by androidx.compose.animation.core.animateFloatAsState(targetValue = if (isVisible) 1f else 0.92f, animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow, dampingRatio = 0.72f), label = "thinOsdEntryScale")
-    DisposableEffect(player) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
-            override fun onPlaybackStateChanged(state: Int) { duration = player.duration }
-        }
-        player.addListener(listener); onDispose { player.removeListener(listener) }
-    }
+    
     LaunchedEffect(player) {
         while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             currentPosition = player.currentPosition; duration = player.duration; kotlinx.coroutines.delay(33)
@@ -596,7 +639,7 @@ private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: and
     fun endHold() { holdDirection = 0; seekJob?.cancel(); seekJob = null }
     fun beginScrubbing(direction: Int, startHold: Boolean = true) {
         if (!isScrubbing) {
-            originalPosition = player.currentPosition; seekPosition = originalPosition; wasPlayingBeforeScrub = player.isPlaying; isScrubbing = true; onScrubbingChanged(true); player.pause()
+            originalPosition = player.currentPosition; seekPosition = originalPosition; wasPlayingBeforeScrub = isPlaying; isScrubbing = true; onScrubbingChanged(true); player.pause()
         }
         seekPosition = if (direction < 0) (seekPosition - 10_000L).coerceAtLeast(0L) else (seekPosition + 10_000L).coerceAtMost(duration)
         if (!startHold) return
@@ -666,6 +709,12 @@ private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: and
                 }
                 if (episodeLabel.isNotBlank()) Text(text = episodeLabel, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.82f), modifier = Modifier.padding(top = 4.dp))
             }
+            if (videoDecoderName != null || audioDecoderName != null) {
+                Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DecoderBadge(label = "VID", name = videoDecoderName, isHdr = isHdr)
+                    DecoderBadge(label = "AUD", name = audioDecoderName)
+                }
+            }
         }
         Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart), verticalAlignment = Alignment.CenterVertically) {
             Row(modifier = Modifier.graphicsLayer { alpha = uiAlpha * entryAlpha; val scale = (0.97f + (0.03f * uiAlpha)) * entryScale; scaleX = scale; scaleY = scale }, verticalAlignment = Alignment.CenterVertically) {
@@ -694,7 +743,7 @@ private fun ThinPlayerOsd(media: MediaEntity?, mediaSource: String?, player: and
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PlayerSeekProgress(player: androidx.media3.common.Player, mediaSource: String?, progress: Float, isPlaying: Boolean, scrubbing: Boolean, seekPosition: Long, modifier: Modifier = Modifier) {
+private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progress: Float, isPlaying: Boolean, scrubbing: Boolean, seekPosition: Long, modifier: Modifier = Modifier) {
     val duration = player.duration.coerceAtLeast(0L)
     val context = LocalContext.current
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -737,6 +786,23 @@ private fun PlayerSeekProgress(player: androidx.media3.common.Player, mediaSourc
 private fun PlayerControlIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier, iconSize: Dp = 48.dp) {
     IconButton(onClick = onClick, modifier = modifier.then(Modifier.clip(CircleShape)), colors = IconButtonDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary), scale = IconButtonDefaults.scale(scale = 1f, focusedScale = 1.12f, pressedScale = 0.84f)) {
         Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(iconSize))
+    }
+}
+
+@Composable
+private fun DecoderBadge(label: String, name: String?, isHdr: Boolean = false) {
+    if (name == null) return
+    val isSoftware = name.lowercase().contains("ffmpeg") || name.lowercase().contains("google")
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        colors = SurfaceDefaults.colors(
+            containerColor = if (isSoftware) Color(0xFFE57373).copy(alpha = 0.8f) else Color.White.copy(alpha = 0.14f)
+        )
+    ) {
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(text = label, style = MaterialTheme.typography.labelSmall, color = if (isSoftware) Color.White else MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 6.dp))
+            Text(text = if (isHdr) "$name (HDR)" else name, style = MaterialTheme.typography.labelSmall, color = Color.White)
+        }
     }
 }
 

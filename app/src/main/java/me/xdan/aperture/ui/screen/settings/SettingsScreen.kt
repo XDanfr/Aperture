@@ -116,6 +116,9 @@ fun SettingsScreen(
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     val ambientSettings by viewModel.ambientSettings.collectAsState()
     val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
+    val tunnelingEnabled by viewModel.tunnelingEnabled.collectAsState()
+    val softwareVideoDecoding by viewModel.softwareVideoDecoding.collectAsState()
+    val playbackEngine by viewModel.playbackEngine.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -123,6 +126,7 @@ fun SettingsScreen(
     var showHiddenMedia by remember { mutableStateOf(false) }
     var showSpotlightDaysPicker by remember { mutableStateOf(false) }
     var showShowLayoutPicker by remember { mutableStateOf(false) }
+    var showEnginePicker by remember { mutableStateOf(false) }
     var showSubtitleAppearance by remember { mutableStateOf(false) }
     var showMediaFolders by remember { mutableStateOf(false) }
     var showAmbientSettings by remember { mutableStateOf(false) }
@@ -360,6 +364,58 @@ fun SettingsScreen(
                             isFocused = false
                         )
                     }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Experimental Tunneling",
+                    subtitle = if (tunnelingEnabled) "Enabled · May improve 4K sync but can cause green flicker on some hardware" else "Disabled · More compatible with standard Android TV hardware",
+                    icon = Icons.Rounded.Refresh,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = { viewModel.setTunnelingEnabled(!tunnelingEnabled) },
+                    trailingContent = {
+                        ExpressiveToggle(
+                            checked = tunnelingEnabled,
+                            onCheckedChange = null,
+                            isFocused = false
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Software Video Decoding",
+                    subtitle = if (softwareVideoDecoding) "Enabled · Fallback to software (FFmpeg) if hardware fails (may be green/laggy)" else "Disabled · Only use hardware decoders (will fail if unsupported)",
+                    icon = Icons.Rounded.Movie,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = { viewModel.setSoftwareVideoDecoding(!softwareVideoDecoding) },
+                    trailingContent = {
+                        ExpressiveToggle(
+                            checked = softwareVideoDecoding,
+                            onCheckedChange = null,
+                            isFocused = false
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Playback Engine",
+                    subtitle = when (playbackEngine) {
+                        "auto" -> "Auto · Choose the best engine for the file"
+                        "exoplayer" -> "Stable · Media3 ExoPlayer (Default)"
+                        "compatibility" -> "Compatibility · Software-based decoding (Experimental)"
+                        else -> "Auto"
+                    },
+                    icon = Icons.Rounded.Movie,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = { showEnginePicker = true }
                 )
             }
 
@@ -647,6 +703,26 @@ fun SettingsScreen(
             onDismiss = { showShowLayoutPicker = false }
         )
     }
+    if (showEnginePicker) {
+        EnginePickerDialog(
+            selectedEngine = playbackEngine,
+            onSelect = {
+                viewModel.setPlaybackEngine(it)
+                showEnginePicker = false
+            },
+            onDismiss = { showEnginePicker = false }
+        )
+    }
+    if (showEnginePicker) {
+        EnginePickerDialog(
+            selectedEngine = playbackEngine,
+            onSelect = {
+                viewModel.setPlaybackEngine(it)
+                showEnginePicker = false
+            },
+            onDismiss = { showEnginePicker = false }
+        )
+    }
     if (showSubtitleAppearance) {
         SubtitleAppearanceDialog(
             initial = subtitleAppearance,
@@ -873,6 +949,47 @@ private fun MediaFoldersDialog(
     }
 }
 
+@Composable
+private fun EnginePickerDialog(
+    selectedEngine: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                Text("Playback Engine", style = MaterialTheme.typography.headlineSmall)
+                Text("Choose how videos are decoded. 'Auto' will use hardware when possible.")
+                listOf(
+                    "auto" to ("Auto (Recommended)" to "Automatically switch to software if hardware fails."),
+                    "exoplayer" to ("Stable (ExoPlayer)" to "Force the standard Media3 player engine."),
+                    "compatibility" to ("Compatibility (Experimental)" to "Force software-based decoding for problematic files.")
+                ).forEachIndexed { index, (mode, copy) ->
+                    Surface(
+                        onClick = { onSelect(mode) },
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (index == 0) Modifier.focusRequester(firstRequester) else Modifier
+                        ),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (mode == selectedEngine) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(copy.first, style = MaterialTheme.typography.titleMedium)
+                            Text(copy.second, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+            }
+        }
+    }
+}
 @Composable
 private fun ShowLayoutDialog(
     selectedMode: String,

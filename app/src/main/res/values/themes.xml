@@ -7,4 +7,8 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
+
+    <style name="PlayerViewGL">
+        <item name="surface_type">video_decoder_gl_surface_view</item>
+    </style>
 </resources>
