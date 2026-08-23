@@ -55,7 +55,7 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 3. **Add API Keys:** local.properties needs a `TMDB_API_KEY` and an `OPENSUBTITLES_API_KEY` to function properly.
 4. **Sync & Deploy:** Sync Gradle, build the project, and deploy it to your physical Android TV device or an emulator running **API 27+**.
 > [!NOTE]
-> The repo is undergoing a pretty large rework on the front end to adopt **Material 3 Expressive**. The latest commits may have some bugs.
+> The repo is undergoing a pretty large rework on the front end to adopt **Material 3 Expressive**, and the back end is adopting more codec support. The latest commits may have some bugs.
 
 ## 📸 Screenshots
 
@@ -112,7 +112,7 @@ Contributions are what make the open-source community such an amazing place! Wan
 
 **Q: Was any AI used for this?**
 
-**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand!
+**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand! See [AI.md] for more.
 
 ---
 ## 💜 Sponsors
