@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
@@ -86,8 +88,8 @@ fun TopNavigationBar(
         Surface(
             modifier = Modifier
                 .wrapContentSize()
-                .width(612.dp)
-                .height(64.dp)
+                .requiredWidth(612.dp)
+                .requiredHeight(64.dp)
                 .padding(top = 8.dp),
             shape = RoundedCornerShape(32.dp),
             colors = SurfaceDefaults.colors(
