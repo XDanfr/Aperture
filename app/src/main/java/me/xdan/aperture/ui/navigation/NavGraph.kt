@@ -152,8 +152,6 @@ fun NavGraph(
 
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
         if (destination !is Destination.Home) backstack.add(destination)
-
-        if (destination is Destination.Home) homeViewModel.regenerateSuggestions()
     }
 
     val returnFromPlayer: () -> Unit = {
@@ -268,7 +266,7 @@ fun NavGraph(
                 NavContent(
                     homeViewModel = homeViewModel,
                     backstack = backstack,
-                    drawerRequesters = topNavigationRequesters,
+                    drawerRequesters = emptyMap(),
                     contentEntryRequesters = contentEntryRequesters,
                     homeRestoreFocusKey = homeRestoreFocusKey,
                     settingsRestoreFocusKey = settingsRestoreFocusKey,
@@ -304,9 +302,11 @@ fun NavGraph(
                 )
             }
 
-            if (showNavigation && !topNavigationHasFocus && contextMediaId == null && selectedMediaId == null && !tutorialRequired) {
+            if (showNavigation && contextMediaId == null && selectedMediaId == null && !tutorialRequired) {
                 BackHandler {
-                    requestFocusWhenReady(currentTopNavigationRequester)
+                    if (!topNavigationHasFocus) {
+                        requestFocusWhenReady(currentTopNavigationRequester)
+                    }
                 }
             }
 
@@ -433,7 +433,6 @@ private fun NavContent(
         NavEntry<Destination>(destination) {
             val focusKey = destination.focusKey()
             val drawerFocusRequester = focusKey?.let(drawerRequesters::get)
-                ?: FocusRequester.Default
             val contentEntryFocusRequester = focusKey?.let(contentEntryRequesters::get)
                 ?: FocusRequester.Default
             val mediaClick: (Long, FocusRequester) -> Unit = { mediaId, requester ->
