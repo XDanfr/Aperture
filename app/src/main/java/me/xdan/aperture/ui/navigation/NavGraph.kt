@@ -460,6 +460,7 @@ private fun NavContent(
                     onFocusKeyChanged = onHomeFocusKeyChanged,
                     onContentFocused = contentFocused,
                     onActiveMediaChanged = onActiveMediaChanged,
+                    suppressEntryFocus = topNavigationHasFocus,
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),
