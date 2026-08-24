@@ -1,6 +1,5 @@
 package me.xdan.aperture.ui.screen.search
 
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,13 +32,6 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
-
-    // Focus Pull
-    LaunchedEffect(results.isNotEmpty()) {
-        if (results.isNotEmpty()) {
-            contentEntryFocusRequester.requestFocus()
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -76,9 +68,9 @@ fun SearchScreen(
                 }
             )
         }
-        
+
         Spacer(modifier = Modifier.height(ApertureTheme.spacing.large))
-        
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(5),
             contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
