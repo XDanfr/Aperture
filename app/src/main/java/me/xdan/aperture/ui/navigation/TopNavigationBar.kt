@@ -55,6 +55,7 @@ private val OuterHeight = 56.dp
 private val SlotWidth = 36.dp
 private val SlotGap = 4.dp
 private val OuterSidePadding = 24.dp
+private const val OuterWidth = 300
 private val SelectedWidths = listOf(
     86.dp,
     94.dp,
@@ -122,7 +123,7 @@ fun TopNavigationBar(
     ) {
         Box(
             modifier = Modifier
-                .width(274.dp)
+                .width(OuterWidth.dp)
                 .height(OuterHeight),
         ) {
             Box(
