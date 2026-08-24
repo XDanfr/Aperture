@@ -1,7 +1,6 @@
 package me.xdan.aperture.ui.navigation
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -14,6 +13,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -75,26 +76,27 @@ fun TopNavigationBar(
         )
     }
     val requesters = remember { List(items.size) { FocusRequester() } }
-    var focusedIndex by remember { mutableIntStateOf(items.indexOfFirst { it.destination.focusKey() == currentDestination.focusKey() }.coerceAtLeast(0)) }
+    var focusedIndex by remember {
+        mutableIntStateOf(
+            items.indexOfFirst { it.destination.focusKey() == currentDestination.focusKey() }.coerceAtLeast(0)
+        )
+    }
 
     LaunchedEffect(currentDestination) {
         val index = items.indexOfFirst { it.destination.focusKey() == currentDestination.focusKey() }
-        if (index >= 0) {
-            focusedIndex = index
-        }
+        if (index >= 0) focusedIndex = index
     }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .animateContentSize(animationSpec = tween(220)),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Surface(
             modifier = Modifier
                 .width(692.dp)
-                .sizeIn(maxWidth = 692.dp),
+                .height(TopNavigationOuterHeight),
             shape = TopNavigationOuterShape,
             colors = SurfaceDefaults.colors(
                 containerColor = ApertureTheme.colorScheme.surface.copy(alpha = 0.70f),
@@ -103,6 +105,7 @@ fun TopNavigationBar(
         ) {
             Row(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .height(TopNavigationOuterHeight)
                     .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -115,6 +118,7 @@ fun TopNavigationBar(
                         animationSpec = tween(durationMillis = 220),
                         label = "top-navigation-width",
                     )
+
                     Box(
                         modifier = Modifier
                             .width(TopNavigationSlotWidth)
@@ -126,11 +130,7 @@ fun TopNavigationBar(
                                 .width(selectedWidth)
                                 .height(TopNavigationItemHeight)
                                 .background(
-                                    color = if (isFocused) {
-                                        ApertureTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Transparent
-                                    },
+                                    color = if (isFocused) ApertureTheme.colorScheme.primaryContainer else Color.Transparent,
                                     shape = TopNavigationItemShape,
                                 )
                                 .focusRequester(requesters[index])
@@ -140,9 +140,7 @@ fun TopNavigationBar(
                                 }
                                 .focusable()
                                 .onFocusChanged { state ->
-                                    if (state.isFocused) {
-                                        focusedIndex = index
-                                    }
+                                    if (state.isFocused) focusedIndex = index
                                 }
                                 .clickable { onDestinationClick(item.destination) },
                             contentAlignment = Alignment.Center,
@@ -159,10 +157,7 @@ fun TopNavigationBar(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center,
                                 ) {
-                                    NavigationIcon(
-                                        destination = item.destination,
-                                        modifier = Modifier.size(24.dp),
-                                    )
+                                    NavigationIcon(item.destination, Modifier.size(24.dp))
                                     if (expanded) {
                                         Spacer(Modifier.width(8.dp))
                                         Text(
@@ -173,7 +168,7 @@ fun TopNavigationBar(
                                         )
                                     }
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -185,7 +180,7 @@ fun TopNavigationBar(
 @Composable
 private fun NavigationIcon(
     destination: Destination,
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
 ) {
     when (destination) {
         Destination.Home -> ApertureBrandMark(modifier = modifier)
