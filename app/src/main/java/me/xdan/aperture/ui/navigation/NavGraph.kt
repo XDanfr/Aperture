@@ -6,11 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,7 +26,6 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.ui.component.MediaContextMenu
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
@@ -126,9 +125,6 @@ fun NavGraph(
     }
 
     val currentTopNavigationRequester = currentFocusKey?.let(topNavigationRequesters::get)
-    val contentReturnFocusRequester = currentFocusKey?.let { key ->
-        lastFocusedRequesters[key] ?: contentEntryRequesters[key]
-    }
 
     fun navigateFromTopNavigation(destination: Destination) {
         if (destination.focusKey() == currentFocusKey) return
@@ -405,7 +401,7 @@ fun NavGraph(
 
 private const val HOME_DEFAULT_FOCUS_KEY = "spotlight"
 
-private fun Destination.focusKey(): String? = when (this) {
+fun Destination.focusKey(): String? = when (this) {
     Destination.Home -> "home"
     Destination.Search -> "search"
     Destination.Movies -> "movies"
