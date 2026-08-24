@@ -2,6 +2,7 @@ package me.xdan.aperture.ui.navigation
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -30,10 +31,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
@@ -199,11 +204,95 @@ private fun NavigationIcon(
 ) {
     when (destination) {
         Destination.Home -> ApertureBrandMark(modifier = modifier)
-        Destination.Shows -> Icon(androidx.compose.material.icons.Icons.Rounded.Tv, contentDescription = null, modifier = modifier)
-        Destination.Movies -> Icon(androidx.compose.material.icons.Icons.Rounded.Movie, contentDescription = null, modifier = modifier)
-        Destination.Search -> Icon(androidx.compose.material.icons.Icons.Rounded.Search, contentDescription = null, modifier = modifier)
-        Destination.MyList -> Icon(androidx.compose.material.icons.Icons.Rounded.FavoriteBorder, contentDescription = null, modifier = modifier)
-        Destination.Settings -> Icon(androidx.compose.material.icons.Icons.Rounded.Settings, contentDescription = null, modifier = modifier)
+        Destination.Shows -> SimpleNavigationIcon(modifier, NavigationGlyph.Tv)
+        Destination.Movies -> SimpleNavigationIcon(modifier, NavigationGlyph.Movie)
+        Destination.Search -> SimpleNavigationIcon(modifier, NavigationGlyph.Search)
+        Destination.MyList -> SimpleNavigationIcon(modifier, NavigationGlyph.Favorite)
+        Destination.Settings -> SimpleNavigationIcon(modifier, NavigationGlyph.Settings)
         is Destination.Player -> Unit
+    }
+}
+
+private enum class NavigationGlyph {
+    Tv,
+    Movie,
+    Search,
+    Favorite,
+    Settings,
+}
+
+@Composable
+private fun SimpleNavigationIcon(
+    modifier: Modifier,
+    glyph: NavigationGlyph,
+) {
+    val contentColor = MaterialTheme.colorScheme.onSurface
+
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.11f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val center = size.center
+        val w = size.width
+        val h = size.height
+
+        when (glyph) {
+            NavigationGlyph.Tv -> {
+                drawRoundRect(
+                    color = contentColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.12f, h * 0.22f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.56f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f),
+                    style = stroke,
+                )
+                drawLine(contentColor, androidx.compose.ui.geometry.Offset(w * 0.36f, h * 0.86f), androidx.compose.ui.geometry.Offset(w * 0.64f, h * 0.86f), strokeWidth, StrokeCap.Round)
+            }
+            NavigationGlyph.Movie -> {
+                drawRoundRect(
+                    color = contentColor,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.12f, h * 0.22f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.56f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f),
+                    style = stroke,
+                )
+                for (i in 0..2) {
+                    val x = w * (0.27f + i * 0.23f)
+                    drawLine(contentColor, androidx.compose.ui.geometry.Offset(x, h * 0.23f), androidx.compose.ui.geometry.Offset(x, h * 0.78f), strokeWidth * 0.8f, StrokeCap.Round)
+                }
+            }
+            NavigationGlyph.Search -> {
+                drawCircle(contentColor, radius = w * 0.28f, center = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.42f), style = stroke)
+                drawLine(contentColor, androidx.compose.ui.geometry.Offset(w * 0.61f, h * 0.61f), androidx.compose.ui.geometry.Offset(w * 0.83f, h * 0.83f), strokeWidth, StrokeCap.Round)
+            }
+            NavigationGlyph.Favorite -> {
+                val path = Path().apply {
+                    moveTo(w * 0.50f, h * 0.81f)
+                    cubicTo(w * 0.42f, h * 0.72f, w * 0.17f, h * 0.55f, w * 0.17f, h * 0.36f)
+                    cubicTo(w * 0.17f, h * 0.20f, w * 0.31f, h * 0.12f, w * 0.43f, h * 0.24f)
+                    cubicTo(w * 0.47f, h * 0.28f, w * 0.50f, h * 0.31f, w * 0.50f, h * 0.31f)
+                    cubicTo(w * 0.50f, h * 0.31f, w * 0.53f, h * 0.28f, w * 0.57f, h * 0.24f)
+                    cubicTo(w * 0.69f, h * 0.12f, w * 0.83f, h * 0.20f, w * 0.83f, h * 0.36f)
+                    cubicTo(w * 0.83f, h * 0.55f, w * 0.58f, h * 0.72f, w * 0.50f, h * 0.81f)
+                }
+                drawPath(path, contentColor, style = stroke)
+            }
+            NavigationGlyph.Settings -> {
+                drawCircle(contentColor, radius = w * 0.27f, center = center, style = stroke)
+                drawCircle(ApertureTheme.colorScheme.surface, radius = w * 0.08f, center = center)
+                for (i in 0..7) {
+                    val angle = Math.toRadians(i * 45.0).toFloat()
+                    val inner = w * 0.30f
+                    val outer = w * 0.42f
+                    val innerPoint = androidx.compose.ui.geometry.Offset(
+                        x = center.x + kotlin.math.cos(angle) * inner,
+                        y = center.y + kotlin.math.sin(angle) * inner,
+                    )
+                    val outerPoint = androidx.compose.ui.geometry.Offset(
+                        x = center.x + kotlin.math.cos(angle) * outer,
+                        y = center.y + kotlin.math.sin(angle) * outer,
+                    )
+                    drawLine(contentColor, innerPoint, outerPoint, strokeWidth, StrokeCap.Round)
+                }
+            }
+        }
     }
 }
