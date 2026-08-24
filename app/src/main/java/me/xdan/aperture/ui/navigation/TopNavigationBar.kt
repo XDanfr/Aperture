@@ -5,8 +5,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -28,7 +30,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,12 +49,12 @@ private val OuterHeight = 56.dp
 private val SlotWidth = 44.dp
 private val SlotGap = 2.dp
 private val SelectedWidths = listOf(
-    92.dp,  // Shows
-    100.dp, // Movies
-    96.dp,  // Search
-    126.dp, // Aperture
-    102.dp, // My List
-    108.dp, // Settings
+    92.dp,
+    100.dp,
+    96.dp,
+    126.dp,
+    102.dp,
+    108.dp,
 )
 private val OuterWidth = 362.dp
 private val OuterSidePadding = 44.dp
@@ -135,6 +136,7 @@ fun TopNavigationBar(
                     modifier = Modifier
                         .padding(horizontal = OuterSidePadding)
                         .height(OuterHeight),
+                    horizontalArrangement = Arrangement.spacedBy(SlotGap),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     items.forEachIndexed { index, item ->
@@ -155,7 +157,7 @@ fun TopNavigationBar(
                                         focusedIndex = index
                                         onDestinationClick(item.destination)
                                         scope.launch {
-                                            delay(90)
+                                            delay(120)
                                             runCatching { requester.requestFocus() }
                                         }
                                     }
@@ -163,34 +165,30 @@ fun TopNavigationBar(
                                 .clickable {
                                     onDestinationClick(item.destination)
                                     scope.launch {
-                                        delay(90)
+                                        delay(120)
                                         focusManager.moveFocus(FocusDirection.Down)
                                     }
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
-                            NavigationIcon(
-                                destination = item.destination,
-                                modifier = Modifier.size(24.dp),
-                            )
                             if (isFocused) {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        NavigationIcon(
-                                            destination = item.destination,
-                                            modifier = Modifier.size(24.dp),
-                                        )
-                                        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = item.label,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            fontFamily = ApertureBrandFontFamily,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = ApertureTheme.colorScheme.onPrimaryContainer,
-                                        )
-                                    }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    NavigationIcon(item.destination, Modifier.size(24.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = item.label,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        fontFamily = ApertureBrandFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = ApertureTheme.colorScheme.onPrimaryContainer,
+                                    )
                                 }
+                            } else {
+                                NavigationIcon(item.destination, Modifier.size(24.dp))
                             }
                         }
                     }
@@ -207,11 +205,11 @@ private fun NavigationIcon(
 ) {
     when (destination) {
         Destination.Home -> ApertureBrandMark(modifier = modifier)
-        Destination.Shows -> Icon(Icons.Rounded.Tv, contentDescription = null, modifier = modifier)
-        Destination.Movies -> Icon(Icons.Rounded.Movie, contentDescription = null, modifier = modifier)
-        Destination.Search -> Icon(Icons.Rounded.Search, contentDescription = null, modifier = modifier)
-        Destination.MyList -> Icon(Icons.Rounded.FavoriteBorder, contentDescription = null, modifier = modifier)
-        Destination.Settings -> Icon(Icons.Rounded.Settings, contentDescription = null, modifier = modifier)
+        Destination.Shows -> Icon(androidx.compose.material.icons.Icons.Rounded.Tv, contentDescription = null, modifier = modifier)
+        Destination.Movies -> Icon(androidx.compose.material.icons.Icons.Rounded.Movie, contentDescription = null, modifier = modifier)
+        Destination.Search -> Icon(androidx.compose.material.icons.Icons.Rounded.Search, contentDescription = null, modifier = modifier)
+        Destination.MyList -> Icon(androidx.compose.material.icons.Icons.Rounded.FavoriteBorder, contentDescription = null, modifier = modifier)
+        Destination.Settings -> Icon(androidx.compose.material.icons.Icons.Rounded.Settings, contentDescription = null, modifier = modifier)
         is Destination.Player -> Unit
     }
 }
