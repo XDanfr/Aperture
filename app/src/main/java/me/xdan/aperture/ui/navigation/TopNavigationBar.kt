@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
@@ -48,14 +49,7 @@ private val SelectedShape = RoundedCornerShape(28.dp)
 private val OuterHeight = 56.dp
 private val SlotWidth = 44.dp
 private val SlotGap = 2.dp
-private val SelectedWidths = listOf(
-    92.dp,
-    100.dp,
-    96.dp,
-    126.dp,
-    102.dp,
-    108.dp,
-)
+private val SelectedWidths = listOf(92.dp, 100.dp, 96.dp, 126.dp, 102.dp, 108.dp)
 private val OuterWidth = 362.dp
 private val OuterSidePadding = 44.dp
 
@@ -105,8 +99,8 @@ fun TopNavigationBar(
                 .height(OuterHeight),
             shape = OuterShape,
             colors = SurfaceDefaults.colors(
-                containerColor = ApertureTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f),
-                contentColor = ApertureTheme.colorScheme.onSecondaryContainer,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -116,7 +110,7 @@ fun TopNavigationBar(
                     label = "top-navigation-selected-width",
                 )
                 val selectedX by animateDpAsState(
-                    targetValue = OuterSidePadding + focusedIndex * (SlotWidth + SlotGap) - (selectedWidth - SlotWidth) / 2,
+                    targetValue = OuterSidePadding + (SlotWidth + SlotGap) * focusedIndex - (selectedWidth - SlotWidth) / 2,
                     animationSpec = tween(240),
                     label = "top-navigation-selected-x",
                 )
@@ -184,7 +178,7 @@ fun TopNavigationBar(
                                         softWrap = false,
                                         fontFamily = ApertureBrandFontFamily,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = ApertureTheme.colorScheme.onPrimaryContainer,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     )
                                 }
                             } else {
