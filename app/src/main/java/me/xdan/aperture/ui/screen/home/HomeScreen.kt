@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -53,7 +52,8 @@ fun HomeScreen(
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit = {}
+    onActiveMediaChanged: (Long) -> Unit = {},
+    suppressEntryFocus: Boolean = false
 ) {
     val state by viewModel.homeState.collectAsState()
     val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
@@ -100,6 +100,7 @@ fun HomeScreen(
                     onFocusKeyChanged = onFocusKeyChanged,
                     onContentFocused = onContentFocused,
                     onActiveMediaChanged = onActiveMediaChanged,
+                    suppressEntryFocus = suppressEntryFocus,
                     roundedSpotlight = roundedSpotlight
                 )
             }
@@ -119,6 +120,7 @@ private fun HomeContent(
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
+    suppressEntryFocus: Boolean,
     roundedSpotlight: Boolean
 ) {
     val listState = rememberLazyListState()
@@ -128,12 +130,10 @@ private fun HomeContent(
             row.items.any { media -> key == "row:${row.title}:${media.id}" }
         }
     }
-    // The entry requester must stay attached to the item Home was entered on.
-    // Moving it to every newly focused card mutates the focus tree mid-scroll and
-    // makes the containing LazyColumn perform small vertical corrections.
     val entryFocusKey = remember(state.suggestionGeneration) { resolvedRestoreFocusKey }
 
     LaunchedEffect(Unit) {
+        if (suppressEntryFocus) return@LaunchedEffect
         val restoredRowTitle = entryFocusKey
             ?.takeIf { it.startsWith("row:") }
             ?.removePrefix("row:")
@@ -163,13 +163,13 @@ private fun HomeContent(
 
     LaunchedEffect(restoreFocusKey) {
         if (restoreFocusKey != null && restoreFocusKey != HOME_SPOTLIGHT_FOCUS_KEY) {
-            // If we've restored focus to a row, ensure the theme color matches it immediately
             val mediaId = restoreFocusKey.substringAfterLast(":").toLongOrNull()
             mediaId?.let { onActiveMediaChanged(it) }
         }
     }
 
     LaunchedEffect(state.suggestionGeneration) {
+        if (suppressEntryFocus) return@LaunchedEffect
         if (state.suggestionGeneration > 0) {
             refreshAlpha.snapTo(0.42f)
             listState.animateScrollToItem(0)
@@ -179,7 +179,7 @@ private fun HomeContent(
             refreshAlpha.animateTo(1f, tween(320))
         }
     }
-    
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().graphicsLayer {
             alpha = refreshAlpha.value
@@ -258,7 +258,6 @@ private fun FeaturedCarousel(
         if (focusActiveSpotlight) {
             featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
         } else if (allowUnfocusedArtworkUpdates) {
-            // Debounce unfocused updates to allow card focus transitions to "win" the color lock first.
             delay(180)
             if (allowUnfocusedArtworkUpdates) {
                 featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
