@@ -1,59 +1,62 @@
 package me.xdan.aperture.ui.navigation
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
 import me.xdan.aperture.ui.theme.ApertureTheme
 
-private val TopNavigationOuterShape = RoundedCornerShape(32.dp)
-private val TopNavigationItemShape = RoundedCornerShape(26.dp)
-private val TopNavigationOuterHeight = 64.dp
-private val TopNavigationItemHeight = 52.dp
-private val TopNavigationSlotWidth = 108.dp
-private val TopNavigationSelectedWidth = 140.dp
+private val OuterShape = RoundedCornerShape(30.dp)
+private val SelectedShape = RoundedCornerShape(28.dp)
+private val OuterHeight = 56.dp
+private val SlotWidth = 44.dp
+private val SlotGap = 2.dp
+private val SelectedWidths = listOf(
+    92.dp,  // Shows
+    100.dp, // Movies
+    96.dp,  // Search
+    126.dp, // Aperture
+    102.dp, // My List
+    108.dp, // Settings
+)
+private val OuterWidth = 362.dp
+private val OuterSidePadding = 44.dp
 
 private data class NavigationItem(
     val destination: Destination,
@@ -65,6 +68,8 @@ fun TopNavigationBar(
     currentDestination: Destination,
     onDestinationClick: (Destination) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
     val items = remember {
         listOf(
             NavigationItem(Destination.Shows, "Shows"),
@@ -89,79 +94,97 @@ fun TopNavigationBar(
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .fillMaxSize()
+            .padding(top = 12.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Surface(
             modifier = Modifier
-                .width(692.dp)
-                .height(TopNavigationOuterHeight),
-            shape = TopNavigationOuterShape,
+                .width(OuterWidth)
+                .height(OuterHeight),
+            shape = OuterShape,
             colors = SurfaceDefaults.colors(
-                containerColor = ApertureTheme.colorScheme.surface.copy(alpha = 0.70f),
-                contentColor = ApertureTheme.colorScheme.onSurface,
+                containerColor = ApertureTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f),
+                contentColor = ApertureTheme.colorScheme.onSecondaryContainer,
             ),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(TopNavigationOuterHeight)
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                items.forEachIndexed { index, item ->
-                    val isFocused = focusedIndex == index
-                    val selectedWidth by animateDpAsState(
-                        targetValue = if (isFocused) TopNavigationSelectedWidth else TopNavigationSlotWidth,
-                        animationSpec = tween(durationMillis = 220),
-                        label = "top-navigation-width",
-                    )
+            Box(modifier = Modifier.fillMaxSize()) {
+                val selectedWidth by animateDpAsState(
+                    targetValue = SelectedWidths.getOrElse(focusedIndex) { 100.dp },
+                    animationSpec = tween(240),
+                    label = "top-navigation-selected-width",
+                )
+                val selectedX by animateDpAsState(
+                    targetValue = OuterSidePadding + focusedIndex * (SlotWidth + SlotGap) - (selectedWidth - SlotWidth) / 2,
+                    animationSpec = tween(240),
+                    label = "top-navigation-selected-x",
+                )
 
-                    Box(
-                        modifier = Modifier
-                            .width(TopNavigationSlotWidth)
-                            .height(TopNavigationItemHeight),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = selectedX)
+                        .width(selectedWidth)
+                        .height(OuterHeight)
+                        .background(
+                            color = ApertureTheme.colorScheme.primaryContainer,
+                            shape = SelectedShape,
+                        ),
+                )
+
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = OuterSidePadding)
+                        .height(OuterHeight),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    items.forEachIndexed { index, item ->
+                        val requester = requesters[index]
+                        val isFocused = focusedIndex == index
+
                         Box(
                             modifier = Modifier
-                                .width(selectedWidth)
-                                .height(TopNavigationItemHeight)
-                                .background(
-                                    color = if (isFocused) ApertureTheme.colorScheme.primaryContainer else Color.Transparent,
-                                    shape = TopNavigationItemShape,
-                                )
-                                .focusRequester(requesters[index])
+                                .width(SlotWidth)
+                                .height(OuterHeight)
+                                .focusRequester(requester)
                                 .focusProperties {
                                     up = FocusRequester.Cancel
-                                    down = FocusRequester.Cancel
                                 }
                                 .focusable()
                                 .onFocusChanged { state ->
-                                    if (state.isFocused) focusedIndex = index
+                                    if (state.isFocused) {
+                                        focusedIndex = index
+                                        onDestinationClick(item.destination)
+                                        scope.launch {
+                                            delay(90)
+                                            runCatching { requester.requestFocus() }
+                                        }
+                                    }
                                 }
-                                .clickable { onDestinationClick(item.destination) },
+                                .clickable {
+                                    onDestinationClick(item.destination)
+                                    scope.launch {
+                                        delay(90)
+                                        focusManager.moveFocus(FocusDirection.Down)
+                                    }
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
-                            AnimatedContent(
-                                targetState = isFocused,
-                                transitionSpec = {
-                                    fadeIn(tween(140)) togetherWith fadeOut(tween(90))
-                                },
-                                label = "top-navigation-content",
-                            ) { expanded ->
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                ) {
-                                    NavigationIcon(item.destination, Modifier.size(24.dp))
-                                    if (expanded) {
-                                        Spacer(Modifier.width(8.dp))
+                            NavigationIcon(
+                                destination = item.destination,
+                                modifier = Modifier.size(24.dp),
+                            )
+                            if (isFocused) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        NavigationIcon(
+                                            destination = item.destination,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
                                         Text(
                                             text = item.label,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             fontFamily = ApertureBrandFontFamily,
                                             fontWeight = FontWeight.SemiBold,
                                             color = ApertureTheme.colorScheme.onPrimaryContainer,
@@ -189,6 +212,6 @@ private fun NavigationIcon(
         Destination.Search -> Icon(Icons.Rounded.Search, contentDescription = null, modifier = modifier)
         Destination.MyList -> Icon(Icons.Rounded.FavoriteBorder, contentDescription = null, modifier = modifier)
         Destination.Settings -> Icon(Icons.Rounded.Settings, contentDescription = null, modifier = modifier)
-        is Destination.Player -> Spacer(modifier)
+        is Destination.Player -> Unit
     }
 }
