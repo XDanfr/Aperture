@@ -107,6 +107,11 @@ fun NavGraph(
     }
 
     fun navigateToTopLevel(destination: Destination) {
+        if (currentDestination is Destination.Home && destination is Destination.Home) {
+            // Explicitly selecting Home should refresh the root and remain on Home.
+            while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
+            return
+        }
         if (destination.focusKey() == currentFocusKey) return
 
         if (currentDestination is Destination.Home && destination !is Destination.Home) {
@@ -131,7 +136,11 @@ fun NavGraph(
         }
 
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
-        if (destination !is Destination.Home) backstack.add(destination)
+        if (destination is Destination.Home) {
+            backstack[0] = Destination.Home
+        } else {
+            backstack.add(destination)
+        }
     }
 
     val returnFromPlayer: () -> Unit = {
@@ -249,8 +258,6 @@ fun NavGraph(
                 if (currentDestination is Destination.Player) {
                     return@BackHandler
                 }
-                // Navigation itself owns the back action. The new top bar will
-                // decide how to handle a back press while it is focused.
                 requestFocusWhenReady(null)
             }
 
