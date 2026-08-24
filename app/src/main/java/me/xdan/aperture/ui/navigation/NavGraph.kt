@@ -107,11 +107,6 @@ fun NavGraph(
     }
 
     fun navigateToTopLevel(destination: Destination) {
-        if (currentDestination is Destination.Home && destination is Destination.Home) {
-            // Explicitly selecting Home should refresh the root and remain on Home.
-            while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
-            return
-        }
         if (destination.focusKey() == currentFocusKey) return
 
         if (currentDestination is Destination.Home && destination !is Destination.Home) {
@@ -208,7 +203,7 @@ fun NavGraph(
         ProvideFocusMemory {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (showNavigation) {
-                    TopNavigationPlaceholder(
+                    TopNavigationBar(
                         currentDestination = currentDestination,
                         onDestinationClick = ::navigateToTopLevel,
                     )
@@ -255,9 +250,6 @@ fun NavGraph(
                     selectedMediaId == null &&
                     !tutorialRequired
             ) {
-                if (currentDestination is Destination.Player) {
-                    return@BackHandler
-                }
                 requestFocusWhenReady(null)
             }
 
