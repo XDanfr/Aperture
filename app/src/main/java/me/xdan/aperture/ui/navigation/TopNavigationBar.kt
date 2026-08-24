@@ -1,13 +1,8 @@
 package me.xdan.aperture.ui.navigation
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,15 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
-import androidx.compose.foundation.layout.height
+import androidx.tv.material3.Text
 import me.xdan.aperture.ui.component.ApertureBrandMark
 
 @Composable
@@ -88,11 +84,6 @@ fun TopNavigationBar(
                         animationSpec = tween(220),
                         label = "topNavItemWidth",
                     )
-                    val labelAlpha by animateFloatAsState(
-                        targetValue = if (selected) 1f else 0f,
-                        animationSpec = tween(160),
-                        label = "topNavLabelAlpha",
-                    )
                     val requester = requesters[key]
 
                     Box(
@@ -100,11 +91,7 @@ fun TopNavigationBar(
                             .width(itemWidth)
                             .height(52.dp)
                             .then(
-                                if (requester != null) {
-                                    Modifier.focusRequester(requester)
-                                } else {
-                                    Modifier
-                                }
+                                if (requester != null) Modifier.focusRequester(requester) else Modifier
                             )
                             .focusProperties {
                                 left = requesters[destinations.getOrNull(index - 1)?.first?.focusKey()]
@@ -147,26 +134,18 @@ fun TopNavigationBar(
                                         modifier = Modifier.size(24.dp),
                                         spinBlades = selected,
                                     )
-                                    else -> when (destination) {
-                                        Destination.Shows -> Icon(Icons.Rounded.Tv, null, Modifier.size(24.dp))
-                                        Destination.Movies -> Icon(Icons.Rounded.Movie, null, Modifier.size(24.dp))
-                                        Destination.Search -> Icon(Icons.Rounded.Search, null, Modifier.size(24.dp))
-                                        Destination.MyList -> Icon(Icons.Rounded.FavoriteBorder, null, Modifier.size(24.dp))
-                                        Destination.Settings -> Icon(Icons.Rounded.Settings, null, Modifier.size(24.dp))
-                                        else -> Spacer(Modifier.size(24.dp))
-                                    }
+                                    Destination.Shows -> Icon(Icons.Rounded.Tv, null, Modifier.size(24.dp))
+                                    Destination.Movies -> Icon(Icons.Rounded.Movie, null, Modifier.size(24.dp))
+                                    Destination.Search -> Icon(Icons.Rounded.Search, null, Modifier.size(24.dp))
+                                    Destination.MyList -> Icon(Icons.Rounded.FavoriteBorder, null, Modifier.size(24.dp))
+                                    Destination.Settings -> Icon(Icons.Rounded.Settings, null, Modifier.size(24.dp))
+                                    is Destination.Player -> Spacer(Modifier.size(24.dp))
                                 }
                                 if (selected) {
                                     Spacer(Modifier.width(8.dp))
                                     Box(modifier = Modifier.animateContentSize()) {
-                                        Text(
-                                            text = label,
-                                            modifier = Modifier.background(Color.Transparent).fillMaxWidth(),
-                                        )
+                                        Text(label)
                                     }
-                                } else if (labelAlpha > 0f) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(label, modifier = Modifier.animateContentSize())
                                 }
                             }
                         }
