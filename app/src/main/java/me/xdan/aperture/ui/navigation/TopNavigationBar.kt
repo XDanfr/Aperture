@@ -227,11 +227,12 @@ private fun SimpleNavigationIcon(
     glyph: NavigationGlyph,
 ) {
     val contentColor = MaterialTheme.colorScheme.onSurface
+    val surfaceColor = ApertureTheme.colorScheme.surface
 
     Canvas(modifier = modifier) {
         val strokeWidth = size.minDimension * 0.11f
         val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val center = size.center
+        val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
         val w = size.width
         val h = size.height
 
@@ -272,12 +273,13 @@ private fun SimpleNavigationIcon(
                     cubicTo(w * 0.50f, h * 0.31f, w * 0.53f, h * 0.28f, w * 0.57f, h * 0.24f)
                     cubicTo(w * 0.69f, h * 0.12f, w * 0.83f, h * 0.20f, w * 0.83f, h * 0.36f)
                     cubicTo(w * 0.83f, h * 0.55f, w * 0.58f, h * 0.72f, w * 0.50f, h * 0.81f)
+                    close()
                 }
                 drawPath(path, contentColor, style = stroke)
             }
             NavigationGlyph.Settings -> {
                 drawCircle(contentColor, radius = w * 0.27f, center = center, style = stroke)
-                drawCircle(ApertureTheme.colorScheme.surface, radius = w * 0.08f, center = center)
+                drawCircle(surfaceColor, radius = w * 0.08f, center = center)
                 for (i in 0..7) {
                     val angle = Math.toRadians(i * 45.0).toFloat()
                     val inner = w * 0.30f
