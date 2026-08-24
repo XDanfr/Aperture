@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,11 +52,17 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 private val OuterShape = RoundedCornerShape(30.dp)
 private val SelectedShape = RoundedCornerShape(28.dp)
 private val OuterHeight = 56.dp
-private val SlotWidth = 44.dp
-private val SlotGap = 2.dp
-private val SelectedWidths = listOf(92.dp, 100.dp, 96.dp, 126.dp, 102.dp, 108.dp)
-private val OuterWidth = 362.dp
-private val OuterSidePadding = 44.dp
+private val SlotWidth = 36.dp
+private val SlotGap = 4.dp
+private val OuterSidePadding = 24.dp
+private val SelectedWidths = listOf(
+    86.dp,
+    94.dp,
+    92.dp,
+    108.dp,
+    94.dp,
+    102.dp,
+)
 
 private data class NavigationItem(
     val destination: Destination,
@@ -89,105 +95,100 @@ fun TopNavigationBar(
 
     LaunchedEffect(currentDestination) {
         val index = items.indexOfFirst { it.destination.focusKey() == currentDestination.focusKey() }
-        if (index >= 0) focusedIndex = index
+        if (index >= 0) {
+            focusedIndex = index
+            delay(80)
+            runCatching { requesters[index].requestFocus() }
+        }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 12.dp),
-        contentAlignment = Alignment.TopCenter,
+    val selectedWidth by animateDpAsState(
+        targetValue = SelectedWidths.getOrElse(focusedIndex) { 94.dp },
+        animationSpec = tween(240),
+        label = "top-navigation-selected-width",
+    )
+    val selectedX by animateDpAsState(
+        targetValue = OuterSidePadding + (SlotWidth + SlotGap) * focusedIndex - (selectedWidth - SlotWidth) / 2,
+        animationSpec = tween(240),
+        label = "top-navigation-selected-x",
+    )
+
+    Surface(
+        shape = OuterShape,
+        colors = SurfaceDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.42f),
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
     ) {
-        Surface(
+        Box(
             modifier = Modifier
-                .width(OuterWidth)
+                .width(274.dp)
                 .height(OuterHeight),
-            shape = OuterShape,
-            colors = SurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f),
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                val selectedWidth by animateDpAsState(
-                    targetValue = SelectedWidths.getOrElse(focusedIndex) { 100.dp },
-                    animationSpec = tween(240),
-                    label = "top-navigation-selected-width",
-                )
-                val selectedX by animateDpAsState(
-                    targetValue = OuterSidePadding + (SlotWidth + SlotGap) * focusedIndex - (selectedWidth - SlotWidth) / 2,
-                    animationSpec = tween(240),
-                    label = "top-navigation-selected-x",
-                )
+            Box(
+                modifier = Modifier
+                    .offset(x = selectedX)
+                    .requiredWidth(selectedWidth)
+                    .height(OuterHeight)
+                    .background(
+                        color = ApertureTheme.colorScheme.primaryContainer,
+                        shape = SelectedShape,
+                    ),
+            )
 
-                Box(
-                    modifier = Modifier
-                        .offset(x = selectedX)
-                        .width(selectedWidth)
-                        .height(OuterHeight)
-                        .background(
-                            color = ApertureTheme.colorScheme.primaryContainer,
-                            shape = SelectedShape,
-                        ),
-                )
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = OuterSidePadding)
+                    .height(OuterHeight),
+                horizontalArrangement = Arrangement.spacedBy(SlotGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items.forEachIndexed { index, item ->
+                    val requester = requesters[index]
+                    val isFocused = focusedIndex == index
 
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = OuterSidePadding)
-                        .height(OuterHeight),
-                    horizontalArrangement = Arrangement.spacedBy(SlotGap),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    items.forEachIndexed { index, item ->
-                        val requester = requesters[index]
-                        val isFocused = focusedIndex == index
-
-                        Box(
-                            modifier = Modifier
-                                .width(SlotWidth)
-                                .height(OuterHeight)
-                                .focusRequester(requester)
-                                .focusProperties {
-                                    up = FocusRequester.Cancel
-                                }
-                                .focusable()
-                                .onFocusChanged { state ->
-                                    if (state.isFocused) {
-                                        focusedIndex = index
-                                        onDestinationClick(item.destination)
-                                        scope.launch {
-                                            delay(120)
-                                            runCatching { requester.requestFocus() }
-                                        }
-                                    }
-                                }
-                                .clickable {
+                    Box(
+                        modifier = Modifier
+                            .width(SlotWidth)
+                            .height(OuterHeight)
+                            .focusRequester(requester)
+                            .focusProperties {
+                                up = FocusRequester.Cancel
+                            }
+                            .focusable()
+                            .onFocusChanged { state ->
+                                if (state.isFocused && focusedIndex != index) {
+                                    focusedIndex = index
                                     onDestinationClick(item.destination)
-                                    scope.launch {
-                                        delay(120)
-                                        focusManager.moveFocus(FocusDirection.Down)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (isFocused) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                ) {
-                                    NavigationIcon(item.destination, Modifier.size(24.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = item.label,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        fontFamily = ApertureBrandFontFamily,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    )
                                 }
-                            } else {
-                                NavigationIcon(item.destination, Modifier.size(24.dp))
+                            }
+                            .clickable {
+                                scope.launch {
+                                    delay(40)
+                                    focusManager.moveFocus(FocusDirection.Down)
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            modifier = Modifier.requiredWidth(if (isFocused) selectedWidth else SlotWidth),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            NavigationIcon(
+                                destination = item.destination,
+                                modifier = Modifier.size(24.dp),
+                            )
+                            if (isFocused) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = item.label,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    fontFamily = ApertureBrandFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
                             }
                         }
                     }
@@ -273,7 +274,6 @@ private fun SimpleNavigationIcon(
                     cubicTo(w * 0.50f, h * 0.31f, w * 0.53f, h * 0.28f, w * 0.57f, h * 0.24f)
                     cubicTo(w * 0.69f, h * 0.12f, w * 0.83f, h * 0.20f, w * 0.83f, h * 0.36f)
                     cubicTo(w * 0.83f, h * 0.55f, w * 0.58f, h * 0.72f, w * 0.50f, h * 0.81f)
-                    close()
                 }
                 drawPath(path, contentColor, style = stroke)
             }
