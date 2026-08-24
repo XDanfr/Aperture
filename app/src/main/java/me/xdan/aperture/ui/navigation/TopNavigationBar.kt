@@ -43,6 +43,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.component.ApertureBrandMark
 
 @Composable
@@ -125,8 +126,8 @@ fun TopNavigationBar(
                                     ?: FocusRequester.Cancel
                             }
                             .onFocusChanged { state ->
+                                hasFocus = state.isFocused
                                 if (state.isFocused) {
-                                    hasFocus = true
                                     focusedDestination = destination
                                     onDestinationFocused(destination)
                                 }
