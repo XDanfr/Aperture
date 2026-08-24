@@ -3,7 +3,8 @@ package me.xdan.aperture.ui.navigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -13,7 +14,6 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun TopNavigationPlaceholder(
@@ -41,7 +41,7 @@ fun TopNavigationPlaceholder(
             modifier = Modifier.padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            destinations.forEachIndexed { index, (destination, label) ->
+            destinations.forEach { (destination, label) ->
                 Button(
                     onClick = { onDestinationClick(destination) },
                     modifier = Modifier.focusProperties {
