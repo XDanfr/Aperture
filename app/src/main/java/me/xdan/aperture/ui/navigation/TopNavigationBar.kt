@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -14,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -23,7 +24,11 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -32,6 +37,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -50,37 +56,56 @@ fun TopNavigationBar(
         Destination.Shows to "Shows",
         Destination.Movies to "Movies",
         Destination.Search to "Search",
-        Destination.Home to "Home",
+        Destination.Home to "Aperture",
         Destination.MyList to "My List",
         Destination.Settings to "Settings",
     )
+    var focusedDestination by remember(selectedDestination) { mutableStateOf(selectedDestination) }
+    var hasFocus by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedDestination) {
+        focusedDestination = selectedDestination
+        if (selectedDestination is Destination.Home) {
+            delay(180)
+            requesters["home"]?.let { runCatching { it.requestFocus() } }
+        }
+    }
+
+    BackHandler(enabled = hasFocus) {
+        // Stay on the navigation bar rather than allowing the activity to close.
+    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 20.dp),
+            .height(0.dp)
+            .zIndex(10f),
         contentAlignment = Alignment.TopCenter,
     ) {
         Surface(
-            modifier = Modifier.widthIn(min = 560.dp, max = 680.dp),
+            modifier = Modifier
+                .wrapContentSize()
+                .width(612.dp)
+                .height(64.dp)
+                .padding(top = 8.dp),
             shape = RoundedCornerShape(32.dp),
             colors = SurfaceDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(5.dp),
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 destinations.forEachIndexed { index, (destination, label) ->
                     val key = destination.focusKey() ?: return@forEachIndexed
-                    val selected = destination.focusKey() == selectedDestination.focusKey()
+                    val selected = focusedDestination.focusKey() == destination.focusKey()
                     val itemWidth by animateDpAsState(
-                        targetValue = if (selected) 112.dp else 64.dp,
+                        targetValue = if (selected) 148.dp else 64.dp,
                         animationSpec = tween(220),
                         label = "topNavItemWidth",
                     )
@@ -95,12 +120,16 @@ fun TopNavigationBar(
                             )
                             .focusProperties {
                                 left = requesters[destinations.getOrNull(index - 1)?.first?.focusKey()]
-                                    ?: FocusRequester.Default
+                                    ?: FocusRequester.Cancel
                                 right = requesters[destinations.getOrNull(index + 1)?.first?.focusKey()]
-                                    ?: FocusRequester.Default
+                                    ?: FocusRequester.Cancel
                             }
                             .onFocusChanged { state ->
-                                if (state.isFocused) onDestinationFocused(destination)
+                                if (state.isFocused) {
+                                    hasFocus = true
+                                    focusedDestination = destination
+                                    onDestinationFocused(destination)
+                                }
                             }
                             .focusable()
                             .clickable { onDestinationFocused(destination) }
@@ -125,7 +154,7 @@ fun TopNavigationBar(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
