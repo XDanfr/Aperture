@@ -112,7 +112,7 @@ Contributions are what make the open-source community such an amazing place! Wan
 
 **Q: Was any AI used for this?**
 
-**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand! See [AI.md] for more.
+**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand! See [AI.md](/AI.md) for more.
 
 ---
 ## 💜 Sponsors
