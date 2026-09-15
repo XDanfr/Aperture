@@ -19,11 +19,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.withLock
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Provider
+import javax.inject.Singleton
 
+@Singleton
 class PlayerEngineManager @Inject constructor(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     private val preferences: UserPreferencesRepository,
     private val factory: PlayerEngineFactory
 ) : PlayerEngine {
