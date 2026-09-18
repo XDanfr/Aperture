@@ -35,6 +35,7 @@ class HomeViewModel @Inject constructor(
     val roundedSpotlight = userPreferencesRepository.roundedSpotlight
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     private val suggestionGeneration = MutableStateFlow(0)
+    private val prefetchedSpotlightUrls = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -57,8 +58,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
-    private val prefetchedSpotlightUrls = mutableSetOf<String>()
 
     private fun prefetchSpotlightArtwork(featured: List<MediaEntity>) {
         featured.asSequence()
