@@ -17,19 +17,23 @@ class ArtworkPrefetcher @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val diskPrefetched = ConcurrentHashMap.newKeySet<String>()
+    private val memoryWarmed = ConcurrentHashMap.newKeySet<String>()
 
-    fun prefetchBackdrop(path: String?) {
+    fun prefetchBackdrop(path: String?, keepInMemory: Boolean = false) {
         val cleanPath = path?.takeIf(String::isNotBlank) ?: return
-        val spec = backdropImageSpec(context, BackdropImageUsage.AMBIENT)
+        val spec = backdropImageSpec(context, BackdropImageUsage.HOME)
         val url = backdropImageUrl(cleanPath, spec)
+        val alreadyQueued = if (keepInMemory) memoryWarmed.add(url) else diskPrefetched.add(url)
 
-        if (!diskPrefetched.add(url)) return
+        if (!alreadyQueued) return
 
         context.imageLoader.enqueue(
             ImageRequest.Builder(context)
                 .data(url)
                 .size(spec.widthPx, spec.heightPx)
-                .memoryCachePolicy(CachePolicy.DISABLED)
+                .memoryCachePolicy(
+                    if (keepInMemory) CachePolicy.ENABLED else CachePolicy.DISABLED
+                )
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .networkCachePolicy(CachePolicy.ENABLED)
                 .build()
@@ -38,5 +42,6 @@ class ArtworkPrefetcher @Inject constructor(
 
     fun clear() {
         diskPrefetched.clear()
+        memoryWarmed.clear()
     }
 }
