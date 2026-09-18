@@ -132,8 +132,7 @@ private fun HomeContent(
     val refreshAlpha = remember { Animatable(1f) }
     val resolvedRestoreFocusKey = restoreFocusKey.takeIf { key ->
         key == HOME_SPOTLIGHT_FOCUS_KEY || state.rows.any { row ->
-            row.items.any { media -> key == "row:${row.title}:${media.id}" } ||
-                (row.hasMore && key == "row:${row.title}:more")
+            row.items.any { media -> key == "row:${row.title}:${media.id}" }
         }
     }
     // The entry requester must stay attached to the item Home was entered on.
@@ -502,12 +501,7 @@ private fun HomeMediaRow(
                     item(key = "more:${row.title}") {
                         MoreCard(
                             destination = destination,
-                            focusKey = "row:${row.title}:more",
-                            focusRequester = contentEntryFocusRequester.takeIf {
-                                restoreFocusKey == "row:${row.title}:more"
-                            },
                             onOpenLibrary = onOpenLibrary,
-                            onFocusKeyChanged = onFocusKeyChanged,
                             onContentFocused = onContentFocused
                         )
                     }
@@ -521,14 +515,10 @@ private fun HomeMediaRow(
 @Composable
 private fun MoreCard(
     destination: Destination,
-    focusKey: String,
-    focusRequester: FocusRequester?,
     onOpenLibrary: (Destination) -> Unit,
-    onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit
 ) {
-    val internalFocusRequester = remember { FocusRequester() }
-    val cardFocusRequester = focusRequester ?: internalFocusRequester
+    val focusRequester = remember { FocusRequester() }
     var isFocused by remember { mutableStateOf(false) }
 
     Box(
@@ -543,13 +533,10 @@ private fun MoreCard(
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
             modifier = Modifier
                 .fillMaxSize()
-                .focusRequester(cardFocusRequester)
+                .focusRequester(focusRequester)
                 .onFocusChanged {
                     isFocused = it.isFocused
-                    if (it.isFocused) {
-                        onFocusKeyChanged(focusKey)
-                        onContentFocused(cardFocusRequester)
-                    }
+                    if (it.isFocused) onContentFocused(focusRequester)
                 },
             shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
             colors = ClickableSurfaceDefaults.colors(
