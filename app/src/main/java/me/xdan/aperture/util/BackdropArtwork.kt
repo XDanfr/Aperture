@@ -10,12 +10,22 @@ data class BackdropImageSpec(
     val heightPx: Int
 )
 
-fun backdropImageSpec(context: Context): BackdropImageSpec {
+enum class BackdropImageUsage {
+    HOME,
+    AMBIENT
+}
+
+fun backdropImageSpec(
+    context: Context,
+    usage: BackdropImageUsage = BackdropImageUsage.HOME
+): BackdropImageSpec {
     val metrics = context.resources.displayMetrics
     val width = metrics.widthPixels.coerceAtLeast(1)
     val height = metrics.heightPixels.coerceAtLeast(1)
 
-    return if (width >= FOUR_K_WIDTH_THRESHOLD_PX) {
+    return if (usage == BackdropImageUsage.AMBIENT &&
+        width >= FOUR_K_WIDTH_THRESHOLD_PX
+    ) {
         BackdropImageSpec(
             urlSize = "original",
             widthPx = width,

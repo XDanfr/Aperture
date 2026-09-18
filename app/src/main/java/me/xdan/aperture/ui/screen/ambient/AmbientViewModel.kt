@@ -5,6 +5,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +18,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.xdan.aperture.data.local.entity.MediaEntity
-import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.util.BackdropImageUsage
+import me.xdan.aperture.util.backdropImageSpec
+import me.xdan.aperture.util.backdropImageUrl
 import me.xdan.aperture.domain.model.AmbientSettings
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
@@ -53,12 +56,15 @@ class AmbientViewModel @Inject constructor(
         accentCacheMutex.withLock { accentCache[path] }?.let { return it }
         val accent = withContext(Dispatchers.IO) {
             runCatching {
+                val spec = backdropImageSpec(context, BackdropImageUsage.AMBIENT)
                 val result = context.imageLoader.execute(
                     ImageRequest.Builder(context)
-                        // The same URL is used by the cinematic renderer, so extracting the
-                        // next accent also warms Coil's disk cache before the crossfade.
-                        .data(TmdbApi.IMAGE_BASE_URL + "w1280" + path)
+                        .data(backdropImageUrl(path, spec))
+                        .size(320, 180)
                         .allowHardware(false)
+                        .memoryCachePolicy(CachePolicy.DISABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
                         .build()
                 )
                 result.drawable?.toBitmap()?.let(::extractArtworkAccent)

@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
-import me.xdan.aperture.data.artwork.ArtworkPrefetcher
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import kotlin.random.Random
@@ -21,8 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: MediaRepository,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val artworkPrefetcher: ArtworkPrefetcher
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
@@ -46,11 +44,6 @@ class HomeViewModel @Inject constructor(
                 buildHomeState(mediaList, progressList, hideFinished, exclusionDays, generation)
             }.collectLatest {
                 _homeState.value = it
-                if (it is HomeState.Success) {
-                    it.featured.forEach { media ->
-                        artworkPrefetcher.prefetchBackdrop(media.backdropPath, keepInMemory = true)
-                    }
-                }
             }
         }
     }
