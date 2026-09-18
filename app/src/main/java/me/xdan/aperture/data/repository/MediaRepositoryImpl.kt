@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.data.artwork.ArtworkPrefetcher
 import me.xdan.aperture.data.local.dao.MediaDao
 import me.xdan.aperture.data.local.dao.PlaybackProgressDao
 import me.xdan.aperture.data.local.entity.MediaEntity
@@ -39,6 +40,7 @@ class MediaRepositoryImpl @Inject constructor(
     private val mediaDao: MediaDao,
     private val progressDao: PlaybackProgressDao,
     private val tmdbApi: TmdbApi,
+    private val artworkPrefetcher: ArtworkPrefetcher,
     @ApplicationContext private val context: Context
 ) : MediaRepository {
 
@@ -354,6 +356,9 @@ class MediaRepositoryImpl @Inject constructor(
                 media
             }
 
+            // Warm backdrops while the library is being prepared so Home and Ambient can reuse the same cached asset.
+            artworkPrefetcher.prefetchBackdrop(updated.backdropPath)
+
             val posters = (_preparationProgress.value.posterPaths + listOfNotNull(updated.posterPath))
                 .distinct()
             _preparationProgress.value = _preparationProgress.value.copy(
@@ -433,6 +438,7 @@ class MediaRepositoryImpl @Inject constructor(
                 }
         }
         mediaDao.updateMedia(updated)
+        artworkPrefetcher.prefetchBackdrop(updated.backdropPath)
     }
 
     private suspend fun syncMetadataInternal(
@@ -478,6 +484,7 @@ class MediaRepositoryImpl @Inject constructor(
             updatedMedia = attachEpisodeMetadata(updatedMedia)
         }
         mediaDao.updateMedia(updatedMedia)
+        artworkPrefetcher.prefetchBackdrop(updatedMedia.backdropPath)
         onProgress(0.95f)
         return updatedMedia
     }
