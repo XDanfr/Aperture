@@ -453,6 +453,7 @@ class MediaRepositoryImpl @Inject constructor(
                 metadataAttemptedAt = System.currentTimeMillis()
             )
             mediaDao.updateMedia(updated)
+            artworkPrefetcher.prefetchBackdrop(updated.backdropPath)
             onProgress(0.95f)
             return updated
         }
