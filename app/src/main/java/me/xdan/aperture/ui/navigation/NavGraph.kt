@@ -454,6 +454,7 @@ fun NavGraph(
                             mainViewModel.startLibraryPreparation(force = true)
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
+                        onOpenLibrary = { destination -> selectDrawerDestination(destination) },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                         },
@@ -490,6 +491,7 @@ fun NavGraph(
                         mainViewModel.startLibraryPreparation(force = true)
                     },
                     onPreviewAmbientMode = onPreviewAmbientMode,
+                    onOpenLibrary = { destination -> selectDrawerDestination(destination) },
                     onContentFocused = { focusKey, requester ->
                         lastFocusedRequesters[focusKey] = requester
                     },
@@ -646,6 +648,7 @@ private fun NavContent(
     onActiveMediaChanged: (Long) -> Unit,
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
+    onOpenLibrary: (Destination) -> Unit,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -681,7 +684,7 @@ private fun NavContent(
                     onFocusKeyChanged = onHomeFocusKeyChanged,
                     onContentFocused = contentFocused,
                     onActiveMediaChanged = onActiveMediaChanged,
-                    onOpenLibrary = { destination -> selectDrawerDestination(destination) }
+                    onOpenLibrary = onOpenLibrary
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),
