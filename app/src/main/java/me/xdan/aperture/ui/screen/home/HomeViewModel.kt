@@ -1,7 +1,10 @@
 package me.xdan.aperture.ui.screen.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import coil.imageLoader
+import coil.request.ImageRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,7 +15,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
+import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.MediaRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import kotlin.random.Random
 import javax.inject.Inject
@@ -20,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: MediaRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
@@ -28,6 +34,7 @@ class HomeViewModel @Inject constructor(
     val roundedSpotlight = userPreferencesRepository.roundedSpotlight
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     private val suggestionGeneration = MutableStateFlow(0)
+    private val prefetchedSpotlightUrls = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
@@ -42,8 +49,30 @@ class HomeViewModel @Inject constructor(
                 suggestionGeneration
             ) { (mediaList, progressList), (hideFinished, exclusionDays), generation ->
                 buildHomeState(mediaList, progressList, hideFinished, exclusionDays, generation)
-            }.collectLatest { _homeState.value = it }
+            }.collectLatest {
+                _homeState.value = it
+                if (it is HomeState.Success) {
+                    prefetchSpotlightArtwork(it.featured)
+                }
+            }
         }
+    }
+
+    private fun prefetchSpotlightArtwork(featured: List<MediaEntity>) {
+        featured.asSequence()
+            .mapNotNull { it.backdropPath?.takeIf(String::isNotBlank) }
+            .distinct()
+            .map { TmdbApi.IMAGE_BASE_URL + "w1280" + it }
+            .filter(prefetchedSpotlightUrls::add)
+            .forEach { url ->
+                context.imageLoader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(url)
+                        .size(SPOTLIGHT_PREFETCH_WIDTH, SPOTLIGHT_PREFETCH_HEIGHT)
+                        .crossfade(false)
+                        .build()
+                )
+            }
     }
 
     fun regenerateSuggestions() {
@@ -131,9 +160,26 @@ private fun buildHomeState(
         featured = featured,
         rows = buildList {
             if (continueWatching.isNotEmpty()) add(HomeRow("Continue Watching", continueWatching))
-            add(HomeRow("Recently Added", libraryCards.sortedByDescending { it.dateAdded }))
-            add(HomeRow("Movies", movies.shuffled(Random(suggestionSeed xor MOVIES_SEED_SALT))))
-            add(HomeRow("TV Shows", showCards.shuffled(Random(suggestionSeed xor SHOWS_SEED_SALT))))
+            add(
+                HomeRow(
+                    "Recently Added",
+                    libraryCards.sortedByDescending { it.dateAdded }.take(HOME_ROW_LIMIT)
+                )
+            )
+            add(
+                HomeRow(
+                    "Movies",
+                    movies.shuffled(Random(suggestionSeed xor MOVIES_SEED_SALT)).take(HOME_ROW_LIMIT),
+                    hasMore = movies.size > HOME_ROW_LIMIT
+                )
+            )
+            add(
+                HomeRow(
+                    "TV Shows",
+                    showCards.shuffled(Random(suggestionSeed xor SHOWS_SEED_SALT)).take(HOME_ROW_LIMIT),
+                    hasMore = showCards.size > HOME_ROW_LIMIT
+                )
+            )
         },
         progressMap = progressList.associate { progress ->
             val fraction = if (progress.duration > 0) {
@@ -179,6 +225,9 @@ private const val COMPLETION_THRESHOLD = 0.95
 private const val SPOTLIGHT_SEED_SALT = 0x5F3759DF
 private const val MOVIES_SEED_SALT = 0x13579BDF
 private const val SHOWS_SEED_SALT = 0x02468ACE
+private const val HOME_ROW_LIMIT = 10
+internal const val SPOTLIGHT_PREFETCH_WIDTH = 1280
+internal const val SPOTLIGHT_PREFETCH_HEIGHT = 720
 
 sealed interface HomeState {
     data object Loading : HomeState
@@ -193,4 +242,8 @@ sealed interface HomeState {
     ) : HomeState
 }
 
-data class HomeRow(val title: String, val items: List<MediaEntity>)
+data class HomeRow(
+    val title: String,
+    val items: List<MediaEntity>,
+    val hasMore: Boolean = false
+)

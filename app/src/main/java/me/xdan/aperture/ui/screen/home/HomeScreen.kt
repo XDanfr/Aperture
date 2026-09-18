@@ -2,6 +2,8 @@ package me.xdan.aperture.ui.screen.home
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -42,6 +45,7 @@ import me.xdan.aperture.ui.component.rememberFocusGlow
 import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.HeroGradientEnd
 import me.xdan.aperture.ui.theme.HeroGradientStart
+import me.xdan.aperture.ui.navigation.Destination
 
 @Composable
 fun HomeScreen(
@@ -53,7 +57,8 @@ fun HomeScreen(
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit = {}
+    onActiveMediaChanged: (Long) -> Unit = {},
+    onOpenLibrary: (Destination) -> Unit = {}
 ) {
     val state by viewModel.homeState.collectAsState()
     val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
@@ -100,6 +105,7 @@ fun HomeScreen(
                     onFocusKeyChanged = onFocusKeyChanged,
                     onContentFocused = onContentFocused,
                     onActiveMediaChanged = onActiveMediaChanged,
+                    onOpenLibrary = onOpenLibrary,
                     roundedSpotlight = roundedSpotlight
                 )
             }
@@ -119,6 +125,7 @@ private fun HomeContent(
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
+    onOpenLibrary: (Destination) -> Unit,
     roundedSpotlight: Boolean
 ) {
     val listState = rememberLazyListState()
@@ -216,7 +223,8 @@ private fun HomeContent(
                 restoreFocusKey = entryFocusKey,
                 onFocusKeyChanged = onFocusKeyChanged,
                 onContentFocused = onContentFocused,
-                onActiveMediaChanged = onActiveMediaChanged
+                onActiveMediaChanged = onActiveMediaChanged,
+                onOpenLibrary = onOpenLibrary
             )
         }
     }
@@ -331,7 +339,8 @@ private fun FeaturedCarousel(
                 } else {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(TmdbApi.IMAGE_BASE_URL + "original" + media.backdropPath)
+                            .data(TmdbApi.IMAGE_BASE_URL + "w1280" + media.backdropPath)
+                            .size(SPOTLIGHT_PREFETCH_WIDTH, SPOTLIGHT_PREFETCH_HEIGHT)
                             .crossfade(false)
                             .build(),
                         contentDescription = null,
@@ -432,7 +441,8 @@ private fun HomeMediaRow(
     restoreFocusKey: String?,
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onActiveMediaChanged: (Long) -> Unit,
+    onOpenLibrary: (Destination) -> Unit
 ) {
     if (row.items.isEmpty()) return
 
@@ -478,6 +488,87 @@ private fun HomeMediaRow(
                     onLongClick = { requester, opensToRight ->
                         onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)
                     }
+                )
+            }
+
+            if (row.hasMore) {
+                val destination = when (row.title) {
+                    "Movies" -> Destination.Movies
+                    "TV Shows" -> Destination.Shows
+                    else -> null
+                }
+                if (destination != null) {
+                    item(key = "more:${row.title}") {
+                        MoreCard(
+                            destination = destination,
+                            onOpenLibrary = onOpenLibrary,
+                            onContentFocused = onContentFocused
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MoreCard(
+    destination: Destination,
+    onOpenLibrary: (Destination) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .width(150.dp)
+            .aspectRatio(2f / 3f)
+            .zIndex(if (isFocused) 1f else 0f)
+            .graphicsLayer { clip = false }
+    ) {
+        Surface(
+            onClick = { onOpenLibrary(destination) },
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    if (it.isFocused) onContentFocused(focusRequester)
+                },
+            shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = ApertureTheme.colorScheme.mediaCardBackground,
+                focusedContainerColor = ApertureTheme.colorScheme.focusedMediaCardBackground
+            ),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        ApertureTheme.colorScheme.border
+                    ),
+                    shape = ApertureTheme.shapes.poster
+                )
+            )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(42.dp),
+                    tint = ApertureTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "More",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ApertureTheme.colorScheme.primary
                 )
             }
         }
