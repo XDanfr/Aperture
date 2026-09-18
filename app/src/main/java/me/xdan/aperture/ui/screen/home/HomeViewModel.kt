@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
-import coil.request.CachePolicy
 import coil.request.ImageRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,9 +68,7 @@ class HomeViewModel @Inject constructor(
                 context.imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(url)
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .networkCachePolicy(CachePolicy.ENABLED)
+                        .crossfade(false)
                         .build()
                 )
             }
