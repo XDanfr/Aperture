@@ -58,13 +58,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.delay
-import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
+import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
+import me.xdan.aperture.util.backdropImageSpec
+import me.xdan.aperture.util.backdropImageUrl
 import java.util.Date
 import kotlin.random.Random
 
@@ -198,6 +201,8 @@ private fun CinematicArtwork(
     val travel = remember(media.id) { Animatable(0f) }
     val travelDistance = with(LocalDensity.current) { 30.dp.toPx() }
     val direction = if (media.id % 2L == 0L) 1f else -1f
+    val context = LocalContext.current
+    val backdropSpec = remember(context) { backdropImageSpec(context) }
 
     LaunchedEffect(media.id) {
         travel.animateTo(
@@ -213,7 +218,11 @@ private fun CinematicArtwork(
 
     Box(modifier.fillMaxSize()) {
         AsyncImage(
-            model = TmdbApi.IMAGE_BASE_URL + "w1280" + media.backdropPath,
+            model = ImageRequest.Builder(context)
+                .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
+                .size(backdropSpec.widthPx, backdropSpec.heightPx)
+                .crossfade(false)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier

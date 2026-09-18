@@ -38,7 +38,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 import me.xdan.aperture.data.local.entity.MediaEntity
-import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.MediaCard
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.component.rememberFocusGlow
@@ -46,6 +45,9 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.HeroGradientEnd
 import me.xdan.aperture.ui.theme.HeroGradientStart
 import me.xdan.aperture.ui.navigation.Destination
+import me.xdan.aperture.util.BackdropImageUsage
+import me.xdan.aperture.util.backdropImageSpec
+import me.xdan.aperture.util.backdropImageUrl
 
 @Composable
 fun HomeScreen(
@@ -256,6 +258,10 @@ private fun FeaturedCarousel(
     var focusActiveSpotlight by remember { mutableStateOf(false) }
     val spotlightShape = RoundedCornerShape(if (roundedSpotlight) 32.dp else 0.dp)
     val spotlightGlow = rememberFocusGlow(focusActiveSpotlight)
+    val context = LocalContext.current
+    val backdropSpec = remember(context) {
+        backdropImageSpec(context, BackdropImageUsage.HOME)
+    }
 
     LaunchedEffect(
         carouselState.activeItemIndex,
@@ -339,8 +345,8 @@ private fun FeaturedCarousel(
                 } else {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(TmdbApi.IMAGE_BASE_URL + "w1280" + media.backdropPath)
-                            .size(SPOTLIGHT_PREFETCH_WIDTH, SPOTLIGHT_PREFETCH_HEIGHT)
+                            .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
+                            .size(backdropSpec.widthPx, backdropSpec.heightPx)
                             .crossfade(false)
                             .build(),
                         contentDescription = null,
