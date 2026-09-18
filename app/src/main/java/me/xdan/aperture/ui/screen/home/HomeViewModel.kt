@@ -226,8 +226,8 @@ private const val SPOTLIGHT_SEED_SALT = 0x5F3759DF
 private const val MOVIES_SEED_SALT = 0x13579BDF
 private const val SHOWS_SEED_SALT = 0x02468ACE
 private const val HOME_ROW_LIMIT = 10
-private const val SPOTLIGHT_PREFETCH_WIDTH = 1280
-private const val SPOTLIGHT_PREFETCH_HEIGHT = 720
+internal const val SPOTLIGHT_PREFETCH_WIDTH = 1280
+internal const val SPOTLIGHT_PREFETCH_HEIGHT = 720
 
 sealed interface HomeState {
     data object Loading : HomeState
