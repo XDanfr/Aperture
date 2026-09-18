@@ -680,7 +680,8 @@ private fun NavContent(
                     restoreFocusKey = homeRestoreFocusKey,
                     onFocusKeyChanged = onHomeFocusKeyChanged,
                     onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
+                    onActiveMediaChanged = onActiveMediaChanged,
+                    onOpenLibrary = { destination -> selectDrawerDestination(destination) }
                 )
                 is Destination.Search -> SearchScreen(
                     viewModel = viewModel(),
