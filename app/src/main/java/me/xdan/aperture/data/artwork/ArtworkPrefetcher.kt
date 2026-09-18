@@ -20,7 +20,7 @@ class ArtworkPrefetcher @Inject constructor(
 
     fun prefetchBackdrop(path: String?) {
         val cleanPath = path?.takeIf(String::isNotBlank) ?: return
-        val spec = backdropImageSpec(context, BackdropImageUsage.HOME)
+        val spec = backdropImageSpec(context, BackdropImageUsage.AMBIENT)
         val url = backdropImageUrl(cleanPath, spec)
 
         if (!diskPrefetched.add(url)) return

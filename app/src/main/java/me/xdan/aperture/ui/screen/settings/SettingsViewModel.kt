@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import me.xdan.aperture.data.artwork.ArtworkPrefetcher
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
@@ -34,7 +33,6 @@ class SettingsViewModel @Inject constructor(
     private val updateManager: UpdateManager,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val sponsorVerificationManager: SponsorVerificationManager,
-    private val artworkPrefetcher: ArtworkPrefetcher,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     val sponsorVerificationState = sponsorVerificationManager.state
@@ -163,7 +161,6 @@ class SettingsViewModel @Inject constructor(
     fun clearCache() {
         context.imageLoader.memoryCache?.clear()
         context.imageLoader.diskCache?.clear()
-        artworkPrefetcher.clear()
     }
 
     fun setHideFinishedFromSpotlight(enabled: Boolean) {

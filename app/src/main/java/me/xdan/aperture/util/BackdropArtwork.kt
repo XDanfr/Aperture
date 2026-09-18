@@ -23,23 +23,24 @@ fun backdropImageSpec(
     val width = metrics.widthPixels.coerceAtLeast(1)
     val height = metrics.heightPixels.coerceAtLeast(1)
 
-    return if (usage == BackdropImageUsage.AMBIENT &&
-        width >= FOUR_K_WIDTH_THRESHOLD_PX
-    ) {
-        BackdropImageSpec(
-            urlSize = "original",
-            widthPx = width,
-            heightPx = height
-        )
+    val isFourK = width >= FOUR_K_WIDTH_THRESHOLD_PX
+    val aspectRatio = height.toFloat() / width.toFloat()
+    val targetWidth = if (usage == BackdropImageUsage.AMBIENT && isFourK) {
+        width
     } else {
-        val aspectRatio = height.toFloat() / width.toFloat()
-        val targetWidth = STANDARD_BACKDROP_WIDTH_PX
-        BackdropImageSpec(
-            urlSize = "w1280",
-            widthPx = targetWidth,
-            heightPx = max(1, (targetWidth * aspectRatio).toInt())
-        )
+        STANDARD_BACKDROP_WIDTH_PX
     }
+    val targetHeight = if (usage == BackdropImageUsage.AMBIENT && isFourK) {
+        height
+    } else {
+        max(1, (targetWidth * aspectRatio).toInt())
+    }
+
+    return BackdropImageSpec(
+        urlSize = if (isFourK) "original" else "w1280",
+        widthPx = targetWidth,
+        heightPx = targetHeight
+    )
 }
 
 fun backdropImageUrl(path: String, spec: BackdropImageSpec): String =

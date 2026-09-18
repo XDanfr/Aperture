@@ -66,7 +66,6 @@ import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
-import me.xdan.aperture.util.BackdropImageUsage
 import me.xdan.aperture.util.backdropImageSpec
 import me.xdan.aperture.util.backdropImageUrl
 import java.util.Date
@@ -203,9 +202,7 @@ private fun CinematicArtwork(
     val travelDistance = with(LocalDensity.current) { 30.dp.toPx() }
     val direction = if (media.id % 2L == 0L) 1f else -1f
     val context = LocalContext.current
-    val backdropSpec = remember(context) {
-        backdropImageSpec(context, BackdropImageUsage.AMBIENT)
-    }
+    val backdropSpec = remember(context) { backdropImageSpec(context) }
 
     LaunchedEffect(media.id) {
         travel.animateTo(
