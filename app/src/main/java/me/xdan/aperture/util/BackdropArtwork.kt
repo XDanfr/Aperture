@@ -1,6 +1,7 @@
 package me.xdan.aperture.util
 
 import android.content.Context
+import me.xdan.aperture.data.remote.api.TmdbApi
 import kotlin.math.max
 
 data class BackdropImageSpec(
@@ -32,7 +33,7 @@ fun backdropImageSpec(context: Context): BackdropImageSpec {
 }
 
 fun backdropImageUrl(path: String, spec: BackdropImageSpec): String =
-    "https://image.tmdb.org/t/p/${spec.urlSize}$path
+    TmdbApi.IMAGE_BASE_URL + spec.urlSize + path
 
 private const val STANDARD_BACKDROP_WIDTH_PX = 1280
 private const val FOUR_K_WIDTH_THRESHOLD_PX = 3200
