@@ -60,7 +60,7 @@ class HomeViewModel @Inject constructor(
 
     private fun prefetchSpotlightArtwork(featured: List<MediaEntity>) {
         featured.asSequence()
-            .mapNotNull { it.backdropPath }
+            .mapNotNull { it.backdropPath?.takeIf(String::isNotBlank) }
             .distinct()
             .map { TmdbApi.IMAGE_BASE_URL + "w1280" + it }
             .filter(prefetchedSpotlightUrls::add)
@@ -68,6 +68,7 @@ class HomeViewModel @Inject constructor(
                 context.imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(url)
+                        .size(SPOTLIGHT_PREFETCH_WIDTH, SPOTLIGHT_PREFETCH_HEIGHT)
                         .crossfade(false)
                         .build()
                 )
@@ -225,6 +226,8 @@ private const val SPOTLIGHT_SEED_SALT = 0x5F3759DF
 private const val MOVIES_SEED_SALT = 0x13579BDF
 private const val SHOWS_SEED_SALT = 0x02468ACE
 private const val HOME_ROW_LIMIT = 10
+private const val SPOTLIGHT_PREFETCH_WIDTH = 1280
+private const val SPOTLIGHT_PREFETCH_HEIGHT = 720
 
 sealed interface HomeState {
     data object Loading : HomeState
