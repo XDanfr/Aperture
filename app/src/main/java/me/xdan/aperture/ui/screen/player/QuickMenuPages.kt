@@ -362,6 +362,7 @@ private fun QuickMenuSubtitlesPage(
                 customiseFocusRequester = customiseFocusRequester,
                 openSubtitlesFocusRequester = openSubtitlesFocusRequester,
                 trackFocusRequester = trackFocusRequester,
+                firstTrackFocusRequester = firstTrackFocusRequester,
                 emptyFocusRequester = emptyFocusRequester,
                 onSync = { mainFocusTarget = QuickMenuSubtitleFocusTarget.SYNC; subPage = QuickMenuSubtitleSubPage.SYNC },
                 onCustomise = { mainFocusTarget = QuickMenuSubtitleFocusTarget.CUSTOMISE; showCustomise = true },
