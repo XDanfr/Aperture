@@ -409,6 +409,7 @@ private fun QuickMenuSubtitlesMainPage(
     customiseFocusRequester: FocusRequester,
     openSubtitlesFocusRequester: FocusRequester,
     trackFocusRequester: FocusRequester,
+    firstTrackFocusRequester: FocusRequester,
     emptyFocusRequester: FocusRequester,
     onSync: () -> Unit,
     onCustomise: () -> Unit,
