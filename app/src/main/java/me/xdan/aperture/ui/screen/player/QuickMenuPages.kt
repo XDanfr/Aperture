@@ -427,37 +427,52 @@ private fun QuickMenuSubtitlesMainPage(
             QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, focusRequester = customiseFocusRequester, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f).focusProperties { left = syncFocusRequester; right = openSubtitlesFocusRequester; down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester })
             QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, focusRequester = openSubtitlesFocusRequester, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f).focusProperties { left = customiseFocusRequester; right = openSubtitlesFocusRequester; down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester })
         }
-        Surface(
-            onClick = {
-                player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                player.clearTrackOverrides(C.TRACK_TYPE_TEXT)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp)
-                .focusRequester(trackFocusRequester)
-                .focusProperties {
-                    up = syncFocusRequester
-                    down = if (items.isEmpty()) emptyFocusRequester else firstTrackFocusRequester
-                },
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = if (selectedItem == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                focusedContainerColor = MaterialTheme.colorScheme.primary,
-                focusedContentColor = MaterialTheme.colorScheme.onPrimary,
-                pressedContainerColor = MaterialTheme.colorScheme.primary,
-                pressedContentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Box(contentAlignment = Alignment.Center) { Text("Off", style = MaterialTheme.typography.titleMedium) }
-        }
         if (items.isEmpty()) {
-            QuickMenuEmptyMessage(
-                message = "No local subtitles available",
-                focusRequester = emptyFocusRequester,
-                focusUpRequester = trackFocusRequester
-            )
+            Surface(
+                onClick = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .focusRequester(emptyFocusRequester)
+                    .focusProperties { up = syncFocusRequester },
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("No local subtitles available", style = MaterialTheme.typography.titleMedium)
+                }
+            }
         } else {
+            Surface(
+                onClick = {
+                    player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    player.clearTrackOverrides(C.TRACK_TYPE_TEXT)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .focusRequester(trackFocusRequester)
+                    .focusProperties {
+                        up = syncFocusRequester
+                        down = firstTrackFocusRequester
+                    },
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = if (selectedItem == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                    pressedContainerColor = MaterialTheme.colorScheme.primary,
+                    pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("Off", style = MaterialTheme.typography.titleMedium)
+                }
+            }
             LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp), contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { "${it.group.mediaTrackGroup.id}-${it.index}" }) { item ->
                 val itemIndex = items.indexOf(item)
