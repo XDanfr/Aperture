@@ -690,7 +690,8 @@ private fun QuickMenuSubtitleTrackPicker(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-sRequester: FocusRequester,
+private fun QuickMenuSubtitleSyncPage(
+    earlierFocusRequester: FocusRequester,
     resetFocusRequester: FocusRequester,
     laterFocusRequester: FocusRequester,
     subtitleDelayMs: Long,
