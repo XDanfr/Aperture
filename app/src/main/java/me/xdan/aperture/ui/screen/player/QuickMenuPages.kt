@@ -152,14 +152,11 @@ fun QuickMenuPages(
             .padding(horizontal = 32.dp, vertical = 20.dp)
             .onPreviewKeyEvent { event ->
                 if (
+                    page == QuickMenuPage.Categories &&
                     event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
                     event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
                 ) {
-                    if (page == QuickMenuPage.Categories) {
-                        onClose()
-                    } else {
-                        page = QuickMenuPage.Categories
-                    }
+                    onClose()
                     true
                 } else {
                     false
