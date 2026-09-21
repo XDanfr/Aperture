@@ -436,7 +436,6 @@ private fun QuickMenuSubtitlesMainPage(
                 .fillMaxWidth()
                 .height(72.dp)
                 .focusRequester(trackFocusRequester)
-                .closeQuickMenuOnUp(onClose)
                 .focusProperties {
                     up = syncFocusRequester
                     down = if (items.isEmpty()) emptyFocusRequester else firstTrackFocusRequester
@@ -453,7 +452,11 @@ private fun QuickMenuSubtitlesMainPage(
             Box(contentAlignment = Alignment.Center) { Text("Off", style = MaterialTheme.typography.titleMedium) }
         }
         if (items.isEmpty()) {
-            QuickMenuEmptyMessage("No local subtitles available")
+            QuickMenuEmptyMessage(
+                message = "No local subtitles available",
+                focusRequester = emptyFocusRequester,
+                focusUpRequester = trackFocusRequester
+            )
         } else {
             LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp), contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { "${it.group.mediaTrackGroup.id}-${it.index}" }) { item ->
@@ -585,9 +588,34 @@ private fun LeavePlayerForSubtitlesDialog(onDismiss: () -> Unit, onConfirm: () -
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuEmptyMessage(message: String) {
-    Box(Modifier.fillMaxWidth().heightIn(min = 96.dp), contentAlignment = Alignment.Center) {
-        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f), style = MaterialTheme.typography.bodyLarge)
+private fun QuickMenuEmptyMessage(
+    message: String,
+    focusRequester: FocusRequester? = null,
+    focusUpRequester: FocusRequester? = null
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 96.dp)
+            .then(
+                if (focusRequester != null) {
+                    Modifier
+                        .focusRequester(focusRequester)
+                        .focusable()
+                        .focusProperties {
+                            if (focusUpRequester != null) up = focusUpRequester
+                        }
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.bodyLarge
+        )
     }
 }
 
