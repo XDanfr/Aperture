@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FormatColorText
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
@@ -146,7 +149,19 @@ fun QuickMenuPages(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.62f)
-            .padding(horizontal = 32.dp, vertical = 20.dp),
+            .padding(horizontal = 32.dp, vertical = 20.dp)
+            .onPreviewKeyEvent { event ->
+                if (
+                    page == QuickMenuPage.Categories &&
+                    event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
+                ) {
+                    onClose()
+                    true
+                } else {
+                    false
+                }
+            },
         shape = RoundedCornerShape(32.dp),
         colors = SurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
@@ -303,6 +318,7 @@ private fun QuickMenuSubtitlesPage(
     val customiseFocusRequester = remember { FocusRequester() }
     val openSubtitlesFocusRequester = remember { FocusRequester() }
     val trackFocusRequester = remember { FocusRequester() }
+    val firstTrackFocusRequester = remember { FocusRequester() }
     val emptyFocusRequester = remember { FocusRequester() }
     val syncEarlierFocusRequester = remember { FocusRequester() }
     val syncResetFocusRequester = remember { FocusRequester() }
@@ -350,6 +366,7 @@ private fun QuickMenuSubtitlesPage(
                 customiseFocusRequester = customiseFocusRequester,
                 openSubtitlesFocusRequester = openSubtitlesFocusRequester,
                 trackFocusRequester = trackFocusRequester,
+                firstTrackFocusRequester = firstTrackFocusRequester,
                 emptyFocusRequester = emptyFocusRequester,
                 onSync = { mainFocusTarget = QuickMenuSubtitleFocusTarget.SYNC; subPage = QuickMenuSubtitleSubPage.SYNC },
                 onCustomise = { mainFocusTarget = QuickMenuSubtitleFocusTarget.CUSTOMISE; showCustomise = true },
@@ -396,6 +413,7 @@ private fun QuickMenuSubtitlesMainPage(
     customiseFocusRequester: FocusRequester,
     openSubtitlesFocusRequester: FocusRequester,
     trackFocusRequester: FocusRequester,
+    firstTrackFocusRequester: FocusRequester,
     emptyFocusRequester: FocusRequester,
     onSync: () -> Unit,
     onCustomise: () -> Unit,
@@ -405,40 +423,265 @@ private fun QuickMenuSubtitlesMainPage(
     val tracks by player.tracks.collectAsState()
     val items = getQuickMenuTrackItems(tracks, C.TRACK_TYPE_TEXT).filter { it.isSupported }
     val selectedItem = items.firstOrNull { it.isSelected }
-    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    var showAllTracks by remember { mutableStateOf(false) }
+    val secondTrackFocusRequester = remember { FocusRequester() }
+    val moreFocusRequester = remember { FocusRequester() }
+
+    Column(
+        Modifier.fillMaxSize().padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Text("Subtitles", style = MaterialTheme.typography.headlineMedium)
-        Text("Selected: ${selectedItem?.name ?: "None"}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickMenuAction("Sync", Icons.Rounded.Sync, onSync, focusRequester = syncFocusRequester, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f).focusProperties { left = syncFocusRequester; right = customiseFocusRequester; down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester })
-            QuickMenuAction("Customise", Icons.Rounded.FormatColorText, onCustomise, focusRequester = customiseFocusRequester, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f).focusProperties { left = syncFocusRequester; right = openSubtitlesFocusRequester; down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester })
-            QuickMenuAction("OpenSubtitles", Icons.Rounded.CloudDownload, onOpenSubtitles, focusRequester = openSubtitlesFocusRequester, onClose = onClose, closeOnUp = true, modifier = Modifier.weight(1f).focusProperties { left = customiseFocusRequester; right = openSubtitlesFocusRequester; down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester })
+        Text(
+            "Selected: ${selectedItem?.name ?: "None"}",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickMenuAction(
+                "Sync",
+                Icons.Rounded.Sync,
+                onSync,
+                focusRequester = syncFocusRequester,
+                onClose = onClose,
+                closeOnUp = true,
+                modifier = Modifier.weight(1f).focusProperties {
+                    left = syncFocusRequester
+                    right = customiseFocusRequester
+                    down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester
+                }
+            )
+            QuickMenuAction(
+                "Customise",
+                Icons.Rounded.FormatColorText,
+                onCustomise,
+                focusRequester = customiseFocusRequester,
+                onClose = onClose,
+                closeOnUp = true,
+                modifier = Modifier.weight(1f).focusProperties {
+                    left = syncFocusRequester
+                    right = openSubtitlesFocusRequester
+                    down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester
+                }
+            )
+            QuickMenuAction(
+                "OpenSubtitles",
+                Icons.Rounded.CloudDownload,
+                onOpenSubtitles,
+                focusRequester = openSubtitlesFocusRequester,
+                onClose = onClose,
+                closeOnUp = true,
+                modifier = Modifier.weight(1f).focusProperties {
+                    left = customiseFocusRequester
+                    right = openSubtitlesFocusRequester
+                    down = if (items.isEmpty()) emptyFocusRequester else trackFocusRequester
+                }
+            )
         }
+
         if (items.isEmpty()) {
             Surface(
                 onClick = {},
-                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp).focusRequester(emptyFocusRequester).focusable().focusProperties { up = syncFocusRequester; left = syncFocusRequester; right = openSubtitlesFocusRequester },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .focusRequester(emptyFocusRequester)
+                    .focusProperties { up = syncFocusRequester },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary)
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    focusedContentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                Box(contentAlignment = Alignment.Center) { Text("No local subtitles available", style = MaterialTheme.typography.bodyLarge) }
+                Box(contentAlignment = Alignment.Center) {
+                    Text("No local subtitles available", style = MaterialTheme.typography.titleMedium)
+                }
             }
-            return
-        }
-        LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp), contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items, key = { "${it.group.mediaTrackGroup.id}-${it.index}" }) { item ->
-                val itemIndex = items.indexOf(item)
-                val isFirstRow = itemIndex < 3
+        } else {
+            val previewItems = items.take(2)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Surface(
                     onClick = {
-                        player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                        player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        player.clearTrackOverrides(C.TRACK_TYPE_TEXT)
                     },
-                    modifier = Modifier.then(if (item == items.firstOrNull()) Modifier.focusRequester(trackFocusRequester) else Modifier).focusProperties { if (isFirstRow) up = when (itemIndex) { 0 -> syncFocusRequester; 1 -> customiseFocusRequester; else -> openSubtitlesFocusRequester } },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(72.dp)
+                        .focusRequester(trackFocusRequester)
+                        .focusProperties {
+                            up = syncFocusRequester
+                            down = firstTrackFocusRequester
+                        },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = if (item.isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary)
-                ) { Text(item.name, modifier = Modifier.padding(18.dp), maxLines = 2) }
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (selectedItem == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                        pressedContainerColor = MaterialTheme.colorScheme.primary,
+                        pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("Off", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+
+                previewItems.forEachIndexed { index, item ->
+                    val itemFocusRequester = if (index == 0) {
+                        firstTrackFocusRequester
+                    } else {
+                        secondTrackFocusRequester
+                    }
+                    val nextFocusRequester = when {
+                        index == 0 && previewItems.size > 1 -> secondTrackFocusRequester
+                        items.size > 2 -> moreFocusRequester
+                        else -> itemFocusRequester
+                    }
+                    Surface(
+                        onClick = {
+                            player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(72.dp)
+                            .focusRequester(itemFocusRequester)
+                            .focusProperties {
+                                up = trackFocusRequester
+                                down = nextFocusRequester
+                            },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (item.isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            focusedContainerColor = MaterialTheme.colorScheme.primary,
+                            focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                            pressedContainerColor = MaterialTheme.colorScheme.primary,
+                            pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                item.name,
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
+
+                if (items.size > 2) {
+                    QuickMenuAction(
+                        label = "More",
+                        icon = Icons.Rounded.MoreHoriz,
+                        onClick = { showAllTracks = true },
+                        focusRequester = moreFocusRequester,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(72.dp)
+                            .focusProperties {
+                                up = trackFocusRequester
+                            }
+                    )
+                }
             }
         }
+    }
+
+    if (showAllTracks) {
+        QuickMenuSubtitleTrackPicker(
+            items = items,
+            onSelect = { item ->
+                player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                showAllTracks = false
+            },
+            onDismiss = { showAllTracks = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun QuickMenuSubtitleTrackPicker(
+    items: List<QuickMenuTrackItem>,
+    onSelect: (QuickMenuTrackItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+
+    BackHandler(onBack = onDismiss)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.width(640.dp).fillMaxHeight(0.72f),
+            shape = RoundedCornerShape(28.dp),
+            colors = SurfaceDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                Modifier.fillMaxSize().padding(28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("Choose subtitle", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "Select a subtitle track.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(items.size) { index ->
+                        val item = items[index]
+                        Surface(
+                            onClick = { onSelect(item) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (index == 0) {
+                                        Modifier.focusRequester(firstFocusRequester)
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                            colors = ClickableSurfaceDefaults.colors(
+                                containerColor = if (item.isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                focusedContainerColor = MaterialTheme.colorScheme.primary,
+                                focusedContentColor = MaterialTheme.colorScheme.onPrimary,
+                                pressedContainerColor = MaterialTheme.colorScheme.primary,
+                                pressedContentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Text(
+                                item.name,
+                                modifier = Modifier.padding(18.dp),
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        firstFocusRequester.requestFocus()
     }
 }
 
@@ -551,9 +794,34 @@ private fun LeavePlayerForSubtitlesDialog(onDismiss: () -> Unit, onConfirm: () -
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuEmptyMessage(message: String) {
-    Box(Modifier.fillMaxWidth().heightIn(min = 96.dp), contentAlignment = Alignment.Center) {
-        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f), style = MaterialTheme.typography.bodyLarge)
+private fun QuickMenuEmptyMessage(
+    message: String,
+    focusRequester: FocusRequester? = null,
+    focusUpRequester: FocusRequester? = null
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 96.dp)
+            .then(
+                if (focusRequester != null) {
+                    Modifier
+                        .focusRequester(focusRequester)
+                        .focusable()
+                        .focusProperties {
+                            if (focusUpRequester != null) up = focusUpRequester
+                        }
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.bodyLarge
+        )
     }
 }
 

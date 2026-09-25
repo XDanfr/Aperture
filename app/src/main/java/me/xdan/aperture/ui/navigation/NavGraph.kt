@@ -194,8 +194,8 @@ fun NavGraph(
     }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
-        lastFocusedRequesters.remove(originFocusKey)
         if (originFocusKey == "home") {
+            lastFocusedRequesters.remove(originFocusKey)
             homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
         }
         pendingPlayerFocusRestore = originFocusKey
