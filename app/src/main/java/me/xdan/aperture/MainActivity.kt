@@ -52,10 +52,7 @@ class MainActivity : ComponentActivity() {
         sponsorPromptLaunchNumber = launchPreferences.getInt(KEY_LAUNCH_COUNT, 0) + 1
         launchPreferences.edit().putInt(KEY_LAUNCH_COUNT, sponsorPromptLaunchNumber).apply()
 
-        // Establish a durable version baseline now. The first version that
-        // ships a What's New surface can compare this value before replacing it
-        // after the user has dismissed the notes. Do not overwrite an existing
-        // value here: it belongs to the version the user last acknowledged.
+        // What's new version check, kinda does nothing FOR NOW
         val appVersionPreferences = getSharedPreferences(APP_VERSION_PREFERENCES, MODE_PRIVATE)
         if (!appVersionPreferences.contains(KEY_LAST_SEEN_VERSION_CODE)) {
             appVersionPreferences.edit()
