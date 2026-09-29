@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -290,16 +289,8 @@ fun NavGraph(
                         Surface(
                             modifier = Modifier.fillMaxHeight(),
                             colors = SurfaceDefaults.colors(
-                                containerColor = if (ApertureTheme.isMaterialTv) {
-                                    Color.White
-                                } else {
-                                    MaterialTheme.colorScheme.surface
-                                },
-                                contentColor = if (ApertureTheme.isMaterialTv) {
-                                    Color(0xFF1A191C)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
                             Column(
