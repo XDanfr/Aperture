@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
+import me.xdan.aperture.domain.playback.nextEpisodeForContinueWatching
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.data.remote.dto.TmdbResult
 import javax.inject.Inject
@@ -48,20 +50,13 @@ class MediaDetailsViewModel @Inject constructor(
             } else emptyList()
             _episodes.value = showEpisodes
 
-            // A grouped show card represents its deterministic first episode.
-            // Do not scan every episode here: stale progress on a later file
-            // must not make the popup open on (for example) S02E05. Continue
-            // Watching already chooses the next/current episode separately.
-            val selectedProgress = selected?.let { repository.getProgress(it.id) }
-            val resumableSelected = selectedProgress?.takeIf { progress ->
-                preferActiveEpisode && !progress.isCompleted &&
-                    (progress.keepInContinueWatching ||
-                        (progress.duration > 0 &&
-                            progress.position >= progress.duration * 0.05 &&
-                            progress.position < progress.duration * 0.95))
-            }
-            _media.value = selected
-            _progress.value = resumableSelected ?: selectedProgress
+            val resolved = if (preferActiveEpisode && showEpisodes.isNotEmpty()) {
+                val progressMap = repository.getAllProgress().first().associateBy { it.mediaId }
+                val currentEpisode = nextEpisodeForContinueWatching(showEpisodes, progressMap)?.first
+                currentEpisode?.let { repository.getMediaById(it.id) } ?: selected
+            } else selected
+            _media.value = resolved
+            _progress.value = resolved?.let { repository.getProgress(it.id) }
         }
     }
 
