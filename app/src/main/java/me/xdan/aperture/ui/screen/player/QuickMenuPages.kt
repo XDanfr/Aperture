@@ -61,6 +61,8 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.C
@@ -486,7 +488,7 @@ private fun QuickMenuSubtitlesMainPage(
                     focusedContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                     Text("No local subtitles available", style = MaterialTheme.typography.titleMedium)
                 }
             }
@@ -518,7 +520,7 @@ private fun QuickMenuSubtitlesMainPage(
                         pressedContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                         Text("Off", style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -556,10 +558,12 @@ private fun QuickMenuSubtitlesMainPage(
                             pressedContentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 item.name,
-                                modifier = Modifier.padding(horizontal = 12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                overflow = TextOverflow.Ellipsis,
                                 maxLines = 2
                             )
                         }
