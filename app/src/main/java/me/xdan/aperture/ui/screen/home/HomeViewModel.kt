@@ -131,9 +131,14 @@ private fun buildHomeState(
                     candidate.title == lastWatched.title)
         }
         .shuffled(Random(suggestionSeed xor SPOTLIGHT_SEED_SALT))
+    val continuedShows = episodeContinue.associate { (episode, _) -> episode.title to episode }
     val featured = buildList {
         if (lastWatched != null) add(lastWatched)
-        addAll(remainingSpotlight.take((5 - size).coerceAtLeast(0)))
+        addAll(remainingSpotlight.take((5 - size).coerceAtLeast(0)).map { candidate ->
+            // Every featured show follows its own viewing history, even when
+            // another title occupies the first (most recently watched) slot.
+            if (candidate.type == "EPISODE") continuedShows[candidate.title] ?: candidate else candidate
+        })
     }
 
     return HomeState.Success(
