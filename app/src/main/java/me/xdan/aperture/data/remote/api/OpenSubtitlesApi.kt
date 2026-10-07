@@ -6,11 +6,13 @@ import me.xdan.aperture.BuildConfig
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Url
 
 interface OpenSubtitlesApi {
+    @Headers("Accept: application/json")
     @POST("login")
     suspend fun login(
         @Body request: OpenSubtitlesLoginRequest,
@@ -18,6 +20,7 @@ interface OpenSubtitlesApi {
         @Header("User-Agent") userAgent: String = USER_AGENT
     ): OpenSubtitlesLoginResponse
 
+    @Headers("Accept: application/json")
     @GET
     suspend fun searchSubtitles(
         @Url url: String,
@@ -31,6 +34,7 @@ interface OpenSubtitlesApi {
         @Header("User-Agent") userAgent: String = USER_AGENT
     ): OpenSubtitlesSearchResponse
 
+    @Headers("Accept: application/json")
     @POST
     suspend fun createDownload(
         @Url url: String,
