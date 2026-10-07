@@ -7,7 +7,6 @@ import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.View
-import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.animateDpAsState
@@ -55,7 +54,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -110,8 +108,6 @@ fun PlayerScreen(
     val player = viewModel.player
     val nativePlayer by player.nativePlayer.collectAsState()
     val hostView = LocalView.current
-    val windowFocused = LocalWindowInfo.current.isWindowFocused
-    var playerHasFocus by remember { mutableStateOf(false) }
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
@@ -188,6 +184,10 @@ fun PlayerScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        playerFocusRequester.requestFocus()
+    }
+
     DisposableEffect(player) {
         var hasHandledEnd = false
         val listener = object : PlayerEngine.Listener {
@@ -207,35 +207,24 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(nextEpisodeVisible) {
-        if (nextEpisodeVisible) viewModel.hideOsd()
-    }
-
-    val desiredFocusRequester = when {
-        noticeVisible -> noticeFocusRequester
-        nextEpisodeVisible -> nextEpisodeFocusRequester
-        isQuickMenuVisible -> quickMenuFocusRequester
-        isOsdVisible -> controlsFocusRequester
-        else -> playerFocusRequester
-    }
-    val currentDesiredFocusRequester by rememberUpdatedState(desiredFocusRequester)
-    suspend fun focusPlayerWhenReady(requester: FocusRequester) {
-        withFrameNanos { }
-        withFrameNanos { }
-        repeat(10) {
-            if (runCatching { requester.requestFocus() }.getOrDefault(false)) return
-            delay(50)
+        if (nextEpisodeVisible) {
+            viewModel.hideOsd()
+            nextEpisodeFocusRequester.requestFocus()
         }
     }
 
-    // Dialog dismissal and native video replacement can complete after the
-    // initial composition. Wait for the active window and attached controls.
-    LaunchedEffect(desiredFocusRequester, windowFocused, useGLSurface, nativePlayer) {
-        if (windowFocused) focusPlayerWhenReady(desiredFocusRequester)
-    }
-    LaunchedEffect(playerHasFocus, windowFocused, isQuickMenuVisible) {
-        if (!playerHasFocus && windowFocused && !isQuickMenuVisible) {
-            delay(100)
-            if (!playerHasFocus) focusPlayerWhenReady(currentDesiredFocusRequester)
+    LaunchedEffect(isOsdVisible, isQuickMenuVisible, noticeVisible, nextEpisodeVisible) {
+        if (noticeVisible) {
+            noticeFocusRequester.requestFocus()
+        } else if (nextEpisodeVisible) {
+            // The popup owns focus until it closes; the OSD timer must not
+            // move focus from Dismiss back to the preview card.
+        } else if (isOsdVisible && !isQuickMenuVisible) {
+            controlsFocusRequester.requestFocus()
+        } else if (isQuickMenuVisible) {
+            quickMenuFocusRequester.requestFocus()
+        } else {
+            playerFocusRequester.requestFocus()
         }
     }
 
@@ -322,7 +311,6 @@ fun PlayerScreen(
                 } else false
             }
             .focusRequester(playerFocusRequester)
-            .onFocusChanged { playerHasFocus = it.hasFocus }
             .focusable()
     ) {
     key(useGLSurface) {
@@ -336,9 +324,6 @@ fun PlayerScreen(
                 Log.d("PlayerScreen", "Creating PlayerView, initial nativePlayer: ${nativePlayer != null}, useGLSurface: $useGLSurface")
                 PlayerView(themedContext).apply {
                     useController = false
-                    isFocusable = false
-                    isFocusableInTouchMode = false
-                    descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     subtitleView?.visibility = View.GONE
                     this.player = nativePlayer
                 }
