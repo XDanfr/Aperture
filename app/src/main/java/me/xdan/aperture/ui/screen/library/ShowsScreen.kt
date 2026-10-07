@@ -27,7 +27,7 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 fun ShowsScreen(
     viewModel: LibraryViewModel,
     onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
-    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit,
@@ -72,7 +72,7 @@ fun ShowsScreen(
 private fun GroupedShowsGrid(
     groups: List<ShowGroup>,
     onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
-    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit,
@@ -106,7 +106,7 @@ private fun GroupedShowsGrid(
                                     onActiveMediaChanged(media.id)
                                 },
                                 onLongClick = { requester, opensToRight ->
-                                    onMediaLongClick(media, requester, false, opensToRight)
+                                    onMediaLongClick(media, requester, false, opensToRight, false)
                                 }
                             )
                         }
@@ -124,7 +124,7 @@ private fun GroupedShowsGrid(
 private fun EpisodeRows(
     groups: List<ShowGroup>,
     onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
-    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit,
@@ -176,7 +176,7 @@ private fun EpisodeRows(
                                                         onActiveMediaChanged(episode.id)
                                                     },
                                                     onLongClick = { requester, opensToRight ->
-                                                        onMediaLongClick(episode, requester, false, opensToRight)
+                                                        onMediaLongClick(episode, requester, false, opensToRight, true)
                                                     }
                                                 )
                                                 Spacer(Modifier.height(6.dp))

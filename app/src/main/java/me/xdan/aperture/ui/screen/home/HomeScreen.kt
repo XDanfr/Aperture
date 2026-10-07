@@ -390,7 +390,7 @@ private fun FeaturedCarousel(
                             onMediaClick(
                                 media.id,
                                 watchNowFocusRequester,
-                                media.type == "EPISODE" && media.id in continueMediaIds
+                                false
                             )
                         },
                         modifier = Modifier
@@ -477,7 +477,7 @@ private fun HomeMediaRow(
                         onMediaClick(
                             media.id,
                             requester,
-                            media.type == "EPISODE" && row.title == "Continue Watching"
+                            false
                         )
                     },
                     modifier = Modifier.width(150.dp),

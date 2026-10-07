@@ -63,6 +63,7 @@ fun NavGraph(
     var selectedEpisodeOnly by remember { mutableStateOf(false) }
     var contextMediaId by remember { mutableStateOf<Long?>(null) }
     var contextFromContinue by remember { mutableStateOf(false) }
+    var contextEpisodeOnly by remember { mutableStateOf(false) }
     var contextOpensToRight by remember { mutableStateOf(true) }
     var contextFocusRequester by remember { mutableStateOf<FocusRequester?>(null) }
     val lastFocusedRequesters = remember { mutableStateMapOf<String, FocusRequester>() }
@@ -455,10 +456,11 @@ fun NavGraph(
                             selectedEpisodeOnly = episodeOnly
                             selectedMediaId = mediaId
                         },
-                        onMediaLongClick = { focusKey, media, requester, fromContinue, opensToRight ->
+                        onMediaLongClick = { focusKey, media, requester, fromContinue, opensToRight, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
                             contextMediaId = media.id
                             contextFromContinue = fromContinue
+                            contextEpisodeOnly = episodeOnly
                             contextFocusRequester = requester
                             contextOpensToRight = opensToRight
                             mediaActionsViewModel.load(media.id)
@@ -492,9 +494,10 @@ fun NavGraph(
                         selectedEpisodeOnly = episodeOnly
                         selectedMediaId = mediaId
                     },
-                    onMediaLongClick = { _, media, requester, fromContinue, opensToRight ->
+                    onMediaLongClick = { _, media, requester, fromContinue, opensToRight, episodeOnly ->
                         contextMediaId = media.id
                         contextFromContinue = fromContinue
+                            contextEpisodeOnly = episodeOnly
                         contextFocusRequester = requester
                         contextOpensToRight = opensToRight
                         mediaActionsViewModel.load(media.id)
@@ -530,7 +533,7 @@ fun NavGraph(
                         contextFocusRequester = null
                         contextMediaId = null
                         mainViewModel.setActiveMedia(mediaId)
-                        selectedEpisodeOnly = contextFromContinue && mediaActionState.media?.type == "EPISODE"
+                        selectedEpisodeOnly = contextEpisodeOnly
                         selectedMediaId = mediaId
                     },
                     onPlayFromBeginning = {
@@ -628,7 +631,7 @@ private fun NavContent(
     homeViewModel: HomeViewModel,
     backstack: NavBackStack<Destination>,
     onMediaClick: (String, Long, FocusRequester, Boolean) -> Unit,
-    onMediaLongClick: (String, me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onMediaLongClick: (String, me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerRequesters: Map<String, FocusRequester>,
     contentEntryRequesters: Map<String, FocusRequester>,
     homeRestoreFocusKey: String?,
@@ -659,7 +662,7 @@ private fun NavContent(
                 }
             val mediaLongClick: (me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean) -> Unit =
                 { media, requester, fromContinue, opensToRight ->
-                    focusKey?.let { onMediaLongClick(it, media, requester, fromContinue, opensToRight) }
+                    focusKey?.let { onMediaLongClick(it, media, requester, fromContinue, opensToRight, false) }
                 }
             val contentFocused: (FocusRequester) -> Unit = { requester ->
                 focusKey?.let { onContentFocused(it, requester) }
@@ -705,7 +708,11 @@ private fun NavContent(
                 is Destination.Shows -> ShowsScreen(
                     viewModel = viewModel(),
                     onMediaClick = episodeAwareMediaClick,
-                    onMediaLongClick = mediaLongClick,
+                    onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
+                        focusKey?.let {
+                            onMediaLongClick(it, media, requester, fromContinue, opensToRight, episodeOnly)
+                        }
+                    },
                     drawerFocusRequester = drawerFocusRequester,
                     contentEntryFocusRequester = contentEntryFocusRequester,
                     onContentFocused = contentFocused,
