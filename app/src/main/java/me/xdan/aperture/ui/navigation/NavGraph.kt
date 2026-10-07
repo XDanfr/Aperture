@@ -1,6 +1,7 @@
 package me.xdan.aperture.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -8,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -110,6 +112,7 @@ fun NavGraph(
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var drawerFocusHandoff by remember { mutableStateOf(false) }
+    var drawerOpeningRequested by remember { mutableStateOf(false) }
     val drawerFocusAllowed = showDrawer && selectedMediaId == null &&
         contextMediaId == null && contextFocusRequester == null && !detailsAwaitingFocusReturn
     val drawerCanReceiveFocus = drawerFocusAllowed && !drawerFocusHandoff
@@ -146,6 +149,7 @@ fun NavGraph(
             // Disable sidebar entry until the destination content owns focus.
             // The TV drawer otherwise opens itself when a page's old focus
             // target is disposed, or while a closing window hands focus back.
+            drawerOpeningRequested = false
             if (!drawerFocusAllowed) requestFocusWhenReady(null)
             drawerState.setValue(DrawerValue.Closed)
         }
@@ -203,20 +207,24 @@ fun NavGraph(
     val openDrawer: () -> Unit = {
         requestFocusWhenReady(null)
         drawerFocusHandoff = false
+        drawerOpeningRequested = true
         val requester = currentFocusKey?.let(drawerRequesters::get)
         // Focus the intended item BEFORE opening. Opening first makes the TV
         // drawer grab Home, followed by our old delayed request to the real page.
         val restored = requester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
         if (restored) {
             drawerState.setValue(DrawerValue.Open)
+            drawerOpeningRequested = false
         } else {
             requestFocusWhenReady(requester) { focused ->
                 if (focused) drawerState.setValue(DrawerValue.Open)
+                drawerOpeningRequested = false
             }
         }
     }
     val closeDrawerAndRestoreFocus: () -> Unit = {
         drawerFocusHandoff = true
+        drawerOpeningRequested = false
         drawerState.setValue(DrawerValue.Closed)
         requestFocusWhenReady(drawerReturnFocusRequester, currentFocusKey?.let(contentEntryRequesters::get)) {
             drawerFocusHandoff = false
@@ -230,6 +238,7 @@ fun NavGraph(
         }
 
         drawerFocusHandoff = true
+        drawerOpeningRequested = false
         requestFocusWhenReady(null)
         drawerState.setValue(DrawerValue.Closed)
         navigateFromDrawer(destination)
@@ -334,7 +343,22 @@ fun NavGraph(
                     drawerState = drawerState,
                     drawerContent = { drawerValue ->
                         Surface(
-                            modifier = Modifier.fillMaxHeight(),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .focusProperties {
+                                    onEnter = {
+                                        // A page's loading/empty focus target can disappear
+                                        // after the handoff. Automatic Enter must still not
+                                        // reopen the sidebar; Back or Left explicitly does.
+                                        val intentionalEntry = drawerOpeningRequested ||
+                                            drawerState.currentValue == DrawerValue.Open ||
+                                            requestedFocusDirection == FocusDirection.Left
+                                        if (!drawerCanReceiveFocus || !intentionalEntry) {
+                                            cancelFocusChange()
+                                        }
+                                    }
+                                }
+                                .focusGroup(),
                             colors = SurfaceDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 contentColor = MaterialTheme.colorScheme.onSurface
@@ -394,6 +418,7 @@ fun NavGraph(
                                     selected = currentDestination is Destination.Home,
                                     onClick = {
                                         drawerFocusHandoff = true
+                                        drawerOpeningRequested = false
                                         requestFocusWhenReady(null)
                                         drawerState.setValue(DrawerValue.Closed)
                                         if (currentDestination !is Destination.Home) {
