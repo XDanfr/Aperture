@@ -391,6 +391,9 @@ fun NavGraph(
                                             if (drawerValue == DrawerValue.Open) NavigationDrawerItemDefaults.ExpandedDrawerItemWidth
                                             else NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
                                         )
+                                        // Exiting text stays composed while the rail narrows.
+                                        // Its measurement must never move the entries vertically.
+                                        .height(56.dp)
                                         .padding(bottom = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -414,6 +417,8 @@ fun NavGraph(
                                     ) {
                                         Text(
                                             "Aperture",
+                                            maxLines = 1,
+                                            softWrap = false,
                                             style = MaterialTheme.typography.headlineSmall,
                                             fontFamily = ApertureBrandFontFamily,
                                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,

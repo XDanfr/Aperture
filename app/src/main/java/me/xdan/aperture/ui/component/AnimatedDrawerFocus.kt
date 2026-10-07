@@ -83,8 +83,8 @@ fun AnimatedDrawerFocus(
         val target = bounds ?: return@LaunchedEffect
         val movingBetweenItems = previousKey != null && previousKey != targetKey
         if (previousKey == null) {
-            // Allow the newly visible brand row to finish layout before showing
-            // the pill. This also prevents replaying the last hover on reopen.
+            // Allow the drawer's opening layout to settle before showing the
+            // pill. This also prevents replaying the last hover on reopen.
             state.highlightReady = false
             withFrameNanos { }
             withFrameNanos { }
