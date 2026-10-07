@@ -78,6 +78,15 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 
 Aperture is currently in **ALPHA**. Here is what is being tracked for future incremental updates:
 
+### Tester feedback priorities
+
+Address these before expanding the shared focus-morph experiment:
+
+- [ ] **Large-library browsing performance**: Investigate slow first entry and lag on the Movies page with libraries of 900+ movies. Measure database work, UI preparation and artwork loading before choosing a fix; consider retaining prepared library data, paging and bounded artwork loading/caching so opening a page does not require preparing the entire library. Check first entry, reopening and scrolling on Android TV hardware.
+- [ ] **Onboarding overhaul**: Rework first-run setup, library selection and scan/progress feedback into a clearer flow that is comfortable to navigate with a remote.
+- [ ] **Compact, adaptive sidebar**: Reduce the expanded sidebar width and excess gap before page content while preserving the original branding and readable labels. Allow the focus pill to grow and shrink horizontally with its destination rather than leaving a long fixed-width chip; coordinate this with the shared focus morph where appropriate, without shifting entries vertically.
+- [ ] **Subtitle QuickMenu layout**: Fix subtitle option labels sitting against the top/left edges of rounded cards, including clipping of “Off”. Give the track options consistent padding and alignment, and keep Sync/Customise actions readable and comfortably spaced when focused on a TV.
+
 ### Planned Features
 
 - [X] **Transition to Material 3 Expressive**: Very large rewrite planned for v0.5, using official Expressive tokens (this is complete and will arrive in the next update)
