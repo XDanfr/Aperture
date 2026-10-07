@@ -54,6 +54,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -108,6 +109,9 @@ fun PlayerScreen(
     val player = viewModel.player
     val nativePlayer by player.nativePlayer.collectAsState()
     val hostView = LocalView.current
+    val windowInfo = LocalWindowInfo.current
+    var playerHasFocus by remember { mutableStateOf(false) }
+    var initialPlaybackFocusSettled by remember { mutableStateOf(false) }
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
@@ -184,10 +188,6 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        playerFocusRequester.requestFocus()
-    }
-
     DisposableEffect(player) {
         var hasHandledEnd = false
         val listener = object : PlayerEngine.Listener {
@@ -226,6 +226,33 @@ fun PlayerScreen(
         } else {
             playerFocusRequester.requestFocus()
         }
+    }
+
+    val currentEntryFocusRequester by rememberUpdatedState(when {
+        noticeVisible -> noticeFocusRequester
+        nextEpisodeVisible -> nextEpisodeFocusRequester
+        isQuickMenuVisible -> quickMenuFocusRequester
+        isOsdVisible -> controlsFocusRequester
+        else -> playerFocusRequester
+    })
+    LaunchedEffect(playbackState == androidx.media3.common.Player.STATE_READY) {
+        if (playbackState != androidx.media3.common.Player.STATE_READY || initialPlaybackFocusSettled) {
+            return@LaunchedEffect
+        }
+        // The first decoder setup and the outgoing details dialog can settle
+        // after the initial focus request. Retry only during this entry handoff.
+        delay(350)
+        repeat(10) {
+            if (playerHasFocus) {
+                initialPlaybackFocusSettled = true
+                return@LaunchedEffect
+            }
+            if (windowInfo.isWindowFocused) {
+                runCatching { currentEntryFocusRequester.requestFocus() }
+            }
+            delay(100)
+        }
+        initialPlaybackFocusSettled = true
     }
 
     fun saveProgressAndBack() {
@@ -311,6 +338,7 @@ fun PlayerScreen(
                 } else false
             }
             .focusRequester(playerFocusRequester)
+            .onFocusChanged { playerHasFocus = it.hasFocus }
             .focusable()
     ) {
     key(useGLSurface) {
