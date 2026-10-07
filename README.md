@@ -94,7 +94,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [X] **Consistent Continue Watching progress color**: Focusing a card should preserve the progress bar's color.
 - [ ] **Animated sidebar focus**: Move the focus highlight smoothly between destinations using Aperture's motion tokens, keeping the animation inexpensive on TV hardware.
 - [ ] **Animated idle Spotlight transitions**: Give automatic title changes the same motion as remote navigation, with a Google TV inspired wipe between banners.
-- [ ] **Simplify visible settings**: Hide the Rounded Spotlight and Classic Player Controls switches while retaining their implementations and stored preferences.
+- [X] **Simplify visible settings**: Hide the Rounded Spotlight and Classic Player Controls switches while retaining their implementations and stored preferences.
 - [ ] **Experimental options section**: Provide a future home for alternate Spotlight layouts, classic controls and similar optional features.
 
 #### Further Out

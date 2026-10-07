@@ -115,7 +115,6 @@ fun SettingsScreen(
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     val ambientSettings by viewModel.ambientSettings.collectAsState()
-    val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
     val tunnelingEnabled by viewModel.tunnelingEnabled.collectAsState()
     val softwareVideoDecoding by viewModel.softwareVideoDecoding.collectAsState()
     val playbackEngine by viewModel.playbackEngine.collectAsState()
@@ -157,19 +156,19 @@ fun SettingsScreen(
             SETTINGS_THEME_FOCUS_KEY -> 1
             SETTINGS_AMBIENT_FOCUS_KEY -> 2
             SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
-            SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY -> 4
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 5
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 6
-            SETTINGS_HIDDEN_FOCUS_KEY -> 9
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 10
-            SETTINGS_RESCAN_FOCUS_KEY -> 11
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 12
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 14
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 15
-            SETTINGS_LICENCES_FOCUS_KEY -> 17
-            SETTINGS_UPDATE_FOCUS_KEY -> 18
-            SETTINGS_TMDB_FOCUS_KEY -> 19
-            SETTINGS_DONATE_FOCUS_KEY -> 20
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 4
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 5
+            SETTINGS_LANGUAGE_FOCUS_KEY -> 9
+            SETTINGS_HIDDEN_FOCUS_KEY -> 11
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 12
+            SETTINGS_RESCAN_FOCUS_KEY -> 13
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 14
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 16
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 17
+            SETTINGS_LICENCES_FOCUS_KEY -> 19
+            SETTINGS_UPDATE_FOCUS_KEY -> 20
+            SETTINGS_TMDB_FOCUS_KEY -> 21
+            SETTINGS_DONATE_FOCUS_KEY -> 22
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -274,36 +273,6 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
-                    title = "Rounded Spotlight",
-                    subtitle = if (spotlightSettings.roundedSpotlight) {
-                        "Rounded Material 3 Spotlight"
-                    } else {
-                        "Use the full-width Spotlight layout"
-                    },
-                    icon = Icons.Rounded.ViewModule,
-                    drawerFocusRequester = drawerFocusRequester,
-                    focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY
-                    },
-                    onFocused = { requester ->
-                        onFocusKeyChanged(SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY)
-                        onContentFocused(requester)
-                    },
-                    onClick = {
-                        viewModel.setRoundedSpotlight(!spotlightSettings.roundedSpotlight)
-                    },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = spotlightSettings.roundedSpotlight,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
-            }
-
-            item {
-                SettingsItem(
                     title = "Hide finished media from Spotlight",
                     subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
                         "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
@@ -346,24 +315,6 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showSpotlightDaysPicker = true }
-                )
-            }
-
-            item {
-                SettingsItem(
-                    title = "Classic Player Controls",
-                    subtitle = if (classicPlayerControls) "Use the traditional playback controls" else "Use the default streamlined controls",
-                    icon = Icons.Rounded.Movie,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester -> onContentFocused(requester) },
-                    onClick = { viewModel.setClassicPlayerControls(!classicPlayerControls) },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = classicPlayerControls,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
                 )
             }
 
@@ -803,7 +754,6 @@ private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
-private const val SETTINGS_ROUNDED_SPOTLIGHT_FOCUS_KEY = "rounded_spotlight"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"
 private const val SETTINGS_HIDDEN_FOCUS_KEY = "hidden"
 private const val SETTINGS_MEDIA_FOLDERS_FOCUS_KEY = "media_folders"
