@@ -1,6 +1,7 @@
 package me.xdan.aperture.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -384,24 +385,32 @@ fun NavGraph(
                                         .fillMaxHeight(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (drawerValue == DrawerValue.Open) {
-                                    // Use the entry layout itself so the brand shares the icon
-                                    // centers and label inset, without reserving closed-rail space.
-                                    NavigationDrawerItem(
-                                        selected = false,
-                                        enabled = false,
-                                        onClick = {},
-                                        modifier = Modifier.focusProperties { canFocus = false },
-                                        colors = NavigationDrawerItemDefaults.colors(
-                                            disabledContainerColor = Color.Transparent,
-                                            disabledContentColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        leadingContent = {
-                                            ApertureBrandMark(
-                                                modifier = Modifier.size(NavigationDrawerItemDefaults.IconSize),
-                                                spinBlades = true
-                                            )
-                                        }
+                                Row(
+                                    modifier = Modifier
+                                        .width(
+                                            if (drawerValue == DrawerValue.Open) NavigationDrawerItemDefaults.ExpandedDrawerItemWidth
+                                            else NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
+                                        )
+                                        .padding(bottom = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Keep the original 40dp mark, centered on the entry icons.
+                                    // The 56dp icon column also aligns the wordmark with labels.
+                                    Box(
+                                        modifier = Modifier
+                                            .width(NavigationDrawerItemDefaults.CollapsedDrawerItemWidth)
+                                            .height(40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        ApertureBrandMark(
+                                            modifier = Modifier.size(40.dp),
+                                            spinBlades = drawerValue == DrawerValue.Open
+                                        )
+                                    }
+                                    AnimatedVisibility(
+                                        visible = drawerValue == DrawerValue.Open,
+                                        enter = NavigationDrawerItemDefaults.ContentAnimationEnter,
+                                        exit = NavigationDrawerItemDefaults.ContentAnimationExit
                                     ) {
                                         Text(
                                             "Aperture",

@@ -93,7 +93,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [ ] **Next episode popup**: In the final 10 seconds of an episode, show a focused preview card with the next episode's season, number, title and existing episode thumbnail, plus a “Playing in X” countdown. Selecting the card plays it immediately. An X below dismisses the popup and disables automatic continuation for that episode; when the video ends, close the player.
 - [X] **Consistent Continue Watching progress color**: Focusing a card should preserve the progress bar's color.
 - [X] **Animated sidebar focus**: Move the focus highlight smoothly between destinations using Aperture's motion tokens, with text color following the highlight and no replay of the previous hover on reopening.
-- [X] **Brand only in the open sidebar**: Align the Aperture mark and wordmark with the entry icon and text columns, and reclaim the header space when closed.
+- [X] **Sidebar brand reveal**: Keep the original Aperture icon visible, centered with the entry icons. Reveal the original wordmark alongside the entry labels when the sidebar opens, keeping the collapsed rail compact.
 - [ ] **Animated idle Spotlight transitions**: Give automatic title changes the same motion as remote navigation, with a Google TV inspired wipe between banners.
 - [X] **Simplify visible settings**: Hide the Rounded Spotlight and Classic Player Controls switches while retaining their implementations and stored preferences.
 - [ ] **Experimental options section**: Provide a future home for alternate Spotlight layouts, classic controls, a sidebar-brand visibility preference and similar optional features.
