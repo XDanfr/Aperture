@@ -66,7 +66,7 @@ class MediaDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             val current = repository.getMediaById(mediaId) ?: return@launch
             repository.setFavorite(mediaId, !current.isFavorite)
-            _media.value = current.copy(isFavorite = !current.isFavorite)
+            _media.value = repository.getMediaById(mediaId)
         }
     }
 

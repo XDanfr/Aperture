@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,11 +60,31 @@ class MediaRepositoryImpl @Inject constructor(
 
     override fun getMediaByType(type: String): Flow<List<MediaEntity>> = mediaDao.getMediaByType(type)
 
-    override fun getFavoriteMedia(): Flow<List<MediaEntity>> = mediaDao.getFavoriteMedia()
+    override fun getFavoriteMedia(): Flow<List<MediaEntity>> = mediaDao.getFavoriteMedia().map { items ->
+        val movies = items.filter { it.type != "EPISODE" }
+        val shows = items.filter { it.type == "EPISODE" }.groupBy { it.title }.values.map { episodes ->
+            val firstEpisode = episodes.minWith(
+                compareBy<MediaEntity>(
+                    { it.seasonNumber ?: Int.MAX_VALUE },
+                    { it.episodeNumber ?: Int.MAX_VALUE },
+                    { it.filePath }
+                )
+            )
+            firstEpisode.copy(isFavorite = true, favoriteAddedAt = episodes.mapNotNull { it.favoriteAddedAt }.maxOrNull())
+        }
+        (movies + shows).sortedWith(
+            compareByDescending<MediaEntity> { it.favoriteAddedAt ?: it.dateAdded }.thenByDescending { it.dateAdded }
+        )
+    }
 
     override fun getHiddenMedia(): Flow<List<MediaEntity>> = mediaDao.getHiddenMedia()
 
-    override suspend fun getMediaById(id: Long): MediaEntity? = mediaDao.getMediaById(id)
+    override suspend fun getMediaById(id: Long): MediaEntity? {
+        val media = mediaDao.getMediaById(id) ?: return null
+        if (media.type != "EPISODE") return media
+        val savedEpisode = mediaDao.getFavoriteEpisodeForShow(media.title)
+        return media.copy(isFavorite = savedEpisode != null, favoriteAddedAt = savedEpisode?.favoriteAddedAt)
+    }
 
     override suspend fun getEpisodesForShow(showTitle: String): List<MediaEntity> =
         mediaDao.getEpisodesForShow(showTitle)
@@ -72,8 +93,15 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun updateMedia(media: MediaEntity) = mediaDao.updateMedia(media)
 
-    override suspend fun setFavorite(mediaId: Long, isFavorite: Boolean) =
-        mediaDao.setFavorite(mediaId, isFavorite, System.currentTimeMillis())
+    override suspend fun setFavorite(mediaId: Long, isFavorite: Boolean) {
+        val media = mediaDao.getMediaById(mediaId) ?: return
+        val changedAt = System.currentTimeMillis()
+        if (media.type == "EPISODE") {
+            mediaDao.setShowFavorite(media.title, isFavorite, changedAt)
+        } else {
+            mediaDao.setFavorite(mediaId, isFavorite, changedAt)
+        }
+    }
 
     override suspend fun setHidden(mediaId: Long, isHidden: Boolean) =
         mediaDao.setHidden(mediaId, isHidden)

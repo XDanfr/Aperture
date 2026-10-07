@@ -15,7 +15,14 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE type = :type AND isHidden = 0 ORDER BY title COLLATE NOCASE ASC")
     fun getMediaByType(type: String): Flow<List<MediaEntity>>
 
-    @Query("SELECT * FROM media WHERE isFavorite = 1 AND isHidden = 0 ORDER BY favoriteAddedAt DESC, dateAdded DESC")
+    @Query("""
+        SELECT * FROM media WHERE isHidden = 0 AND (
+            isFavorite = 1 OR (type = 'EPISODE' AND EXISTS (
+                SELECT 1 FROM media AS saved
+                WHERE saved.type = 'EPISODE' AND saved.title = media.title AND saved.isFavorite = 1
+            ))
+        ) ORDER BY favoriteAddedAt DESC, dateAdded DESC
+    """)
     fun getFavoriteMedia(): Flow<List<MediaEntity>>
 
     @Query("SELECT * FROM media WHERE isHidden = 1 ORDER BY title COLLATE NOCASE ASC")
@@ -50,6 +57,12 @@ interface MediaDao {
 
     @Query("UPDATE media SET isFavorite = :isFavorite, favoriteAddedAt = CASE WHEN :isFavorite = 1 THEN :changedAt ELSE NULL END WHERE id = :mediaId")
     suspend fun setFavorite(mediaId: Long, isFavorite: Boolean, changedAt: Long)
+
+    @Query("SELECT * FROM media WHERE type = 'EPISODE' AND title = :showTitle AND isFavorite = 1 ORDER BY favoriteAddedAt DESC LIMIT 1")
+    suspend fun getFavoriteEpisodeForShow(showTitle: String): MediaEntity?
+
+    @Query("UPDATE media SET isFavorite = :isFavorite, favoriteAddedAt = CASE WHEN :isFavorite = 1 THEN :changedAt ELSE NULL END WHERE type = 'EPISODE' AND title = :showTitle")
+    suspend fun setShowFavorite(showTitle: String, isFavorite: Boolean, changedAt: Long)
 
     @Query("UPDATE media SET isHidden = :isHidden WHERE id = :mediaId")
     suspend fun setHidden(mediaId: Long, isHidden: Boolean)
