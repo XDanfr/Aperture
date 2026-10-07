@@ -1,6 +1,14 @@
 package me.xdan.aperture.ui.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -8,8 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,6 +44,7 @@ import me.xdan.aperture.ui.screen.library.MoviesScreen
 import me.xdan.aperture.ui.screen.library.ShowsScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.component.MediaContextMenu
+import me.xdan.aperture.ui.component.DrawerFocusForeground
 import me.xdan.aperture.ui.component.AnimatedDrawerFocus
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
@@ -108,30 +119,47 @@ fun NavGraph(
         )
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val drawerCanReceiveFocus = showDrawer && selectedMediaId == null &&
+    var drawerFocusHandoff by remember { mutableStateOf(false) }
+    var drawerOpeningRequested by remember { mutableStateOf(false) }
+    var drawerHasFocus by remember { mutableStateOf(false) }
+    val drawerFocusAllowed = showDrawer && selectedMediaId == null &&
         contextMediaId == null && contextFocusRequester == null && !detailsAwaitingFocusReturn
+    val drawerCanReceiveFocus = drawerFocusAllowed && !drawerFocusHandoff
     val focusScope = rememberCoroutineScope()
     val pendingFocusJob = remember { arrayOfNulls<Job>(1) }
 
-    fun requestFocusWhenReady(requester: FocusRequester?) {
+    fun requestFocusWhenReady(
+        requester: FocusRequester?,
+        fallback: FocusRequester? = null,
+        onFinished: (Boolean) -> Unit = {}
+    ) {
         pendingFocusJob[0]?.cancel()
-        if (requester == null) return
+        if (requester == null && fallback == null) return
         pendingFocusJob[0] = focusScope.launch {
             delay(150)
             repeat(10) {
-                if (runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                val restored = requester?.let {
+                    runCatching { it.requestFocus() }.getOrDefault(false)
+                } == true || fallback?.let {
+                    runCatching { it.requestFocus() }.getOrDefault(false)
+                } == true
+                if (restored) {
+                    onFinished(true)
                     return@launch
                 }
                 delay(100)
             }
+            onFinished(false)
         }
     }
 
-    LaunchedEffect(drawerCanReceiveFocus) {
-        if (!drawerCanReceiveFocus) {
-            // Dialog/player window changes must not hand focus to the first
-            // sidebar item or let an old delayed drawer request reopen it.
-            requestFocusWhenReady(null)
+    LaunchedEffect(drawerFocusAllowed, drawerFocusHandoff, drawerState.currentValue) {
+        if (!drawerFocusAllowed || drawerFocusHandoff) {
+            // Disable sidebar entry until the destination content owns focus.
+            // The TV drawer otherwise opens itself when a page's old focus
+            // target is disposed, or while a closing window hands focus back.
+            drawerOpeningRequested = false
+            if (!drawerFocusAllowed) requestFocusWhenReady(null)
             drawerState.setValue(DrawerValue.Closed)
         }
     }
@@ -186,12 +214,30 @@ fun NavGraph(
         if (destination !is Destination.Home) backstack.add(destination)
     }
     val openDrawer: () -> Unit = {
-        drawerState.setValue(DrawerValue.Open)
-        requestFocusWhenReady(currentFocusKey?.let(drawerRequesters::get))
+        requestFocusWhenReady(null)
+        drawerFocusHandoff = false
+        drawerOpeningRequested = true
+        val requester = currentFocusKey?.let(drawerRequesters::get)
+        // Focus the intended item BEFORE opening. Opening first makes the TV
+        // drawer grab Home, followed by our old delayed request to the real page.
+        val restored = requester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+        if (restored) {
+            drawerState.setValue(DrawerValue.Open)
+            drawerOpeningRequested = false
+        } else {
+            requestFocusWhenReady(requester) { focused ->
+                if (focused) drawerState.setValue(DrawerValue.Open)
+                drawerOpeningRequested = false
+            }
+        }
     }
     val closeDrawerAndRestoreFocus: () -> Unit = {
+        drawerFocusHandoff = true
+        drawerOpeningRequested = false
         drawerState.setValue(DrawerValue.Closed)
-        requestFocusWhenReady(drawerReturnFocusRequester)
+        requestFocusWhenReady(drawerReturnFocusRequester, currentFocusKey?.let(contentEntryRequesters::get)) {
+            drawerFocusHandoff = false
+        }
     }
     val selectDrawerDestination: (Destination) -> Unit = selectDestination@ { destination ->
         val destinationFocusKey = destination.focusKey()
@@ -200,11 +246,14 @@ fun NavGraph(
             return@selectDestination
         }
 
-        // Clear focus from current drawer item to prevent auto-reopening
+        drawerFocusHandoff = true
+        drawerOpeningRequested = false
         requestFocusWhenReady(null)
         drawerState.setValue(DrawerValue.Closed)
         navigateFromDrawer(destination)
-        requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get))
+        requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get)) {
+            drawerFocusHandoff = false
+        }
     }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
@@ -266,6 +315,7 @@ fun NavGraph(
         }
         pendingPlayerFocusRestore = null
         playerOriginFocusKey = null
+        drawerFocusHandoff = false
     }
 
     if (isRescanVisible) {
@@ -302,18 +352,37 @@ fun NavGraph(
                     drawerState = drawerState,
                     drawerContent = { drawerValue ->
                         Surface(
-                            modifier = Modifier.fillMaxHeight(),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .focusProperties {
+                                    onEnter = {
+                                        // A page's loading/empty focus target can disappear
+                                        // after the handoff. Automatic Enter must still not
+                                        // reopen the sidebar; Back or Left explicitly does.
+                                        val intentionalEntry = drawerOpeningRequested ||
+                                            drawerState.currentValue == DrawerValue.Open ||
+                                            requestedFocusDirection == FocusDirection.Left
+                                        if (!drawerCanReceiveFocus || !intentionalEntry) {
+                                            cancelFocusChange()
+                                        }
+                                    }
+                                }
+                                .onFocusChanged { drawerHasFocus = it.hasFocus }
+                                .focusGroup(),
                             colors = SurfaceDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
-                            AnimatedDrawerFocus(open = drawerValue == DrawerValue.Open) { focusMotion ->
+                            AnimatedDrawerFocus(
+                                open = drawerValue == DrawerValue.Open,
+                                entryKey = currentFocusKey
+                            ) { focusMotion ->
                                 val drawerItemColors = NavigationDrawerItemDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
                                     focusedSelectedContainerColor = Color.Transparent,
-                                    focusedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                    focusedSelectedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    focusedContentColor = MaterialTheme.colorScheme.onSurface,
+                                    focusedSelectedContentColor = MaterialTheme.colorScheme.onSurface,
                                     selectedContainerColor = if (drawerValue == DrawerValue.Open) Color.Transparent
                                         else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
                                     pressedContainerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -325,62 +394,67 @@ fun NavGraph(
                                         .fillMaxHeight(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Logo and Title
                                 Row(
-                                    modifier = Modifier.padding(bottom = 16.dp),
+                                    modifier = Modifier
+                                        // Exiting text stays composed while the rail narrows.
+                                        // Its measurement must never move the entries vertically.
+                                        .height(56.dp)
+                                        .padding(bottom = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    ApertureBrandMark(
-                                        modifier = Modifier.size(40.dp),
-                                        spinBlades = drawerValue == DrawerValue.Open
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "Aperture",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontFamily = ApertureBrandFontFamily,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    // Keep the original 40dp mark, centered on the entry icons.
+                                    // The 56dp icon column also aligns the wordmark with labels.
+                                    Box(
+                                        modifier = Modifier
+                                            .width(NavigationDrawerItemDefaults.CollapsedDrawerItemWidth)
+                                            .height(40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        ApertureBrandMark(
+                                            modifier = Modifier.size(40.dp),
+                                            spinBlades = drawerValue == DrawerValue.Open
+                                        )
+                                    }
+                                    AnimatedVisibility(
+                                        visible = drawerValue == DrawerValue.Open,
+                                        enter = fadeIn(ApertureTheme.motion.enter()) +
+                                            slideInHorizontally(ApertureTheme.motion.enter()) { -it / 4 } +
+                                            expandHorizontally(ApertureTheme.motion.enter(), expandFrom = Alignment.Start),
+                                        exit = fadeOut(ApertureTheme.motion.exit()) +
+                                            slideOutHorizontally(ApertureTheme.motion.exit()) { -it / 4 } +
+                                            shrinkHorizontally(ApertureTheme.motion.exit(), shrinkTowards = Alignment.Start)
+                                    ) {
+                                        Text(
+                                            "Aperture",
+                                            modifier = Modifier.requiredWidth(
+                                                NavigationDrawerItemDefaults.ExpandedDrawerItemWidth -
+                                                    NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
+                                            ),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontFamily = ApertureBrandFontFamily,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
 
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Home,
                                     onClick = {
-                                        if (currentDestination is Destination.Home) {
-                                            // Spotlight is not composed while Home is scrolled far
-                                            // enough down. Return focus to the visible origin first so
-                                            // NavigationDrawer can release its scrim; Home's refresh
-                                            // effect then scrolls to and focuses Spotlight.
-                                            val visibleHomeRequester = drawerReturnFocusRequester
-                                            requestFocusWhenReady(null)
-                                            val restoredVisibleFocus = visibleHomeRequester?.let { requester ->
-                                                runCatching { requester.requestFocus() }.getOrDefault(false)
-                                            } == true
-                                            drawerState.setValue(DrawerValue.Closed)
-                                            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                                            if (!restoredVisibleFocus) {
-                                                requestFocusWhenReady(visibleHomeRequester)
-                                            }
-                                            homeViewModel.regenerateSuggestions()
-                                        } else {
-                                            // Home remains composed underneath the other top-level
-                                            // destinations, including its previous scroll position.
-                                            // Release drawer focus through the visible page before
-                                            // revealing Home, then let Home's refresh effect return to
-                                            // Spotlight and establish its new entry focus.
-                                            val visibleOriginRequester = drawerReturnFocusRequester
-                                            requestFocusWhenReady(null)
-                                            val restoredVisibleFocus = visibleOriginRequester?.let { requester ->
-                                                runCatching { requester.requestFocus() }.getOrDefault(false)
-                                            } == true
-                                            drawerState.setValue(DrawerValue.Closed)
+                                        drawerFocusHandoff = true
+                                        drawerOpeningRequested = false
+                                        requestFocusWhenReady(null)
+                                        drawerState.setValue(DrawerValue.Closed)
+                                        if (currentDestination !is Destination.Home) {
                                             navigateFromDrawer(Destination.Home)
-                                            if (!restoredVisibleFocus) {
-                                                requestFocusWhenReady(homeContentEntryRequester)
-                                            }
-                                            homeViewModel.regenerateSuggestions()
+                                        }
+                                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                                        homeViewModel.regenerateSuggestions()
+                                        requestFocusWhenReady(homeContentEntryRequester) {
+                                            drawerFocusHandoff = false
                                         }
                                     },
                                     modifier = Modifier
@@ -390,9 +464,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: homeContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "home", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Home, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Home")
+                                    DrawerFocusForeground(focusMotion, "home", drawerValue == DrawerValue.Open) {
+                                        Text("Home")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -405,9 +485,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: searchContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Search, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Search")
+                                    DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
+                                        Text("Search")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -420,9 +506,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: moviesContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Movie, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Movies")
+                                    DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
+                                        Text("Movies")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -435,9 +527,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: showsContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Tv, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Shows")
+                                    DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
+                                        Text("Shows")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -450,9 +548,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: myListContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.PlaylistAdd, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("My List")
+                                    DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
+                                        Text("My List")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -465,9 +569,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: settingsContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "settings", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Settings, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Settings")
+                                    DrawerFocusForeground(focusMotion, "settings", drawerValue == DrawerValue.Open) {
+                                        Text("Settings")
+                                    }
                                 }
                                 }
                             }
@@ -493,8 +603,14 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
+                        canRecoverContentFocus = { focusKey ->
+                            focusKey == currentFocusKey && drawerFocusAllowed && !tutorialRequired &&
+                                !drawerOpeningRequested && !drawerHasFocus &&
+                                drawerState.currentValue == DrawerValue.Closed
+                        },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
+                            if (focusKey == currentFocusKey) drawerFocusHandoff = false
                         },
                         onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
@@ -537,8 +653,10 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
+                        canRecoverContentFocus = { false },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
+                            if (focusKey == currentFocusKey) drawerFocusHandoff = false
                         },
                         onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
@@ -562,7 +680,7 @@ fun NavGraph(
             // Back contract. Dialog windows and the overlays below still get
             // first refusal, while Player is outside this handler entirely.
             BackHandler(
-                enabled = drawerCanReceiveFocus &&
+                enabled = drawerFocusAllowed &&
                     !tutorialRequired
             ) {
                 if (drawerState.currentValue == DrawerValue.Open) {
@@ -653,6 +771,7 @@ fun NavGraph(
                         }
                     }
                     detailsAwaitingFocusReturn = false
+                    drawerFocusHandoff = false
                 }
             )
 
@@ -703,6 +822,7 @@ private fun NavContent(
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
     onOpenLibrary: (Destination) -> Unit,
+    canRecoverContentFocus: (String) -> Boolean,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -727,85 +847,108 @@ private fun NavContent(
             val contentFocused: (FocusRequester) -> Unit = { requester ->
                 focusKey?.let { onContentFocused(it, requester) }
             }
-            when (destination) {
-                is Destination.Home -> HomeScreen(
-                    viewModel = homeViewModel,
-                    browsingPaused = browsingPaused,
-                    onMediaClick = episodeAwareMediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    restoreFocusKey = homeRestoreFocusKey,
-                    onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged,
-                    onOpenLibrary = onOpenLibrary
-                )
-                is Destination.Search -> SearchScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
-                )
-                is Destination.MyList -> MyListScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
-                )
-                is Destination.Movies -> MoviesScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
-                )
-                is Destination.Shows -> ShowsScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = episodeAwareMediaClick,
-                    onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
-                        focusKey?.let {
-                            onMediaLongClick(it, media, requester, fromContinue, opensToRight, episodeOnly)
-                        }
-                    },
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
-                )
-                is Destination.Settings -> SettingsScreen(
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    restoreFocusKey = settingsRestoreFocusKey,
-                    onFocusKeyChanged = onSettingsFocusKeyChanged,
-                    onContentFocused = contentFocused,
-                    onForceRescan = onForceRescan,
-                    onPreviewAmbientMode = onPreviewAmbientMode
-                )
-                is Destination.Player -> PlayerScreen(
-                    mediaId = destination.mediaId,
-                    startFromBeginning = destination.startFromBeginning,
-                    viewModel = viewModel(),
-                    onBack = onPlayerBack,
-                    onFinished = onPlayerBack,
-                    onLeavePlayerToOpenSubtitles = {
-                        onSettingsFocusKeyChanged("open_subtitles")
+            var pageHasFocus by remember { mutableStateOf(false) }
+            val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
+            val recoveryEnabled = focusKey != null && canRecoverContentFocus(focusKey)
+            LaunchedEffect(recoveryEnabled, pageHasFocus) {
+                if (!recoveryEnabled || pageHasFocus) return@LaunchedEffect
+                // A loading/empty target may be removed after a successful handoff.
+                // Wait for the replacement cards (including their enter animation)
+                // to attach, and retry only while this page owns navigation.
+                delay(150)
+                repeat(20) {
+                    // Check live drawer intent after every suspension: focus can
+                    // enter the drawer before recomposition cancels this effect.
+                    if (pageHasFocus || !currentCanRecoverContentFocus(focusKey)) return@LaunchedEffect
+                    runCatching { contentEntryFocusRequester.requestFocus() }
+                    delay(100)
+                }
+            }
+            Box(
+                Modifier.fillMaxSize()
+                    .onFocusChanged { pageHasFocus = it.hasFocus }
+                    .focusGroup()
+            ) {
+                when (destination) {
+                    is Destination.Home -> HomeScreen(
+                        viewModel = homeViewModel,
+                        browsingPaused = browsingPaused,
+                        onMediaClick = episodeAwareMediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        restoreFocusKey = homeRestoreFocusKey,
+                        onFocusKeyChanged = onHomeFocusKeyChanged,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged,
+                        onOpenLibrary = onOpenLibrary
+                    )
+                    is Destination.Search -> SearchScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused
+                    )
+                    is Destination.MyList -> MyListScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused
+                    )
+                    is Destination.Movies -> MoviesScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged
+                    )
+                    is Destination.Shows -> ShowsScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = episodeAwareMediaClick,
+                        onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
+                            focusKey?.let {
+                                onMediaLongClick(it, media, requester, fromContinue, opensToRight, episodeOnly)
+                            }
+                        },
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged
+                    )
+                    is Destination.Settings -> SettingsScreen(
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        restoreFocusKey = settingsRestoreFocusKey,
+                        onFocusKeyChanged = onSettingsFocusKeyChanged,
+                        onContentFocused = contentFocused,
+                        onForceRescan = onForceRescan,
+                        onPreviewAmbientMode = onPreviewAmbientMode
+                    )
+                    is Destination.Player -> PlayerScreen(
+                        mediaId = destination.mediaId,
+                        startFromBeginning = destination.startFromBeginning,
+                        viewModel = viewModel(),
+                        onBack = onPlayerBack,
+                        onFinished = onPlayerBack,
+                        onLeavePlayerToOpenSubtitles = {
+                            onSettingsFocusKeyChanged("open_subtitles")
 
-                        if (backstack.size > 1) {
-                            backstack.removeAt(backstack.lastIndex)
-                        }
+                            if (backstack.size > 1) {
+                                backstack.removeAt(backstack.lastIndex)
+                            }
 
-                        backstack.add(Destination.Settings)
+                            backstack.add(Destination.Settings)
+                        }
+                    )
+                    else -> Box(modifier = Modifier.fillMaxSize()) {
+                        Text("Coming Soon", modifier = Modifier.padding(32.dp))
                     }
-                )
-                else -> Box(modifier = Modifier.fillMaxSize()) {
-                    Text("Coming Soon", modifier = Modifier.padding(32.dp))
                 }
             }
         }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.data.artwork.ArtworkPrefetcher
+import me.xdan.aperture.domain.playback.nextEpisodeForContinueWatching
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import kotlin.random.Random
@@ -180,28 +181,6 @@ private fun buildHomeState(
         continueMediaIds = continueWatching.mapTo(mutableSetOf()) { it.id },
         suggestionGeneration = generation
     )
-}
-
-/** Returns the one episode a show contributes to Continue Watching and its ordering timestamp. */
-internal fun nextEpisodeForContinueWatching(
-    episodes: List<MediaEntity>,
-    progressMap: Map<Long, PlaybackProgressEntity>
-): Pair<MediaEntity, Long>? {
-    val ordered = episodes.sortedWith(
-        compareBy<MediaEntity>({ it.seasonNumber ?: Int.MAX_VALUE }, { it.episodeNumber ?: Int.MAX_VALUE }, { it.filePath })
-    )
-    val latestRelevant = ordered.mapNotNull { episode ->
-        progressMap[episode.id]?.takeIf { it.isCompleted || it.keepInContinueWatching }
-            ?.let { episode to it }
-    }.maxByOrNull { it.second.lastUpdated } ?: return null
-
-    val (latestEpisode, progress) = latestRelevant
-    if (!progress.isCompleted && progress.keepInContinueWatching) {
-        return latestEpisode to progress.lastUpdated
-    }
-    val nextIndex = ordered.indexOfFirst { it.id == latestEpisode.id } + 1
-    val nextEpisode = ordered.getOrNull(nextIndex) ?: return null
-    return nextEpisode to progress.lastUpdated
 }
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L

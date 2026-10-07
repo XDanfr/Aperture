@@ -36,6 +36,8 @@ import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.ui.component.MediaCard
@@ -187,12 +189,18 @@ private fun HomeContent(
 
     LaunchedEffect(state.suggestionGeneration) {
         if (state.suggestionGeneration > 0) {
-            refreshAlpha.snapTo(0.42f)
-            listState.animateScrollToItem(0)
-            onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
-            delay(80)
-            runCatching { contentEntryFocusRequester.requestFocus() }
-            refreshAlpha.animateTo(1f, tween(320))
+            try {
+                refreshAlpha.snapTo(0.42f)
+                listState.animateScrollToItem(0)
+                onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+                delay(80)
+                runCatching { contentEntryFocusRequester.requestFocus() }
+                refreshAlpha.animateTo(1f, tween(320))
+            } finally {
+                // Focus-driven scrolling can cancel the refresh scroll. Never
+                // leave Home dimmed when that interrupts the fade back in.
+                withContext(NonCancellable) { refreshAlpha.snapTo(1f) }
+            }
         }
     }
     

@@ -288,16 +288,21 @@ class PlayerViewModel @Inject constructor(
             (progress?.isCompleted == true && !hasActiveProgress) ||
             progress?.let { it.duration > 0 && it.position >= it.duration * 0.95 } == true
 
-        if (shouldRestart) {
-            player.seekTo(0)
-            progress?.let {
-                repository.saveProgress(
-                    it.copy(position = 0L, lastUpdated = System.currentTimeMillis())
-                )
-            }
-        } else {
-            progress?.let { player.seekTo(it.position) }
-        }
+        val startPosition = if (shouldRestart) 0L else progress?.position ?: 0L
+        player.seekTo(startPosition)
+        // Starting playback establishes the latest viewing session immediately.
+        // A rewatch must not retain completion from the previous viewing.
+        repository.saveProgress(
+            PlaybackProgressEntity(
+                mediaId = media.id,
+                position = startPosition,
+                duration = progress?.duration?.takeIf { it > 0 } ?: media.duration ?: 0L,
+                lastUpdated = System.currentTimeMillis(),
+                isCompleted = false,
+                completedAt = null,
+                keepInContinueWatching = media.type == "EPISODE"
+            )
+        )
 
         player.play()
         startProgressTracker(media.id)
@@ -629,10 +634,10 @@ class PlayerViewModel @Inject constructor(
                 position = position,
                 duration = safeDuration,
                 lastUpdated = System.currentTimeMillis(),
-                isCompleted = existing?.isCompleted == true || completedNow,
-                completedAt = if (completedNow) System.currentTimeMillis() else existing?.completedAt,
+                isCompleted = completedNow,
+                completedAt = if (completedNow) System.currentTimeMillis() else null,
                 keepInContinueWatching = !completedNow && isEpisode &&
-                    (existing?.keepInContinueWatching == true || crossedResumeThreshold)
+                    (existing?.keepInContinueWatching == true || existing?.isCompleted == true || crossedResumeThreshold)
             )
         )
     }

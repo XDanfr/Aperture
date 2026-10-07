@@ -1,5 +1,6 @@
 package me.xdan.aperture.ui.screen.home
 
+import me.xdan.aperture.domain.playback.nextEpisodeForContinueWatching
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import org.junit.Assert.assertEquals
@@ -37,6 +38,33 @@ class ContinueWatchingTest {
     fun `finished show leaves continue watching`() {
         val episodes = listOf(episode(1, 1, 1))
         assertNull(nextEpisodeForContinueWatching(episodes, mapOf(1L to completed(1, 200))))
+    }
+
+    @Test
+    fun `partial progress from older versions is resumed without the sticky flag`() {
+        val episodes = listOf(episode(1, 1, 1), episode(2, 1, 2))
+        val progress = mapOf(2L to partial(2, updated = 200, keep = false))
+        assertEquals(2L, nextEpisodeForContinueWatching(episodes, progress)?.first?.id)
+    }
+
+    @Test
+    fun `recently restarted earlier episode takes priority over later completions`() {
+        val episodes = listOf(episode(1, 1, 1), episode(2, 1, 2), episode(3, 1, 3))
+        val progress = mapOf(
+            1L to partial(1, position = 0, updated = 300, keep = true),
+            2L to completed(2, updated = 200)
+        )
+        assertEquals(1L, nextEpisodeForContinueWatching(episodes, progress)?.first?.id)
+    }
+
+    @Test
+    fun `rewatched completion continues from that episode instead of later history`() {
+        val episodes = listOf(episode(1, 1, 1), episode(2, 1, 2), episode(3, 1, 3))
+        val progress = mapOf(
+            1L to completed(1, updated = 300),
+            2L to completed(2, updated = 200)
+        )
+        assertEquals(2L, nextEpisodeForContinueWatching(episodes, progress)?.first?.id)
     }
 
     private fun episode(id: Long, season: Int, episode: Int) = MediaEntity(

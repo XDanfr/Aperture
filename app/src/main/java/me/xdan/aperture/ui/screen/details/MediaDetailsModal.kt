@@ -81,6 +81,7 @@ fun MediaDetailsModal(
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<MediaEntity?>(null) }
     var panelMediaId by remember { mutableStateOf<Long?>(null) }
+    var returningFromPlayback by remember { mutableStateOf(false) }
     var showAssetPicker by remember { mutableStateOf(false) }
     var showEpisodePicker by remember { mutableStateOf(false) }
     var restoreEpisodeButtonAfterPicker by remember { mutableStateOf(false) }
@@ -100,7 +101,12 @@ fun MediaDetailsModal(
     }
 
     LaunchedEffect(mediaId, episodeOnly, isPlaybackActive) {
-        if (isPlaybackActive) return@LaunchedEffect
+        if (isPlaybackActive) {
+            returningFromPlayback = true
+            return@LaunchedEffect
+        }
+        val preservePlayedEpisode = returningFromPlayback
+        returningFromPlayback = false
         if (mediaId != null) {
             // Reopen on the episode selected in this panel, then refresh progress.
             val resumeMediaId = if (panelMediaId == mediaId) displayedMedia?.id ?: mediaId else mediaId
@@ -110,7 +116,7 @@ fun MediaDetailsModal(
                 showAssetPicker = false
             }
             panelMediaId = mediaId
-            viewModel.loadMedia(resumeMediaId, preferActiveEpisode = !episodeOnly)
+            viewModel.loadMedia(resumeMediaId, preferActiveEpisode = !episodeOnly && !preservePlayedEpisode)
         } else if (displayedMedia != null) {
             delay(320)
             displayedMedia = null
