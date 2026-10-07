@@ -53,6 +53,8 @@ class PlayerViewModel @Inject constructor(
 
     private val _media = MutableStateFlow<MediaEntity?>(null)
     val media: StateFlow<MediaEntity?> = _media
+    private val _nextEpisode = MutableStateFlow<MediaEntity?>(null)
+    val nextEpisode: StateFlow<MediaEntity?> = _nextEpisode
     private val _isOsdVisible = MutableStateFlow(true)
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
@@ -179,6 +181,8 @@ class PlayerViewModel @Inject constructor(
             }
             Log.d("PlayerViewModel", "File path: ${mediaEntity.filePath}")
             
+            progressTrackerJob?.cancel()
+            _nextEpisode.value = null
             _media.value = mediaEntity
             _compatibilityWarning.value = null
             _playbackFailure.value = null
@@ -304,9 +308,38 @@ class PlayerViewModel @Inject constructor(
             )
         )
 
+        if (media.type == "EPISODE" && media.seasonNumber != null && media.episodeNumber != null) {
+            _nextEpisode.value = repository.getEpisodesForShow(media.title)
+                .filter { episode ->
+                    val season = episode.seasonNumber
+                    val number = episode.episodeNumber
+                    season != null && number != null &&
+                        (season > media.seasonNumber ||
+                            (season == media.seasonNumber && number > media.episodeNumber))
+                }
+                .minWithOrNull(compareBy<MediaEntity>({ it.seasonNumber }, { it.episodeNumber }, { it.filePath }))
+        }
+
         player.play()
         startProgressTracker(media.id)
         resetOsdTimer()
+    }
+
+    fun playNextEpisode() {
+        val next = _nextEpisode.value ?: return
+        // Claim the transition before saving so Enter and playback-ended cannot
+        // enqueue the same episode twice.
+        _nextEpisode.value = null
+        progressTrackerJob?.cancel()
+        val previousId = activeMediaId
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val duration = player.duration
+        player.pause()
+        hideOsd()
+        viewModelScope.launch {
+            if (previousId != null) saveProgressSnapshot(previousId, position, duration, true)
+            loadMedia(next.id, startFromBeginning = true)
+        }
     }
 
     fun adjustSubtitleDelay(deltaMs: Long) {

@@ -76,6 +76,7 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
+import me.xdan.aperture.ui.theme.ApertureTheme
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -89,6 +90,7 @@ fun PlayerScreen(
     onLeavePlayerToOpenSubtitles: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
+    val nextEpisode by viewModel.nextEpisode.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
@@ -121,7 +123,36 @@ fun PlayerScreen(
     val controlsFocusRequester = remember { FocusRequester() }
     val quickMenuFocusRequester = remember { FocusRequester() }
     val noticeFocusRequester = remember { FocusRequester() }
+    val nextEpisodeFocusRequester = remember { FocusRequester() }
+    var nextEpisodeDismissed by remember(media?.id) { mutableStateOf(false) }
+    var remainingMillis by remember(media?.id) { mutableLongStateOf(Long.MAX_VALUE) }
+    var advancingEpisode by remember { mutableStateOf(false) }
+    LaunchedEffect(media?.id) { advancingEpisode = false }
+    LaunchedEffect(player, media?.id) {
+        while (isActive) {
+            remainingMillis = player.duration.takeIf { it > 0L }
+                ?.let { (it - player.currentPosition).coerceAtLeast(0L) } ?: Long.MAX_VALUE
+            delay(250)
+        }
+    }
     val noticeVisible = compatibilityWarning != null || playbackFailure != null
+    val nextEpisodeVisible = nextEpisode != null && !nextEpisodeDismissed && !advancingEpisode &&
+        remainingMillis <= 10_000L && playbackState == androidx.media3.common.Player.STATE_READY &&
+        !isQuickMenuVisible && !noticeVisible
+    fun advanceEpisode() {
+        if (advancingEpisode || nextEpisode == null) return
+        advancingEpisode = true
+        viewModel.playNextEpisode()
+    }
+    val handlePlaybackEnded by rememberUpdatedState<() -> Unit> {
+        if (!advancingEpisode) {
+            if (nextEpisode != null && !nextEpisodeDismissed) advanceEpisode()
+            else {
+                viewModel.saveProgressNow(markCompleted = true)
+                onFinished()
+            }
+        }
+    }
     var pendingScrubDirection by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(mediaId) {
@@ -153,13 +184,13 @@ fun PlayerScreen(
     }
 
     DisposableEffect(player) {
-        var hasReturned = false
+        var hasHandledEnd = false
         val listener = object : PlayerEngine.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == androidx.media3.common.Player.STATE_ENDED && !hasReturned) {
-                    hasReturned = true
-                    viewModel.saveProgressNow(markCompleted = true)
-                    onFinished()
+                if (state == androidx.media3.common.Player.STATE_READY) hasHandledEnd = false
+                if (state == androidx.media3.common.Player.STATE_ENDED && !hasHandledEnd) {
+                    hasHandledEnd = true
+                    handlePlaybackEnded()
                 }
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {}
@@ -170,9 +201,19 @@ fun PlayerScreen(
         onDispose { player.removeListener(listener) }
     }
 
-    LaunchedEffect(isOsdVisible, isQuickMenuVisible, noticeVisible) {
+    LaunchedEffect(nextEpisodeVisible) {
+        if (nextEpisodeVisible) {
+            viewModel.hideOsd()
+            nextEpisodeFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(isOsdVisible, isQuickMenuVisible, noticeVisible, nextEpisodeVisible) {
         if (noticeVisible) {
             noticeFocusRequester.requestFocus()
+        } else if (nextEpisodeVisible) {
+            // The popup owns focus until it closes; the OSD timer must not
+            // move focus from Dismiss back to the preview card.
         } else if (isOsdVisible && !isQuickMenuVisible) {
             controlsFocusRequester.requestFocus()
         } else if (isQuickMenuVisible) {
@@ -204,6 +245,7 @@ fun PlayerScreen(
                 if (wasPlayingBeforeQuickMenu) player.play()
                 wasPlayingBeforeQuickMenu = false
             }
+            nextEpisodeVisible -> nextEpisodeDismissed = true
             isOsdVisible -> viewModel.hideOsd()
             else -> {
                 if (isPlaying) player.pause()
@@ -226,7 +268,7 @@ fun PlayerScreen(
                         backDispatcher.onBackPressed()
                     }
                     true
-                } else if (noticeVisible) false else if (nativeEvent.action == KeyEvent.ACTION_DOWN) {
+                } else if (noticeVisible || nextEpisodeVisible) false else if (nativeEvent.action == KeyEvent.ACTION_DOWN) {
                     if (isOsdVisible && !isQuickMenuVisible && keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                         viewModel.showOsdBriefly()
                     }
@@ -303,7 +345,7 @@ fun PlayerScreen(
         ) { BufferingOverlay(media = media) }
 
         AnimatedVisibility(
-            visible = isOsdVisible && !isQuickMenuVisible,
+            visible = isOsdVisible && !isQuickMenuVisible && !nextEpisodeVisible,
             enter = fadeIn(animationSpec = tween(220)),
             exit = fadeOut(animationSpec = tween(220))
         ) {
@@ -368,6 +410,23 @@ fun PlayerScreen(
                 },
                 onLeavePlayerToOpenSubtitles = onLeavePlayerToOpenSubtitles
             )
+        }
+
+        AnimatedVisibility(
+            visible = nextEpisodeVisible,
+            enter = fadeIn(ApertureTheme.motion.enter()) + slideInHorizontally(ApertureTheme.motion.enter()) { it / 4 },
+            exit = fadeOut(ApertureTheme.motion.exit()),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(32.dp)
+        ) {
+            nextEpisode?.let { episode ->
+                NextEpisodePopup(
+                    episode = episode,
+                    secondsRemaining = ((remainingMillis.coerceAtMost(10_000L) + 999L) / 1000L).toInt().coerceIn(0, 10),
+                    focusRequester = nextEpisodeFocusRequester,
+                    onPlay = ::advanceEpisode,
+                    onDismiss = { nextEpisodeDismissed = true }
+                )
+            }
         }
 
         compatibilityWarning?.let { warning ->
