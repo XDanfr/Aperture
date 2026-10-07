@@ -108,30 +108,44 @@ fun NavGraph(
         )
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val drawerCanReceiveFocus = showDrawer && selectedMediaId == null &&
+    var drawerFocusHandoff by remember { mutableStateOf(false) }
+    val drawerFocusAllowed = showDrawer && selectedMediaId == null &&
         contextMediaId == null && contextFocusRequester == null && !detailsAwaitingFocusReturn
+    val drawerCanReceiveFocus = drawerFocusAllowed && !drawerFocusHandoff
     val focusScope = rememberCoroutineScope()
     val pendingFocusJob = remember { arrayOfNulls<Job>(1) }
 
-    fun requestFocusWhenReady(requester: FocusRequester?) {
+    fun requestFocusWhenReady(
+        requester: FocusRequester?,
+        fallback: FocusRequester? = null,
+        onFinished: (Boolean) -> Unit = {}
+    ) {
         pendingFocusJob[0]?.cancel()
-        if (requester == null) return
+        if (requester == null && fallback == null) return
         pendingFocusJob[0] = focusScope.launch {
             delay(150)
             repeat(10) {
-                if (runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                val restored = requester?.let {
+                    runCatching { it.requestFocus() }.getOrDefault(false)
+                } == true || fallback?.let {
+                    runCatching { it.requestFocus() }.getOrDefault(false)
+                } == true
+                if (restored) {
+                    onFinished(true)
                     return@launch
                 }
                 delay(100)
             }
+            onFinished(false)
         }
     }
 
-    LaunchedEffect(drawerCanReceiveFocus) {
-        if (!drawerCanReceiveFocus) {
-            // Dialog/player window changes must not hand focus to the first
-            // sidebar item or let an old delayed drawer request reopen it.
-            requestFocusWhenReady(null)
+    LaunchedEffect(drawerFocusAllowed, drawerFocusHandoff, drawerState.currentValue) {
+        if (!drawerFocusAllowed || drawerFocusHandoff) {
+            // Disable sidebar entry until the destination content owns focus.
+            // The TV drawer otherwise opens itself when a page's old focus
+            // target is disposed, or while a closing window hands focus back.
+            if (!drawerFocusAllowed) requestFocusWhenReady(null)
             drawerState.setValue(DrawerValue.Closed)
         }
     }
@@ -186,12 +200,26 @@ fun NavGraph(
         if (destination !is Destination.Home) backstack.add(destination)
     }
     val openDrawer: () -> Unit = {
-        drawerState.setValue(DrawerValue.Open)
-        requestFocusWhenReady(currentFocusKey?.let(drawerRequesters::get))
+        requestFocusWhenReady(null)
+        drawerFocusHandoff = false
+        val requester = currentFocusKey?.let(drawerRequesters::get)
+        // Focus the intended item BEFORE opening. Opening first makes the TV
+        // drawer grab Home, followed by our old delayed request to the real page.
+        val restored = requester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+        if (restored) {
+            drawerState.setValue(DrawerValue.Open)
+        } else {
+            requestFocusWhenReady(requester) { focused ->
+                if (focused) drawerState.setValue(DrawerValue.Open)
+            }
+        }
     }
     val closeDrawerAndRestoreFocus: () -> Unit = {
+        drawerFocusHandoff = true
         drawerState.setValue(DrawerValue.Closed)
-        requestFocusWhenReady(drawerReturnFocusRequester)
+        requestFocusWhenReady(drawerReturnFocusRequester, currentFocusKey?.let(contentEntryRequesters::get)) {
+            drawerFocusHandoff = false
+        }
     }
     val selectDrawerDestination: (Destination) -> Unit = selectDestination@ { destination ->
         val destinationFocusKey = destination.focusKey()
@@ -200,11 +228,13 @@ fun NavGraph(
             return@selectDestination
         }
 
-        // Clear focus from current drawer item to prevent auto-reopening
+        drawerFocusHandoff = true
         requestFocusWhenReady(null)
         drawerState.setValue(DrawerValue.Closed)
         navigateFromDrawer(destination)
-        requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get))
+        requestFocusWhenReady(destinationFocusKey?.let(contentEntryRequesters::get)) {
+            drawerFocusHandoff = false
+        }
     }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
@@ -266,6 +296,7 @@ fun NavGraph(
         }
         pendingPlayerFocusRestore = null
         playerOriginFocusKey = null
+        drawerFocusHandoff = false
     }
 
     if (isRescanVisible) {
@@ -348,39 +379,16 @@ fun NavGraph(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Home,
                                     onClick = {
-                                        if (currentDestination is Destination.Home) {
-                                            // Spotlight is not composed while Home is scrolled far
-                                            // enough down. Return focus to the visible origin first so
-                                            // NavigationDrawer can release its scrim; Home's refresh
-                                            // effect then scrolls to and focuses Spotlight.
-                                            val visibleHomeRequester = drawerReturnFocusRequester
-                                            requestFocusWhenReady(null)
-                                            val restoredVisibleFocus = visibleHomeRequester?.let { requester ->
-                                                runCatching { requester.requestFocus() }.getOrDefault(false)
-                                            } == true
-                                            drawerState.setValue(DrawerValue.Closed)
-                                            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                                            if (!restoredVisibleFocus) {
-                                                requestFocusWhenReady(visibleHomeRequester)
-                                            }
-                                            homeViewModel.regenerateSuggestions()
-                                        } else {
-                                            // Home remains composed underneath the other top-level
-                                            // destinations, including its previous scroll position.
-                                            // Release drawer focus through the visible page before
-                                            // revealing Home, then let Home's refresh effect return to
-                                            // Spotlight and establish its new entry focus.
-                                            val visibleOriginRequester = drawerReturnFocusRequester
-                                            requestFocusWhenReady(null)
-                                            val restoredVisibleFocus = visibleOriginRequester?.let { requester ->
-                                                runCatching { requester.requestFocus() }.getOrDefault(false)
-                                            } == true
-                                            drawerState.setValue(DrawerValue.Closed)
+                                        drawerFocusHandoff = true
+                                        requestFocusWhenReady(null)
+                                        drawerState.setValue(DrawerValue.Closed)
+                                        if (currentDestination !is Destination.Home) {
                                             navigateFromDrawer(Destination.Home)
-                                            if (!restoredVisibleFocus) {
-                                                requestFocusWhenReady(homeContentEntryRequester)
-                                            }
-                                            homeViewModel.regenerateSuggestions()
+                                        }
+                                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                                        homeViewModel.regenerateSuggestions()
+                                        requestFocusWhenReady(homeContentEntryRequester) {
+                                            drawerFocusHandoff = false
                                         }
                                     },
                                     modifier = Modifier
@@ -495,6 +503,7 @@ fun NavGraph(
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
+                            if (focusKey == currentFocusKey) drawerFocusHandoff = false
                         },
                         onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
@@ -539,6 +548,7 @@ fun NavGraph(
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
+                            if (focusKey == currentFocusKey) drawerFocusHandoff = false
                         },
                         onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
                             lastFocusedRequesters[focusKey] = requester
@@ -562,7 +572,7 @@ fun NavGraph(
             // Back contract. Dialog windows and the overlays below still get
             // first refusal, while Player is outside this handler entirely.
             BackHandler(
-                enabled = drawerCanReceiveFocus &&
+                enabled = drawerFocusAllowed &&
                     !tutorialRequired
             ) {
                 if (drawerState.currentValue == DrawerValue.Open) {
@@ -653,6 +663,7 @@ fun NavGraph(
                         }
                     }
                     detailsAwaitingFocusReturn = false
+                    drawerFocusHandoff = false
                 }
             )
 
