@@ -178,13 +178,7 @@ fun MediaCard(
                             modifier = Modifier
                                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                                 .fillMaxHeight()
-                                .background(
-                                    if (isFocused) {
-                                        ApertureTheme.colorScheme.onPrimary
-                                    } else {
-                                        ApertureTheme.colorScheme.primary
-                                    }
-                                )
+                                .background(ApertureTheme.colorScheme.primary)
                         )
                     }
                 }

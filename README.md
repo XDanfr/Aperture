@@ -91,7 +91,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 - [X] **Spotlight show continuation**: Open the current or next episode with the season and episode selector, matching Continue Watching.
 - [ ] **Show continuation throughout the library**: My List, Search, TV Shows and other grouped show cards should open the current or next episode. Rewatching an earlier episode becomes the latest priority and continues from there.
 - [ ] **Next episode popup**: In the final 10 seconds of an episode, show a focused preview card with the next episode's season, number, title and existing episode thumbnail, plus a “Playing in X” countdown. Selecting the card plays it immediately. An X below dismisses the popup and disables automatic continuation for that episode; when the video ends, close the player.
-- [ ] **Consistent Continue Watching progress color**: Focusing a card should preserve the progress bar's color.
+- [X] **Consistent Continue Watching progress color**: Focusing a card should preserve the progress bar's color.
 - [ ] **Animated sidebar focus**: Move the focus highlight smoothly between destinations using Aperture's motion tokens, keeping the animation inexpensive on TV hardware.
 - [ ] **Animated idle Spotlight transitions**: Give automatic title changes the same motion as remote navigation, with a Google TV inspired wipe between banners.
 - [ ] **Simplify visible settings**: Hide the Rounded Spotlight and Classic Player Controls switches while retaining their implementations and stored preferences.
