@@ -2,6 +2,12 @@ package me.xdan.aperture.ui.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -390,10 +396,6 @@ fun NavGraph(
                             ) {
                                 Row(
                                     modifier = Modifier
-                                        .width(
-                                            if (drawerValue == DrawerValue.Open) NavigationDrawerItemDefaults.ExpandedDrawerItemWidth
-                                            else NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
-                                        )
                                         // Exiting text stays composed while the rail narrows.
                                         // Its measurement must never move the entries vertically.
                                         .height(56.dp)
@@ -415,11 +417,19 @@ fun NavGraph(
                                     }
                                     AnimatedVisibility(
                                         visible = drawerValue == DrawerValue.Open,
-                                        enter = NavigationDrawerItemDefaults.ContentAnimationEnter,
-                                        exit = NavigationDrawerItemDefaults.ContentAnimationExit
+                                        enter = fadeIn(ApertureTheme.motion.enter()) +
+                                            slideInHorizontally(ApertureTheme.motion.enter()) { -it / 4 } +
+                                            expandHorizontally(ApertureTheme.motion.enter(), expandFrom = Alignment.Start),
+                                        exit = fadeOut(ApertureTheme.motion.exit()) +
+                                            slideOutHorizontally(ApertureTheme.motion.exit()) { -it / 4 } +
+                                            shrinkHorizontally(ApertureTheme.motion.exit(), shrinkTowards = Alignment.Start)
                                     ) {
                                         Text(
                                             "Aperture",
+                                            modifier = Modifier.requiredWidth(
+                                                NavigationDrawerItemDefaults.ExpandedDrawerItemWidth -
+                                                    NavigationDrawerItemDefaults.CollapsedDrawerItemWidth
+                                            ),
                                             maxLines = 1,
                                             softWrap = false,
                                             style = MaterialTheme.typography.headlineSmall,

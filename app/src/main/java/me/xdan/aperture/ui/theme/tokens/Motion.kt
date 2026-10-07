@@ -1,6 +1,7 @@
 package me.xdan.aperture.ui.theme.tokens
 
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
@@ -54,13 +55,13 @@ class ApertureMotion(
     fun <T> playbackProgress(): AnimationSpec<T> = tween(durationMillis = playbackProgressDuration)
 
     /** Expressive enter transition for new screens or dialogs. */
-    fun <T> enter(): AnimationSpec<T> = spring(
+    fun <T> enter(): FiniteAnimationSpec<T> = spring(
         dampingRatio = enterDamping,
         stiffness = enterStiffness
     )
 
     /** Smooth exit transition for dismissing content. */
-    fun <T> exit(): AnimationSpec<T> = tween(durationMillis = exitDuration, easing = emphasizedAccelerate)
+    fun <T> exit(): FiniteAnimationSpec<T> = tween(durationMillis = exitDuration, easing = emphasizedAccelerate)
 
     /** Quick, emphasized focus-glow entrance. */
     fun <T> focusGlowEnter(): AnimationSpec<T> = tween(
