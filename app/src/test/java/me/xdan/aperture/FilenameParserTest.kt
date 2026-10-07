@@ -6,6 +6,18 @@ import org.junit.Test
 
 class FilenameParserTest {
     @Test
+    fun preservesWordsBeginningWithLanguageTags() {
+        assertEquals("The French Connection", FilenameParser.parse("The.French.Connection.1080p.mkv").title)
+        assertEquals("The English Patient", FilenameParser.parse("The.English.Patient.mp4").title)
+    }
+
+    @Test
+    fun removesWholeLanguageAndCodecTags() {
+        assertEquals("Alien", FilenameParser.parse("Alien.ENG.1080p.BluRay.mkv").title)
+        assertEquals("Alien", FilenameParser.parse("Alien_1080p_BluRay_x264.mkv").title)
+    }
+
+    @Test
     fun parsesCompactSeasonEpisodeFormat() {
         val result = FilenameParser.parse("The.Four.Seasons.S02E04.Spring.mkv")
 
