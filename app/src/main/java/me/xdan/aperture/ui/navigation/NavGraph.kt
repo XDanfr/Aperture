@@ -34,6 +34,7 @@ import me.xdan.aperture.ui.screen.library.MoviesScreen
 import me.xdan.aperture.ui.screen.library.ShowsScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.component.MediaContextMenu
+import me.xdan.aperture.ui.component.DrawerFocusForeground
 import me.xdan.aperture.ui.component.AnimatedDrawerFocus
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
@@ -339,12 +340,15 @@ fun NavGraph(
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
-                            AnimatedDrawerFocus(open = drawerValue == DrawerValue.Open) { focusMotion ->
+                            AnimatedDrawerFocus(
+                                open = drawerValue == DrawerValue.Open,
+                                entryKey = currentFocusKey
+                            ) { focusMotion ->
                                 val drawerItemColors = NavigationDrawerItemDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
                                     focusedSelectedContainerColor = Color.Transparent,
-                                    focusedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                                    focusedSelectedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    focusedContentColor = MaterialTheme.colorScheme.onSurface,
+                                    focusedSelectedContentColor = MaterialTheme.colorScheme.onSurface,
                                     selectedContainerColor = if (drawerValue == DrawerValue.Open) Color.Transparent
                                         else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
                                     pressedContainerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -398,9 +402,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: homeContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "home", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Home, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Home")
+                                    DrawerFocusForeground(focusMotion, "home", drawerValue == DrawerValue.Open) {
+                                        Text("Home")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -413,9 +423,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: searchContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Search, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Search")
+                                    DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
+                                        Text("Search")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -428,9 +444,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: moviesContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Movie, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Movies")
+                                    DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
+                                        Text("Movies")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -443,9 +465,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: showsContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Tv, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Shows")
+                                    DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
+                                        Text("Shows")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -458,9 +486,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: myListContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.PlaylistAdd, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("My List")
+                                    DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
+                                        Text("My List")
+                                    }
                                 }
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
@@ -473,9 +507,15 @@ fun NavGraph(
                                             canFocus = drawerCanReceiveFocus
                                             right = drawerReturnFocusRequester ?: settingsContentEntryRequester
                                         },
-                                    leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
+                                    leadingContent = {
+                                        DrawerFocusForeground(focusMotion, "settings", drawerValue == DrawerValue.Open) {
+                                            Icon(Icons.Rounded.Settings, contentDescription = null)
+                                        }
+                                    }
                                 ) {
-                                    Text("Settings")
+                                    DrawerFocusForeground(focusMotion, "settings", drawerValue == DrawerValue.Open) {
+                                        Text("Settings")
+                                    }
                                 }
                                 }
                             }
