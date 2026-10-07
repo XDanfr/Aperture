@@ -61,6 +61,7 @@ fun NavGraph(
     
     var selectedMediaId by remember { mutableStateOf<Long?>(null) }
     var selectedEpisodeOnly by remember { mutableStateOf(false) }
+    var detailsAwaitingFocusReturn by remember { mutableStateOf(false) }
     var contextMediaId by remember { mutableStateOf<Long?>(null) }
     var contextFromContinue by remember { mutableStateOf(false) }
     var contextEpisodeOnly by remember { mutableStateOf(false) }
@@ -105,6 +106,8 @@ fun NavGraph(
         )
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerCanReceiveFocus = showDrawer && selectedMediaId == null &&
+        contextMediaId == null && contextFocusRequester == null && !detailsAwaitingFocusReturn
     val focusScope = rememberCoroutineScope()
     val pendingFocusJob = remember { arrayOfNulls<Job>(1) }
 
@@ -119,6 +122,15 @@ fun NavGraph(
                 }
                 delay(100)
             }
+        }
+    }
+
+    LaunchedEffect(drawerCanReceiveFocus) {
+        if (!drawerCanReceiveFocus) {
+            // Dialog/player window changes must not hand focus to the first
+            // sidebar item or let an old delayed drawer request reopen it.
+            requestFocusWhenReady(null)
+            drawerState.setValue(DrawerValue.Closed)
         }
     }
 
@@ -360,6 +372,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(homeDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: homeContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
@@ -372,6 +385,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(searchDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: searchContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
@@ -384,6 +398,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(moviesDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: moviesContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
@@ -396,6 +411,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(showsDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: showsContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
@@ -408,6 +424,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(myListDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: myListContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
@@ -420,6 +437,7 @@ fun NavGraph(
                                 modifier = Modifier
                                     .focusRequester(settingsDrawerRequester)
                                     .focusProperties {
+                                        canFocus = drawerCanReceiveFocus
                                         right = drawerReturnFocusRequester ?: settingsContentEntryRequester
                                     },
                                 leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
@@ -518,9 +536,7 @@ fun NavGraph(
             // Back contract. Dialog windows and the overlays below still get
             // first refusal, while Player is outside this handler entirely.
             BackHandler(
-                enabled = showDrawer &&
-                    contextMediaId == null &&
-                    selectedMediaId == null &&
+                enabled = drawerCanReceiveFocus &&
                     !tutorialRequired
             ) {
                 if (drawerState.currentValue == DrawerValue.Open) {
@@ -585,8 +601,12 @@ fun NavGraph(
                     playerOriginFocusKey = currentFocusKey
                     onNavigate(Destination.Player(mediaId, startFromBeginning))
                 },
-                onClose = { selectedMediaId = null },
+                onClose = {
+                    detailsAwaitingFocusReturn = true
+                    selectedMediaId = null
+                },
                 restoreFocus = {
+                    drawerState.setValue(DrawerValue.Closed)
                     val focusKey = currentFocusKey
                     val rememberedRequester = focusKey?.let { lastFocusedRequesters[it] }
                     val fallbackRequester = when (focusKey) {
@@ -606,6 +626,7 @@ fun NavGraph(
                             runCatching { requester.requestFocus() }
                         }
                     }
+                    detailsAwaitingFocusReturn = false
                 }
             )
 
