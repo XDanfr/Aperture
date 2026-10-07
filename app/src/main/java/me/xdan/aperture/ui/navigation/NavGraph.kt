@@ -1,7 +1,16 @@
 package me.xdan.aperture.ui.navigation
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputNavigationDrawerItem as NavigationDrawerItem
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import me.xdan.aperture.ui.component.InputIconButton as IconButton
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
@@ -104,6 +113,9 @@ fun NavGraph(
         )
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerHoverSource = remember { MutableInteractionSource() }
+    val drawerHovered by drawerHoverSource.collectIsHoveredAsState()
+    var drawerOpenedByHover by remember { mutableStateOf(false) }
     val focusScope = rememberCoroutineScope()
     val pendingFocusJob = remember { arrayOfNulls<Job>(1) }
 
@@ -177,6 +189,15 @@ fun NavGraph(
     val closeDrawerAndRestoreFocus: () -> Unit = {
         drawerState.setValue(DrawerValue.Closed)
         requestFocusWhenReady(drawerReturnFocusRequester)
+    }
+    LaunchedEffect(drawerHovered) {
+        if (drawerHovered) {
+            drawerOpenedByHover = drawerState.currentValue == DrawerValue.Closed
+            drawerState.setValue(DrawerValue.Open)
+        } else if (drawerOpenedByHover) {
+            closeDrawerAndRestoreFocus()
+            drawerOpenedByHover = false
+        }
     }
     val selectDrawerDestination: (Destination) -> Unit = selectDestination@ { destination ->
         val destinationFocusKey = destination.focusKey()
@@ -287,7 +308,7 @@ fun NavGraph(
                     drawerState = drawerState,
                     drawerContent = { drawerValue ->
                         Surface(
-                            modifier = Modifier.fillMaxHeight(),
+                            modifier = Modifier.fillMaxHeight().hoverable(drawerHoverSource),
                             colors = SurfaceDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 contentColor = MaterialTheme.colorScheme.onSurface
@@ -296,9 +317,13 @@ fun NavGraph(
                             Column(
                                 modifier = Modifier
                                     .padding(16.dp)
-                                    .fillMaxHeight(),
+                                    .fillMaxHeight()
+                                    .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            IconButton(onClick = {
+                                if (drawerState.currentValue == DrawerValue.Open) closeDrawerAndRestoreFocus() else openDrawer()
+                            }) { Icon(Icons.Rounded.Menu, contentDescription = "Expand or collapse sidebar") }
                             // Logo and Title
                             Row(
                                 modifier = Modifier.padding(bottom = 16.dp),

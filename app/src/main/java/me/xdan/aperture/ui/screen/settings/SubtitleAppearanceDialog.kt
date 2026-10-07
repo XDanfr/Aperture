@@ -31,14 +31,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
-import androidx.tv.material3.Button
+import me.xdan.aperture.ui.component.InputButton as Button
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay

@@ -1,11 +1,19 @@
 package me.xdan.aperture.ui.screen.details
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputButton as Button
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+import me.xdan.aperture.ui.component.InputIconButton as IconButton
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import me.xdan.aperture.ui.component.onSurfaceTap
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -46,7 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
@@ -144,7 +152,7 @@ fun MediaDetailsModal(
             onDismissRequest = { if (mediaId != null) closeModal() },
             properties = DialogProperties(
                 usePlatformDefaultWidth = false,
-                dismissOnClickOutside = false,
+                dismissOnClickOutside = true,
                 decorFitsSystemWindows = false
             )
         ) {
@@ -174,7 +182,7 @@ fun MediaDetailsModal(
                     ),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.fillMaxSize().onSurfaceTap { closeModal() }) {
                         displayedMedia?.let { m ->
                             val showEpisodeSelector = episodes.isNotEmpty() && !episodeOnly
                             val artworkPath = if (episodeOnly && !m.stillPath.isNullOrBlank()) {
@@ -201,7 +209,9 @@ fun MediaDetailsModal(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
                                     .fillMaxHeight()
-                                    .width(500.dp)
+                                    .widthIn(max = 500.dp)
+                                    .fillMaxWidth()
+                                    .onSurfaceTap {}
                                     .focusProperties { canFocus = true },
                                 colors = SurfaceDefaults.colors(containerColor = GlassBackground),
                                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp)
@@ -209,8 +219,11 @@ fun MediaDetailsModal(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .verticalScroll(rememberScrollState())
                                         .padding(32.dp)
                                 ) {
+                                    Button(onClick = { closeModal() }) { Text("Close") }
+                                    Spacer(Modifier.height(12.dp))
                                     if (artworkPath.isNullOrBlank()) {
                                         ArtworkFallback(
                                             title = heading,
@@ -430,7 +443,7 @@ private fun EpisodePickerDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = true)
     ) {
         Surface(
             modifier = Modifier.width(780.dp).height(650.dp),
@@ -438,7 +451,10 @@ private fun EpisodePickerDialog(
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.padding(28.dp)) {
-                Text("Choose an episode", style = MaterialTheme.typography.headlineMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Choose an episode", style = MaterialTheme.typography.headlineMedium)
+                    Button(onClick = onDismiss) { Text("Close") }
+                }
                 Spacer(Modifier.height(16.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     lazyItems(seasons, key = { it }) { season ->
@@ -550,6 +566,7 @@ private fun AssetPickerDialog(
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.padding(28.dp)) {
+                Button(onClick = onDismiss) { Text("Close") }
                 Text("Choose artwork and metadata", style = MaterialTheme.typography.headlineMedium)
                 Text("Correct the title, then select the matching TMDB result.")
                 Spacer(Modifier.height(12.dp))

@@ -21,11 +21,11 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.tv.material3.Button
+import me.xdan.aperture.ui.component.InputButton as Button
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay

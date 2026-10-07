@@ -250,6 +250,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            lastInteractionTime = System.currentTimeMillis()
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+                onBackPressedDispatcher.onBackPressed()
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         lastInteractionTime = System.currentTimeMillis()
         if (

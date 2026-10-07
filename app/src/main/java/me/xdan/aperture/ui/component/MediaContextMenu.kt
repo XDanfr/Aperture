@@ -1,5 +1,10 @@
 package me.xdan.aperture.ui.component
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputButton as Button
+
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -16,7 +21,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import kotlinx.coroutines.delay
@@ -39,16 +44,26 @@ fun MediaContextMenu(
     val media = state.media ?: return
     val firstRequester = remember { FocusRequester() }
     var waitingForOpeningKeyRelease by remember(media.id) { mutableStateOf(true) }
-    LaunchedEffect(media.id) { delay(100); runCatching { firstRequester.requestFocus() } }
+    LaunchedEffect(media.id) {
+        delay(100)
+        runCatching { firstRequester.requestFocus() }
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             Modifier
                 .fillMaxSize()
+                .onSurfaceTap(onDismiss)
                 .onPreviewKeyEvent { event ->
                     if (!waitingForOpeningKeyRelease) return@onPreviewKeyEvent false
                     val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter
                     if (!isSelect) return@onPreviewKeyEvent false
+                    // A fresh press after a pointer opening is not the held
+                    // remote key that opened this menu. Preserve repeat data.
+                    if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0) {
+                        waitingForOpeningKeyRelease = false
+                        return@onPreviewKeyEvent false
+                    }
                     if (event.type == KeyEventType.KeyUp) waitingForOpeningKeyRelease = false
                     true
                 }
@@ -59,7 +74,7 @@ fun MediaContextMenu(
                 modifier = Modifier.width(390.dp).padding(
                     start = if (opensToRight) 0.dp else 42.dp,
                     end = if (opensToRight) 42.dp else 0.dp
-                ),
+                ).onSurfaceTap {},
                 shape = if (opensToRight) {
                     androidx.compose.foundation.shape.RoundedCornerShape(28.dp, 4.dp, 28.dp, 28.dp)
                 } else {
@@ -68,7 +83,7 @@ fun MediaContextMenu(
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(
-                    Modifier.padding(22.dp),
+                    Modifier.padding(22.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(media.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
@@ -92,6 +107,7 @@ fun MediaContextMenu(
                     ContextAction("Refresh assets", Icons.Rounded.ImageSearch, onRefreshAssets)
                     if (fromContinueWatching) ContextAction("Info", Icons.Rounded.Info, onInfo)
                     ContextAction("Hide", Icons.Rounded.VisibilityOff, onHide)
+                    ContextAction("Close", Icons.Rounded.Close, onDismiss)
                 }
             }
         }

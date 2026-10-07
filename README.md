@@ -121,3 +121,12 @@ Aperture wouldn’t have active development without sponsors. Special thanks to 
 ![sponsors badge](https://readme-contribs.as93.net/sponsors/XDanfr)
 
 <p align="center"><sub>If you like Aperture, please consider <a href="https://github.com/sponsors/XDanfr">supporting its development on GitHub Sponsors</a> 💜</sub></p>
+
+### Desktop development (Windows, macOS, Linux)
+
+This branch includes an initial Compose Multiplatform desktop library. Run
+`./gradlew :desktop:run` (`gradlew.bat :desktop:run` on Windows). Add media folders
+with the directory picker, browse/search videos, and play them in your system
+video player. Desktop does not yet have Android's embedded player or online
+metadata integration. See [multiplatform progress and testing](docs/MULTIPLATFORM.md)
+for supported features, packaging, and the remaining migration work.

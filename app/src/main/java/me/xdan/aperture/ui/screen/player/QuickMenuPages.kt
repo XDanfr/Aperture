@@ -1,7 +1,11 @@
 package me.xdan.aperture.ui.screen.player
 
 import android.view.KeyEvent
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.BackHandler
+import me.xdan.aperture.ui.component.onSurfaceTap
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
@@ -61,19 +65,19 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.tv.material3.Button
+import me.xdan.aperture.ui.component.InputButton as Button
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import java.util.Locale
@@ -148,8 +152,9 @@ fun QuickMenuPages(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.62f)
+            .fillMaxHeight(if (LocalConfiguration.current.screenHeightDp < 500) 0.95f else 0.62f)
             .padding(horizontal = 32.dp, vertical = 20.dp)
+            .onSurfaceTap {}
             .onPreviewKeyEvent { event ->
                 if (
                     page == QuickMenuPage.Categories &&
@@ -167,9 +172,17 @@ fun QuickMenuPages(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
         )
     ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
+                if (page != QuickMenuPage.Categories) {
+                    Button(onClick = { page = QuickMenuPage.Categories }) { Text("Back") }
+                    Spacer(Modifier.width(12.dp))
+                }
+                Button(onClick = onClose) { Text("Close") }
+            }
         AnimatedContent(
             targetState = page,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f),
             transitionSpec = {
                 ContentTransform(
                     targetContentEnter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { it / 4 },
@@ -209,6 +222,7 @@ fun QuickMenuPages(
                 QuickMenuPage.Other -> QuickMenuOtherPage(pageFocusRequester, onClose)
             }
         }
+        }
     }
 }
 
@@ -227,7 +241,7 @@ private fun QuickMenuCategories(
     onSelected: (Int, QuickMenuPage) -> Unit,
     onClose: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text("Quick Menu", style = MaterialTheme.typography.headlineMedium)
         Text("Choose a category", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -634,6 +648,7 @@ private fun QuickMenuSubtitleTrackPicker(
                 Modifier.fillMaxSize().padding(28.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                Button(onClick = onDismiss) { Text("Close") }
                 Text("Choose subtitle", style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Select a subtitle track.",

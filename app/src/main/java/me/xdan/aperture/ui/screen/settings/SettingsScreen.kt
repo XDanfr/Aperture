@@ -65,16 +65,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
-import androidx.tv.material3.Button
+import me.xdan.aperture.ui.component.InputButton as Button
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
@@ -1388,7 +1388,7 @@ fun UpdateDialog(
                 }
                 Spacer(Modifier.height(ApertureTheme.spacing.large))
                 Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
-                    androidx.tv.material3.OutlinedButton(
+                    OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.focusRequester(closeFocusRequester)
                     ) { Text("Close") }
@@ -1834,7 +1834,7 @@ private fun SpotlightDaysDialog(
                         horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small),
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                        OutlinedButton(onClick = onDismiss) { Text("Cancel") }
                         Button(onClick = { onSave(days) }) { Text("Save") }
                     }
                 }

@@ -1,5 +1,7 @@
 package me.xdan.aperture.ui.screen.search
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells

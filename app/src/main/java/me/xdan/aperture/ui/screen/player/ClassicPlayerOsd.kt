@@ -5,6 +5,7 @@ package me.xdan.aperture.ui.screen.player
 import android.graphics.Bitmap
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
+import me.xdan.aperture.ui.component.pointerSeek
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -16,6 +17,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -44,10 +46,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
-import androidx.tv.material3.IconButton
+import me.xdan.aperture.ui.component.InputIconButton as IconButton
 import androidx.tv.material3.IconButtonDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import kotlinx.coroutines.currentCoroutineContext
@@ -124,6 +126,12 @@ fun ClassicPlayerOsd(
             .background(Color.Black.copy(alpha = scrubBackgroundAlpha))
             .padding(48.dp)
     ) {
+        ClassicPlayerControlIconButton(
+            icon = Icons.Rounded.ArrowBack,
+            contentDescription = "Back to library",
+            onClick = onPlayerBack,
+            modifier = Modifier.align(Alignment.TopStart)
+        )
         Column(
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
@@ -420,6 +428,9 @@ private fun ClassicPlayerSeekProgress(
 
     BoxWithConstraints(
         modifier = modifier
+            .pointerSeek(duration > 0L && !scrubbing, onScrubbingChanged) { fraction ->
+                player.seekTo((fraction * duration).toLong())
+            }
             .focusRequester(scrubFocusRequester)
             .layout { measurable, constraints ->
                 val relaxedConstraints = constraints.copy(

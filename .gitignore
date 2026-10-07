@@ -28,3 +28,8 @@
 /local.properties
 .DS_Store
 .agent/
+
+# Kotlin Multiplatform modules and local compiler state
+/core/build/
+/desktop/build/
+/.kotlin/

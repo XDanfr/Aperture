@@ -1,5 +1,9 @@
 package me.xdan.aperture.ui.screen.onboarding
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputButton as Button
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,7 +24,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.component.ApertureDialog as Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import kotlinx.coroutines.delay

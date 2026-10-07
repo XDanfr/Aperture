@@ -1,5 +1,8 @@
 package me.xdan.aperture.ui.screen.home
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputButton as Button
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons

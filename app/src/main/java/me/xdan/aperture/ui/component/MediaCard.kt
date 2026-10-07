@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Surface
+import me.xdan.aperture.ui.component.InputSurface as Surface
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Job
@@ -77,6 +77,10 @@ fun MediaCard(
     val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val opensToRight = remember { booleanArrayOf(true) }
 
+    DisposableEffect(Unit) {
+        onDispose { holdJob?.cancel() }
+    }
+
     Box(
         modifier = modifier
             .aspectRatio(aspectRatio)
@@ -89,6 +93,7 @@ fun MediaCard(
     ) {
         Surface(
             onClick = { onClick(cardFocusRequester) },
+            onPointerLongClick = onLongClick?.let { action -> { action(cardFocusRequester, opensToRight[0]) } },
             interactionSource = interactionSource,
             scale = ClickableSurfaceDefaults.scale(
                 focusedScale = focusScale
@@ -188,6 +193,7 @@ fun MediaCard(
                         )
                     }
                 }
+
             }
         }
     }

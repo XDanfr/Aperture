@@ -2,12 +2,19 @@
 
 package me.xdan.aperture.ui.screen.player
 
+import me.xdan.aperture.ui.component.InputSurface as Surface
+import me.xdan.aperture.ui.component.InputButton as Button
+import me.xdan.aperture.ui.component.InputOutlinedButton as OutlinedButton
+import me.xdan.aperture.ui.component.InputIconButton as IconButton
+
 import android.graphics.Bitmap
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
+import me.xdan.aperture.ui.component.onSurfaceTap
+import me.xdan.aperture.ui.component.pointerSeek
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -186,6 +193,13 @@ fun PlayerScreen(
         onBack()
     }
 
+    fun closeQuickMenu() {
+        isQuickMenuVisible = false
+        viewModel.hideOsd()
+        if (wasPlayingBeforeQuickMenu) player.play()
+        wasPlayingBeforeQuickMenu = false
+    }
+
     BackHandler {
         when {
             compatibilityWarning != null -> {
@@ -197,10 +211,7 @@ fun PlayerScreen(
                 onBack()
             }
             isQuickMenuVisible -> {
-                isQuickMenuVisible = false
-                viewModel.hideOsd()
-                if (wasPlayingBeforeQuickMenu) player.play()
-                wasPlayingBeforeQuickMenu = false
+                closeQuickMenu()
             }
             isOsdVisible -> viewModel.hideOsd()
             else -> {
@@ -284,6 +295,12 @@ fun PlayerScreen(
         )
     }
 
+        // PlayerView does not expose Compose pointer actions. This layer makes
+        // controls reachable by touch/mouse without changing remote key events.
+        if (!isOsdVisible && !isQuickMenuVisible && !noticeVisible) {
+            Box(Modifier.fillMaxSize().onSurfaceTap { viewModel.showOsdBriefly() })
+        }
+
         SubtitleOverlay(player = player, style = subtitleStyle)
 
         AnimatedVisibility(
@@ -334,6 +351,10 @@ fun PlayerScreen(
             }
         }
 
+        if (isQuickMenuVisible) {
+            Box(Modifier.fillMaxSize().onSurfaceTap { closeQuickMenu() })
+        }
+
         AnimatedVisibility(
             visible = isQuickMenuVisible,
             enter = slideInVertically { it / 2 } + fadeIn(),
@@ -350,12 +371,7 @@ fun PlayerScreen(
                 onSubtitleDelayReset = viewModel::resetSubtitleDelay,
                 videoResizeMode = videoResizeMode.media3Mode,
                 onVideoResizeModeSelected = { mode -> videoResizeMode = VideoResizeMode.entries.first { it.media3Mode == mode } },
-                onClose = {
-                    isQuickMenuVisible = false
-                    viewModel.hideOsd()
-                    if (wasPlayingBeforeQuickMenu) player.play()
-                    wasPlayingBeforeQuickMenu = false
-                },
+                onClose = ::closeQuickMenu,
                 onLeavePlayerToOpenSubtitles = onLeavePlayerToOpenSubtitles
             )
         }
@@ -698,7 +714,7 @@ private fun ThinPlayerOsd(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PlayerControlIconButton(icon = Icons.Rounded.Replay, contentDescription = "Restart", onClick = onRestart, modifier = Modifier.focusRequester(topFocusRequester))
                 Spacer(Modifier.width(8.dp))
-                PlayerControlIconButton(icon = Icons.Rounded.ArrowBack, contentDescription = "Close player controls", onClick = onPlayerBack)
+                PlayerControlIconButton(icon = Icons.Rounded.ArrowBack, contentDescription = "Back to library", onClick = onPlayerBack)
             }
             Spacer(Modifier.height(10.dp))
             Text(text = media?.title ?: "", style = MaterialTheme.typography.titleLarge, color = Color.White)
@@ -723,19 +739,19 @@ private fun ThinPlayerOsd(
             Spacer(Modifier.width(12.dp))
             Text(text = formatTime(currentPosition), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
             Spacer(Modifier.width(10.dp))
-            PlayerSeekProgress(player = player, mediaSource = mediaSource, progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f, isPlaying = isPlaying, scrubbing = isScrubbing, seekPosition = seekPosition, modifier = Modifier.weight(1f).height(24.dp))
+            PlayerSeekProgress(player = player, mediaSource = mediaSource, progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f, isPlaying = isPlaying, scrubbing = isScrubbing, seekPosition = seekPosition, modifier = Modifier.weight(1f).height(48.dp).pointerSeek(duration > 0L && !isScrubbing, onScrubbingChanged) { fraction -> player.seekTo((fraction * duration).toLong()); onInteraction() })
             Spacer(Modifier.width(10.dp))
             Text(text = formatTime(duration), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
         }
         if (!isScrubbing) {
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
+            PlayerControlIconButton(
+                icon = Icons.Rounded.KeyboardArrowDown,
                 contentDescription = "Open Quick Menu",
+                onClick = onQuickMenu,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .size(56.dp)
-                    .offset(y = 32.dp),
-                tint = Color.White.copy(alpha = 0.62f)
+                    .offset(y = 32.dp)
             )
         }
     }

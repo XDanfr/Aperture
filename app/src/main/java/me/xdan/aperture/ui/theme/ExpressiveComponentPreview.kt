@@ -12,7 +12,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LoadingIndicator
-import androidx.tv.material3.Button
+import me.xdan.aperture.ui.component.InputButton as Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import me.xdan.aperture.ui.component.expressive.ExpressiveSlider

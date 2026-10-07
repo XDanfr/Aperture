@@ -1,10 +1,18 @@
 package me.xdan.aperture
 
 import me.xdan.aperture.util.FilenameParser
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.Test
 
 class FilenameParserTest {
+    @Test
+    fun parsesWindowsPathsOnEveryHost() {
+        val result = FilenameParser.parse("S02E04.mkv", "C:\\TV\\The Four Seasons\\Season 2\\S02E04.mkv")
+        assertEquals("The Four Seasons", result.title)
+        assertEquals(2, result.season)
+        assertEquals(4, result.episode)
+    }
+
     @Test
     fun parsesCompactSeasonEpisodeFormat() {
         val result = FilenameParser.parse("The.Four.Seasons.S02E04.Spring.mkv")

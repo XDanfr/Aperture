@@ -1,7 +1,5 @@
 package me.xdan.aperture.util
 
-import java.io.File
-
 data class CleanedMediaInfo(
     val title: String,
     val year: Int? = null,
@@ -18,7 +16,7 @@ object FilenameParser {
     private val SEASON_DIRECTORY_REGEX = Regex("(?i)^(?:season[. _-]*|s)(\\d{1,2})$")
     private val SHOW_SEASON_SUFFIX_REGEX = Regex("(?i)^(.*?)[. _-]+(?:season[. _-]*|s)(\\d{1,2})$")
     
-    private val NOISE_REGEX = Regex("(?i)[. ](1080p|720p|4k|2160p|x264|x265|h264|h265|web-dl|bluray|brrip|dvdrip|multi|dual-audio|hc|sub|eng|ita|fre|ger|spa|rus|chi|kor|jpn|hevc|aac|ac3|dts|dd5\\.1|xvid|divx|repack|proper|internal|readnfo|nfofix|complete|unrated|extended|directors.cut|theatrical|limited|remastered|criterion).*")
+    private val NOISE_REGEX = Regex("(?i)[. ](1080p|720p|4k|2160p|x264|x265|h264|h265|web-dl|bluray|brrip|dvdrip|multi|dual-audio|hc|sub|eng|ita|fre|ger|spa|rus|chi|kor|jpn|hevc|aac|ac3|dts|dd5\\.1|xvid|divx|repack|proper|internal|readnfo|nfofix|complete|unrated|extended|directors.cut|theatrical|limited|remastered|criterion)(?=$|[. _-]).*")
 
     fun parse(filename: String, filePath: String? = null): CleanedMediaInfo {
         // Strip extension
@@ -60,13 +58,14 @@ object FilenameParser {
     }
 
     private fun inferShowTitle(filePath: String?): String? {
-        val parent = filePath?.let(::File)?.parentFile ?: return null
-        val showDirectory = if (SEASON_DIRECTORY_REGEX.matches(parent.name)) {
-            parent.parentFile
-        } else {
-            parent
-        } ?: return null
-        val directoryName = showDirectory.name
+        // Parse either separator on every host, including Windows libraries
+        // imported on Unix. No platform filesystem access is needed here.
+        val directories = filePath?.replace('\\', '/')?.split('/')
+            ?.dropLast(1)?.filter { it.isNotBlank() } ?: return null
+        val parent = directories.lastOrNull() ?: return null
+        val directoryName = if (SEASON_DIRECTORY_REGEX.matches(parent)) {
+            directories.dropLast(1).lastOrNull() ?: return null
+        } else parent
         val titleWithoutSeasonSuffix = SHOW_SEASON_SUFFIX_REGEX
             .matchEntire(directoryName)
             ?.groupValues
