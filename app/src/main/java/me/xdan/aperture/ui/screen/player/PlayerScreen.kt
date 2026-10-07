@@ -8,6 +8,7 @@ import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -104,6 +105,7 @@ fun PlayerScreen(
     val player = viewModel.player
     val nativePlayer by player.nativePlayer.collectAsState()
     val hostView = LocalView.current
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
@@ -216,7 +218,15 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { keyEvent ->
-                if (noticeVisible) false else if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                val nativeEvent = keyEvent.nativeKeyEvent
+                if (nativeEvent.keyCode == KeyEvent.KEYCODE_BACK && backDispatcher != null) {
+                    // Consume both halves before focused TV controls can clear focus.
+                    // Dispatch on release so nested BackHandlers handle exactly one step.
+                    if (nativeEvent.action == KeyEvent.ACTION_UP && !nativeEvent.isCanceled) {
+                        backDispatcher.onBackPressed()
+                    }
+                    true
+                } else if (noticeVisible) false else if (nativeEvent.action == KeyEvent.ACTION_DOWN) {
                     if (isOsdVisible && !isQuickMenuVisible && keyEvent.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_BACK) {
                         viewModel.showOsdBriefly()
                     }

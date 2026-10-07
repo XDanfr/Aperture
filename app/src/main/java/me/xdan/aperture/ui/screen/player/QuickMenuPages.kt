@@ -131,8 +131,9 @@ fun QuickMenuPages(
     val openSubtitlesSession by playerViewModel.openSubtitlesSession.collectAsState()
     val subtitleAppearance by settingsViewModel.subtitleAppearance.collectAsState()
 
-    BackHandler(enabled = page != QuickMenuPage.Categories) {
-        page = QuickMenuPage.Categories
+    BackHandler {
+        if (page == QuickMenuPage.Categories) onClose()
+        else page = QuickMenuPage.Categories
     }
 
     LaunchedEffect(page, selectedCategoryIndex) {
@@ -149,19 +150,7 @@ fun QuickMenuPages(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.62f)
-            .padding(horizontal = 32.dp, vertical = 20.dp)
-            .onPreviewKeyEvent { event ->
-                if (
-                    page == QuickMenuPage.Categories &&
-                    event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
-                    event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
-                ) {
-                    onClose()
-                    true
-                } else {
-                    false
-                }
-            },
+            .padding(horizontal = 32.dp, vertical = 20.dp),
         shape = RoundedCornerShape(32.dp),
         colors = SurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
