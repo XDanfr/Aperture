@@ -87,6 +87,7 @@ fun PlayerScreen(
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
     onFinished: () -> Unit = {},
+    onPlaybackMediaChanged: (Long) -> Unit = {},
     onLeavePlayerToOpenSubtitles: () -> Unit = {}
 ) {
     val media by viewModel.media.collectAsState()
@@ -127,7 +128,11 @@ fun PlayerScreen(
     var nextEpisodeDismissed by remember(media?.id) { mutableStateOf(false) }
     var remainingMillis by remember(media?.id) { mutableLongStateOf(Long.MAX_VALUE) }
     var advancingEpisode by remember { mutableStateOf(false) }
-    LaunchedEffect(media?.id) { advancingEpisode = false }
+    val currentOnPlaybackMediaChanged by rememberUpdatedState(onPlaybackMediaChanged)
+    LaunchedEffect(media?.id) {
+        advancingEpisode = false
+        media?.id?.let(currentOnPlaybackMediaChanged)
+    }
     LaunchedEffect(player, media?.id) {
         while (isActive) {
             remainingMillis = player.duration.takeIf { it > 0L }

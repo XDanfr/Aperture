@@ -255,6 +255,12 @@ fun NavGraph(
             drawerFocusHandoff = false
         }
     }
+    val playbackMediaChanged: (Long) -> Unit = { mediaId ->
+        // Keep the original browsing card and episode-only/grouped presentation,
+        // but reopen its details on the episode the player actually reached.
+        if (selectedMediaId != null) selectedMediaId = mediaId
+        mainViewModel.setActiveMedia(mediaId)
+    }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
         // The browsing entry stays composed while playing. The details panel
@@ -596,6 +602,7 @@ fun NavGraph(
                         onHomeFocusKeyChanged = { homeRestoreFocusKey = it },
                         onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
                         onPlayerBack = returnFromPlayer,
+                        onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
                         onForceRescan = {
                             isRescanVisible = true
@@ -646,6 +653,7 @@ fun NavGraph(
                             playerOriginFocusKey = null
                         },
                         onPlayerBack = returnFromPlayer,
+                        onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
                         onForceRescan = {
                             isRescanVisible = true
@@ -818,6 +826,7 @@ private fun NavContent(
     onHomeFocusKeyChanged: (String) -> Unit,
     onSettingsFocusKeyChanged: (String) -> Unit,
     onPlayerBack: () -> Unit,
+    onPlaybackMediaChanged: (Long) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
@@ -936,6 +945,7 @@ private fun NavContent(
                         viewModel = viewModel(),
                         onBack = onPlayerBack,
                         onFinished = onPlayerBack,
+                        onPlaybackMediaChanged = onPlaybackMediaChanged,
                         onLeavePlayerToOpenSubtitles = {
                             onSettingsFocusKeyChanged("open_subtitles")
 
