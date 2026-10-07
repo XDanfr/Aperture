@@ -360,23 +360,33 @@ fun NavGraph(
                                         .fillMaxHeight(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Logo and Title
-                                Row(
-                                    modifier = Modifier.padding(bottom = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    ApertureBrandMark(
-                                        modifier = Modifier.size(40.dp),
-                                        spinBlades = drawerValue == DrawerValue.Open
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "Aperture",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontFamily = ApertureBrandFontFamily,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                if (drawerValue == DrawerValue.Open) {
+                                    // Use the entry layout itself so the brand shares the icon
+                                    // centers and label inset, without reserving closed-rail space.
+                                    NavigationDrawerItem(
+                                        selected = false,
+                                        enabled = false,
+                                        onClick = {},
+                                        modifier = Modifier.focusProperties { canFocus = false },
+                                        colors = NavigationDrawerItemDefaults.colors(
+                                            disabledContainerColor = Color.Transparent,
+                                            disabledContentColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        leadingContent = {
+                                            ApertureBrandMark(
+                                                modifier = Modifier.size(NavigationDrawerItemDefaults.IconSize),
+                                                spinBlades = true
+                                            )
+                                        }
+                                    ) {
+                                        Text(
+                                            "Aperture",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontFamily = ApertureBrandFontFamily,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
 
                                 NavigationDrawerItem(

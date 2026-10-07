@@ -14,7 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
@@ -80,14 +82,22 @@ fun AnimatedDrawerFocus(
         }
         val target = bounds ?: return@LaunchedEffect
         val movingBetweenItems = previousKey != null && previousKey != targetKey
-        previousKey = targetKey
-        if (movingBetweenItems) {
+        if (previousKey == null) {
+            // Allow the newly visible brand row to finish layout before showing
+            // the pill. This also prevents replaying the last hover on reopen.
+            state.highlightReady = false
+            withFrameNanos { }
+            withFrameNanos { }
+            val placedTarget = targetKey?.let { state.itemBounds[it] } ?: target
+            state.highlightTop.snapTo(placedTarget.top)
+            previousKey = targetKey
+            state.highlightReady = true
+        } else if (movingBetweenItems) {
+            previousKey = targetKey
             state.highlightTop.animateTo(target.top, motion.focus())
         } else {
-            // Reopening, or a header/layout change, is not vertical navigation.
-            // Establish the correct location before revealing the highlight.
+            // Geometry changes within the same item are not vertical navigation.
             state.highlightTop.snapTo(target.top)
-            state.highlightReady = true
         }
     }
 
@@ -124,7 +134,7 @@ fun DrawerFocusForeground(
     val normal = MaterialTheme.colorScheme.onSurface
     val highlighted = MaterialTheme.colorScheme.inverseOnSurface
     val color by remember(state, key, normal, highlighted) {
-        derivedStateOf { lerp(normal, highlighted, state.coverage(key)) }
+        derivedStateOf(structuralEqualityPolicy()) { lerp(normal, highlighted, state.coverage(key)) }
     }
     CompositionLocalProvider(LocalContentColor provides color, content = content)
 }
