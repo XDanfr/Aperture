@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -590,6 +591,10 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
+                        contentFocusRecoveryKey = currentFocusKey.takeIf {
+                            drawerFocusAllowed && !tutorialRequired && !drawerOpeningRequested &&
+                                drawerState.currentValue == DrawerValue.Closed
+                        },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                             if (focusKey == currentFocusKey) drawerFocusHandoff = false
@@ -635,6 +640,7 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
+                        contentFocusRecoveryKey = null,
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                             if (focusKey == currentFocusKey) drawerFocusHandoff = false
@@ -803,6 +809,7 @@ private fun NavContent(
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
     onOpenLibrary: (Destination) -> Unit,
+    contentFocusRecoveryKey: String?,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -827,85 +834,105 @@ private fun NavContent(
             val contentFocused: (FocusRequester) -> Unit = { requester ->
                 focusKey?.let { onContentFocused(it, requester) }
             }
-            when (destination) {
-                is Destination.Home -> HomeScreen(
-                    viewModel = homeViewModel,
-                    browsingPaused = browsingPaused,
-                    onMediaClick = episodeAwareMediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    restoreFocusKey = homeRestoreFocusKey,
-                    onFocusKeyChanged = onHomeFocusKeyChanged,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged,
-                    onOpenLibrary = onOpenLibrary
-                )
-                is Destination.Search -> SearchScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
-                )
-                is Destination.MyList -> MyListScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused
-                )
-                is Destination.Movies -> MoviesScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = mediaClick,
-                    onMediaLongClick = mediaLongClick,
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
-                )
-                is Destination.Shows -> ShowsScreen(
-                    viewModel = viewModel(),
-                    onMediaClick = episodeAwareMediaClick,
-                    onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
-                        focusKey?.let {
-                            onMediaLongClick(it, media, requester, fromContinue, opensToRight, episodeOnly)
-                        }
-                    },
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    onContentFocused = contentFocused,
-                    onActiveMediaChanged = onActiveMediaChanged
-                )
-                is Destination.Settings -> SettingsScreen(
-                    drawerFocusRequester = drawerFocusRequester,
-                    contentEntryFocusRequester = contentEntryFocusRequester,
-                    restoreFocusKey = settingsRestoreFocusKey,
-                    onFocusKeyChanged = onSettingsFocusKeyChanged,
-                    onContentFocused = contentFocused,
-                    onForceRescan = onForceRescan,
-                    onPreviewAmbientMode = onPreviewAmbientMode
-                )
-                is Destination.Player -> PlayerScreen(
-                    mediaId = destination.mediaId,
-                    startFromBeginning = destination.startFromBeginning,
-                    viewModel = viewModel(),
-                    onBack = onPlayerBack,
-                    onFinished = onPlayerBack,
-                    onLeavePlayerToOpenSubtitles = {
-                        onSettingsFocusKeyChanged("open_subtitles")
+            var pageHasFocus by remember { mutableStateOf(false) }
+            val recoveryEnabled = focusKey != null && focusKey == contentFocusRecoveryKey
+            LaunchedEffect(recoveryEnabled, pageHasFocus) {
+                if (!recoveryEnabled || pageHasFocus) return@LaunchedEffect
+                // A loading/empty target may be removed after a successful handoff.
+                // Wait for the replacement cards (including their enter animation)
+                // to attach, and retry only while this page owns navigation.
+                delay(150)
+                repeat(20) {
+                    if (pageHasFocus) return@LaunchedEffect
+                    runCatching { contentEntryFocusRequester.requestFocus() }
+                    delay(100)
+                }
+            }
+            Box(
+                Modifier.fillMaxSize()
+                    .onFocusChanged { pageHasFocus = it.hasFocus }
+                    .focusGroup()
+            ) {
+                when (destination) {
+                    is Destination.Home -> HomeScreen(
+                        viewModel = homeViewModel,
+                        browsingPaused = browsingPaused,
+                        onMediaClick = episodeAwareMediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        restoreFocusKey = homeRestoreFocusKey,
+                        onFocusKeyChanged = onHomeFocusKeyChanged,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged,
+                        onOpenLibrary = onOpenLibrary
+                    )
+                    is Destination.Search -> SearchScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused
+                    )
+                    is Destination.MyList -> MyListScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused
+                    )
+                    is Destination.Movies -> MoviesScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = mediaClick,
+                        onMediaLongClick = mediaLongClick,
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged
+                    )
+                    is Destination.Shows -> ShowsScreen(
+                        viewModel = viewModel(),
+                        onMediaClick = episodeAwareMediaClick,
+                        onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
+                            focusKey?.let {
+                                onMediaLongClick(it, media, requester, fromContinue, opensToRight, episodeOnly)
+                            }
+                        },
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        onContentFocused = contentFocused,
+                        onActiveMediaChanged = onActiveMediaChanged
+                    )
+                    is Destination.Settings -> SettingsScreen(
+                        drawerFocusRequester = drawerFocusRequester,
+                        contentEntryFocusRequester = contentEntryFocusRequester,
+                        restoreFocusKey = settingsRestoreFocusKey,
+                        onFocusKeyChanged = onSettingsFocusKeyChanged,
+                        onContentFocused = contentFocused,
+                        onForceRescan = onForceRescan,
+                        onPreviewAmbientMode = onPreviewAmbientMode
+                    )
+                    is Destination.Player -> PlayerScreen(
+                        mediaId = destination.mediaId,
+                        startFromBeginning = destination.startFromBeginning,
+                        viewModel = viewModel(),
+                        onBack = onPlayerBack,
+                        onFinished = onPlayerBack,
+                        onLeavePlayerToOpenSubtitles = {
+                            onSettingsFocusKeyChanged("open_subtitles")
 
-                        if (backstack.size > 1) {
-                            backstack.removeAt(backstack.lastIndex)
-                        }
+                            if (backstack.size > 1) {
+                                backstack.removeAt(backstack.lastIndex)
+                            }
 
-                        backstack.add(Destination.Settings)
+                            backstack.add(Destination.Settings)
+                        }
+                    )
+                    else -> Box(modifier = Modifier.fillMaxSize()) {
+                        Text("Coming Soon", modifier = Modifier.padding(32.dp))
                     }
-                )
-                else -> Box(modifier = Modifier.fillMaxSize()) {
-                    Text("Coming Soon", modifier = Modifier.padding(32.dp))
                 }
             }
         }
