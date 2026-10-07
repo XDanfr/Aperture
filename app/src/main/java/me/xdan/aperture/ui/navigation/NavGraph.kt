@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -33,6 +34,7 @@ import me.xdan.aperture.ui.screen.library.MoviesScreen
 import me.xdan.aperture.ui.screen.library.ShowsScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
 import me.xdan.aperture.ui.component.MediaContextMenu
+import me.xdan.aperture.ui.component.AnimatedDrawerFocus
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
@@ -306,144 +308,168 @@ fun NavGraph(
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxHeight(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Logo and Title
-                            Row(
-                                modifier = Modifier.padding(bottom = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            AnimatedDrawerFocus(open = drawerValue == DrawerValue.Open) { focusMotion ->
+                                val drawerItemColors = NavigationDrawerItemDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    focusedSelectedContainerColor = Color.Transparent,
+                                    focusedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    focusedSelectedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    selectedContainerColor = if (drawerValue == DrawerValue.Open) Color.Transparent
+                                        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                                    pressedContainerColor = MaterialTheme.colorScheme.inverseSurface,
+                                    pressedContentColor = MaterialTheme.colorScheme.inverseOnSurface
+                                )
+                                Column(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxHeight(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                ApertureBrandMark(
-                                    modifier = Modifier.size(40.dp),
-                                    spinBlades = drawerValue == DrawerValue.Open
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Aperture",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontFamily = ApertureBrandFontFamily,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                                // Logo and Title
+                                Row(
+                                    modifier = Modifier.padding(bottom = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    ApertureBrandMark(
+                                        modifier = Modifier.size(40.dp),
+                                        spinBlades = drawerValue == DrawerValue.Open
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Aperture",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontFamily = ApertureBrandFontFamily,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
 
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.Home,
-                                onClick = {
-                                    if (currentDestination is Destination.Home) {
-                                        // Spotlight is not composed while Home is scrolled far
-                                        // enough down. Return focus to the visible origin first so
-                                        // NavigationDrawer can release its scrim; Home's refresh
-                                        // effect then scrolls to and focuses Spotlight.
-                                        val visibleHomeRequester = drawerReturnFocusRequester
-                                        requestFocusWhenReady(null)
-                                        val restoredVisibleFocus = visibleHomeRequester?.let { requester ->
-                                            runCatching { requester.requestFocus() }.getOrDefault(false)
-                                        } == true
-                                        drawerState.setValue(DrawerValue.Closed)
-                                        homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-                                        if (!restoredVisibleFocus) {
-                                            requestFocusWhenReady(visibleHomeRequester)
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.Home,
+                                    onClick = {
+                                        if (currentDestination is Destination.Home) {
+                                            // Spotlight is not composed while Home is scrolled far
+                                            // enough down. Return focus to the visible origin first so
+                                            // NavigationDrawer can release its scrim; Home's refresh
+                                            // effect then scrolls to and focuses Spotlight.
+                                            val visibleHomeRequester = drawerReturnFocusRequester
+                                            requestFocusWhenReady(null)
+                                            val restoredVisibleFocus = visibleHomeRequester?.let { requester ->
+                                                runCatching { requester.requestFocus() }.getOrDefault(false)
+                                            } == true
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
+                                            if (!restoredVisibleFocus) {
+                                                requestFocusWhenReady(visibleHomeRequester)
+                                            }
+                                            homeViewModel.regenerateSuggestions()
+                                        } else {
+                                            // Home remains composed underneath the other top-level
+                                            // destinations, including its previous scroll position.
+                                            // Release drawer focus through the visible page before
+                                            // revealing Home, then let Home's refresh effect return to
+                                            // Spotlight and establish its new entry focus.
+                                            val visibleOriginRequester = drawerReturnFocusRequester
+                                            requestFocusWhenReady(null)
+                                            val restoredVisibleFocus = visibleOriginRequester?.let { requester ->
+                                                runCatching { requester.requestFocus() }.getOrDefault(false)
+                                            } == true
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            navigateFromDrawer(Destination.Home)
+                                            if (!restoredVisibleFocus) {
+                                                requestFocusWhenReady(homeContentEntryRequester)
+                                            }
+                                            homeViewModel.regenerateSuggestions()
                                         }
-                                        homeViewModel.regenerateSuggestions()
-                                    } else {
-                                        // Home remains composed underneath the other top-level
-                                        // destinations, including its previous scroll position.
-                                        // Release drawer focus through the visible page before
-                                        // revealing Home, then let Home's refresh effect return to
-                                        // Spotlight and establish its new entry focus.
-                                        val visibleOriginRequester = drawerReturnFocusRequester
-                                        requestFocusWhenReady(null)
-                                        val restoredVisibleFocus = visibleOriginRequester?.let { requester ->
-                                            runCatching { requester.requestFocus() }.getOrDefault(false)
-                                        } == true
-                                        drawerState.setValue(DrawerValue.Closed)
-                                        navigateFromDrawer(Destination.Home)
-                                        if (!restoredVisibleFocus) {
-                                            requestFocusWhenReady(homeContentEntryRequester)
-                                        }
-                                        homeViewModel.regenerateSuggestions()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .focusRequester(homeDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: homeContentEntryRequester
                                     },
-                                leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
-                            ) {
-                                Text("Home")
-                            }
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.Search,
-                                onClick = { selectDrawerDestination(Destination.Search) },
-                                modifier = Modifier
-                                    .focusRequester(searchDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: searchContentEntryRequester
-                                    },
-                                leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
-                            ) {
-                                Text("Search")
-                            }
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.Movies,
-                                onClick = { selectDrawerDestination(Destination.Movies) },
-                                modifier = Modifier
-                                    .focusRequester(moviesDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: moviesContentEntryRequester
-                                    },
-                                leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
-                            ) {
-                                Text("Movies")
-                            }
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.Shows,
-                                onClick = { selectDrawerDestination(Destination.Shows) },
-                                modifier = Modifier
-                                    .focusRequester(showsDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: showsContentEntryRequester
-                                    },
-                                leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
-                            ) {
-                                Text("Shows")
-                            }
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.MyList,
-                                onClick = { selectDrawerDestination(Destination.MyList) },
-                                modifier = Modifier
-                                    .focusRequester(myListDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: myListContentEntryRequester
-                                    },
-                                leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
-                            ) {
-                                Text("My List")
-                            }
-                            NavigationDrawerItem(
-                                selected = currentDestination is Destination.Settings,
-                                onClick = { selectDrawerDestination(Destination.Settings) },
-                                modifier = Modifier
-                                    .focusRequester(settingsDrawerRequester)
-                                    .focusProperties {
-                                        canFocus = drawerCanReceiveFocus
-                                        right = drawerReturnFocusRequester ?: settingsContentEntryRequester
-                                    },
-                                leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
-                            ) {
-                                Text("Settings")
-                            }
+                                    modifier = Modifier
+                                        .then(focusMotion.item("home"))
+                                        .focusRequester(homeDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: homeContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.Home, contentDescription = null) }
+                                ) {
+                                    Text("Home")
+                                }
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.Search,
+                                    onClick = { selectDrawerDestination(Destination.Search) },
+                                    modifier = Modifier
+                                        .then(focusMotion.item("search"))
+                                        .focusRequester(searchDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: searchContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null) }
+                                ) {
+                                    Text("Search")
+                                }
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.Movies,
+                                    onClick = { selectDrawerDestination(Destination.Movies) },
+                                    modifier = Modifier
+                                        .then(focusMotion.item("movies"))
+                                        .focusRequester(moviesDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: moviesContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.Movie, contentDescription = null) }
+                                ) {
+                                    Text("Movies")
+                                }
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.Shows,
+                                    onClick = { selectDrawerDestination(Destination.Shows) },
+                                    modifier = Modifier
+                                        .then(focusMotion.item("shows"))
+                                        .focusRequester(showsDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: showsContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) }
+                                ) {
+                                    Text("Shows")
+                                }
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.MyList,
+                                    onClick = { selectDrawerDestination(Destination.MyList) },
+                                    modifier = Modifier
+                                        .then(focusMotion.item("my_list"))
+                                        .focusRequester(myListDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: myListContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.PlaylistAdd, contentDescription = null) }
+                                ) {
+                                    Text("My List")
+                                }
+                                NavigationDrawerItem(
+                                    colors = drawerItemColors,
+                                    selected = currentDestination is Destination.Settings,
+                                    onClick = { selectDrawerDestination(Destination.Settings) },
+                                    modifier = Modifier
+                                        .then(focusMotion.item("settings"))
+                                        .focusRequester(settingsDrawerRequester)
+                                        .focusProperties {
+                                            canFocus = drawerCanReceiveFocus
+                                            right = drawerReturnFocusRequester ?: settingsContentEntryRequester
+                                        },
+                                    leadingContent = { Icon(Icons.Rounded.Settings, contentDescription = null) }
+                                ) {
+                                    Text("Settings")
+                                }
+                                }
                             }
                         }
                     }
