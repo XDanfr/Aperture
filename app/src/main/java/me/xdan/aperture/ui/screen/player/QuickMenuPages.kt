@@ -61,6 +61,8 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.C
@@ -428,7 +430,7 @@ private fun QuickMenuSubtitlesMainPage(
         )
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             QuickMenuAction(
                 "Sync",
@@ -437,6 +439,7 @@ private fun QuickMenuSubtitlesMainPage(
                 focusRequester = syncFocusRequester,
                 onClose = onClose,
                 closeOnUp = true,
+                focusedScale = 1.03f,
                 modifier = Modifier.weight(1f).focusProperties {
                     left = syncFocusRequester
                     right = customiseFocusRequester
@@ -450,6 +453,7 @@ private fun QuickMenuSubtitlesMainPage(
                 focusRequester = customiseFocusRequester,
                 onClose = onClose,
                 closeOnUp = true,
+                focusedScale = 1.03f,
                 modifier = Modifier.weight(1f).focusProperties {
                     left = syncFocusRequester
                     right = openSubtitlesFocusRequester
@@ -463,6 +467,7 @@ private fun QuickMenuSubtitlesMainPage(
                 focusRequester = openSubtitlesFocusRequester,
                 onClose = onClose,
                 closeOnUp = true,
+                focusedScale = 1.03f,
                 modifier = Modifier.weight(1f).focusProperties {
                     left = customiseFocusRequester
                     right = openSubtitlesFocusRequester
@@ -480,13 +485,14 @@ private fun QuickMenuSubtitlesMainPage(
                     .focusRequester(emptyFocusRequester)
                     .focusProperties { up = syncFocusRequester },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     focusedContainerColor = MaterialTheme.colorScheme.primary,
                     focusedContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                     Text("No local subtitles available", style = MaterialTheme.typography.titleMedium)
                 }
             }
@@ -494,7 +500,7 @@ private fun QuickMenuSubtitlesMainPage(
             val previewItems = items.take(2)
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Surface(
                     onClick = {
@@ -510,6 +516,7 @@ private fun QuickMenuSubtitlesMainPage(
                             down = firstTrackFocusRequester
                         },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (selectedItem == null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                         focusedContainerColor = MaterialTheme.colorScheme.primary,
@@ -518,7 +525,7 @@ private fun QuickMenuSubtitlesMainPage(
                         pressedContentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                         Text("Off", style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -548,6 +555,7 @@ private fun QuickMenuSubtitlesMainPage(
                                 down = nextFocusRequester
                             },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
                         colors = ClickableSurfaceDefaults.colors(
                             containerColor = if (item.isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                             focusedContainerColor = MaterialTheme.colorScheme.primary,
@@ -556,10 +564,13 @@ private fun QuickMenuSubtitlesMainPage(
                             pressedContentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 item.name,
-                                modifier = Modifier.padding(horizontal = 12.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                overflow = TextOverflow.Ellipsis,
                                 maxLines = 2
                             )
                         }
@@ -569,6 +580,7 @@ private fun QuickMenuSubtitlesMainPage(
                 if (items.size > 2) {
                     QuickMenuAction(
                         label = "More",
+                        focusedScale = 1.03f,
                         icon = Icons.Rounded.MoreHoriz,
                         onClick = { showAllTracks = true },
                         focusRequester = moreFocusRequester,
@@ -860,8 +872,8 @@ private fun QuickMenuOtherPage(firstFocusRequester: FocusRequester, onClose: () 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QuickMenuAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, focusRequester: FocusRequester? = null, onClose: (() -> Unit)? = null, closeOnUp: Boolean = false, modifier: Modifier = Modifier) {
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).then(if (closeOnUp && onClose != null) Modifier.closeQuickMenuOnUp(onClose) else Modifier), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary)) {
+private fun QuickMenuAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, focusRequester: FocusRequester? = null, onClose: (() -> Unit)? = null, closeOnUp: Boolean = false, focusedScale: Float = 1.1f, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, scale = ClickableSurfaceDefaults.scale(focusedScale = focusedScale), modifier = modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).then(if (closeOnUp && onClose != null) Modifier.closeQuickMenuOnUp(onClose) else Modifier), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceVariant, focusedContainerColor = MaterialTheme.colorScheme.primary, focusedContentColor = MaterialTheme.colorScheme.onPrimary, pressedContainerColor = MaterialTheme.colorScheme.primary, pressedContentColor = MaterialTheme.colorScheme.onPrimary)) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null)
             Spacer(Modifier.width(14.dp))
