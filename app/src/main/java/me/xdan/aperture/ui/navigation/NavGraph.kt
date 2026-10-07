@@ -115,6 +115,7 @@ fun NavGraph(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var drawerFocusHandoff by remember { mutableStateOf(false) }
     var drawerOpeningRequested by remember { mutableStateOf(false) }
+    var drawerHasFocus by remember { mutableStateOf(false) }
     val drawerFocusAllowed = showDrawer && selectedMediaId == null &&
         contextMediaId == null && contextFocusRequester == null && !detailsAwaitingFocusReturn
     val drawerCanReceiveFocus = drawerFocusAllowed && !drawerFocusHandoff
@@ -360,6 +361,7 @@ fun NavGraph(
                                         }
                                     }
                                 }
+                                .onFocusChanged { drawerHasFocus = it.hasFocus }
                                 .focusGroup(),
                             colors = SurfaceDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surface,
@@ -591,8 +593,9 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
-                        contentFocusRecoveryKey = currentFocusKey.takeIf {
-                            drawerFocusAllowed && !tutorialRequired && !drawerOpeningRequested &&
+                        canRecoverContentFocus = { focusKey ->
+                            focusKey == currentFocusKey && drawerFocusAllowed && !tutorialRequired &&
+                                !drawerOpeningRequested && !drawerHasFocus &&
                                 drawerState.currentValue == DrawerValue.Closed
                         },
                         onContentFocused = { focusKey, requester ->
@@ -640,7 +643,7 @@ fun NavGraph(
                         },
                         onPreviewAmbientMode = onPreviewAmbientMode,
                         onOpenLibrary = { destination -> selectDrawerDestination(destination) },
-                        contentFocusRecoveryKey = null,
+                        canRecoverContentFocus = { false },
                         onContentFocused = { focusKey, requester ->
                             lastFocusedRequesters[focusKey] = requester
                             if (focusKey == currentFocusKey) drawerFocusHandoff = false
@@ -809,7 +812,7 @@ private fun NavContent(
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
     onOpenLibrary: (Destination) -> Unit,
-    contentFocusRecoveryKey: String?,
+    canRecoverContentFocus: (String) -> Boolean,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
@@ -835,7 +838,8 @@ private fun NavContent(
                 focusKey?.let { onContentFocused(it, requester) }
             }
             var pageHasFocus by remember { mutableStateOf(false) }
-            val recoveryEnabled = focusKey != null && focusKey == contentFocusRecoveryKey
+            val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
+            val recoveryEnabled = focusKey != null && canRecoverContentFocus(focusKey)
             LaunchedEffect(recoveryEnabled, pageHasFocus) {
                 if (!recoveryEnabled || pageHasFocus) return@LaunchedEffect
                 // A loading/empty target may be removed after a successful handoff.
@@ -843,7 +847,9 @@ private fun NavContent(
                 // to attach, and retry only while this page owns navigation.
                 delay(150)
                 repeat(20) {
-                    if (pageHasFocus) return@LaunchedEffect
+                    // Check live drawer intent after every suspension: focus can
+                    // enter the drawer before recomposition cancels this effect.
+                    if (pageHasFocus || !currentCanRecoverContentFocus(focusKey)) return@LaunchedEffect
                     runCatching { contentEntryFocusRequester.requestFocus() }
                     delay(100)
                 }
