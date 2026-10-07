@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -29,6 +30,15 @@ class MediaDetailsViewModel @Inject constructor(
     private val _isLoadingAssets = MutableStateFlow(false)
     val isLoadingAssets: StateFlow<Boolean> = _isLoadingAssets
     private var assetSearchJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            repository.getAllProgress().collect { progress ->
+                val mediaId = _media.value?.id ?: return@collect
+                _progress.value = progress.firstOrNull { it.mediaId == mediaId }
+            }
+        }
+    }
 
     fun loadMedia(mediaId: Long, preferActiveEpisode: Boolean = true) {
         viewModelScope.launch {

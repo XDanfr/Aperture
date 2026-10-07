@@ -53,7 +53,7 @@ fun NavGraph(
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
     val currentDestination = backstack.last()
     val showDrawer = currentDestination !is Destination.Player
-    val currentFocusKey = currentDestination.focusKey()
+    val currentFocusKey = backstack.lastOrNull { it !is Destination.Player }?.focusKey()
 
     LaunchedEffect(currentDestination is Destination.Player) {
         onPlayerStateChanged(currentDestination is Destination.Player)
@@ -194,11 +194,10 @@ fun NavGraph(
     }
     val returnFromPlayer: () -> Unit = {
         val originFocusKey = playerOriginFocusKey ?: "home"
-        if (originFocusKey == "home") {
-            lastFocusedRequesters.remove(originFocusKey)
-            homeRestoreFocusKey = HOME_DEFAULT_FOCUS_KEY
-        }
-        pendingPlayerFocusRestore = originFocusKey
+        // The browsing entry stays composed while playing. The details panel
+        // restores its own focus; direct playback falls back to the origin card.
+        pendingPlayerFocusRestore = originFocusKey.takeIf { selectedMediaId == null }
+        if (selectedMediaId != null) playerOriginFocusKey = null
         if (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
     }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
@@ -283,7 +282,8 @@ fun NavGraph(
         )
     } else {
         ProvideFocusMemory {
-            if (showDrawer) {
+            // Keep the browsing page and its scroll/focus state beneath Player.
+            Box(Modifier.fillMaxSize()) {
                 NavigationDrawer(
                     drawerState = drawerState,
                     drawerContent = { drawerValue ->
@@ -433,6 +433,8 @@ fun NavGraph(
                     NavContent(
                         homeViewModel = homeViewModel,
                         backstack = backstack,
+                        displayedDestinations = backstack.filterNot { it is Destination.Player },
+                        browsingPaused = !showDrawer || selectedMediaId != null || contextMediaId != null,
                         drawerRequesters = drawerRequesters,
                         contentEntryRequesters = contentEntryRequesters,
                         homeRestoreFocusKey = homeRestoreFocusKey,
@@ -467,42 +469,49 @@ fun NavGraph(
                         }
                     )
                 }
-            } else {
-                NavContent(
-                    homeViewModel = homeViewModel,
-                    backstack = backstack,
-                    drawerRequesters = emptyMap(),
-                    contentEntryRequesters = contentEntryRequesters,
-                    homeRestoreFocusKey = homeRestoreFocusKey,
-                    settingsRestoreFocusKey = settingsRestoreFocusKey,
-                    onHomeFocusKeyChanged = {},
-                    onSettingsFocusKeyChanged = { settingsRestoreFocusKey = it },
-                    onPlayerBack = returnFromPlayer,
-                    onActiveMediaChanged = mainViewModel::setActiveMedia,
-                    onForceRescan = {
-                        isRescanVisible = true
-                        mainViewModel.startLibraryPreparation(force = true)
-                    },
-                    onPreviewAmbientMode = onPreviewAmbientMode,
-                    onOpenLibrary = { destination -> selectDrawerDestination(destination) },
-                    onContentFocused = { focusKey, requester ->
-                        lastFocusedRequesters[focusKey] = requester
-                    },
-                    onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
-                        lastFocusedRequesters[focusKey] = requester
-                        mainViewModel.setActiveMedia(mediaId)
-                        selectedEpisodeOnly = episodeOnly
-                        selectedMediaId = mediaId
-                    },
-                    onMediaLongClick = { _, media, requester, fromContinue, opensToRight, episodeOnly ->
-                        contextMediaId = media.id
-                        contextFromContinue = fromContinue
+                if (!showDrawer) {
+                    NavContent(
+                        homeViewModel = homeViewModel,
+                        backstack = backstack,
+                        displayedDestinations = listOf(currentDestination),
+                        browsingPaused = true,
+                        drawerRequesters = emptyMap(),
+                        contentEntryRequesters = contentEntryRequesters,
+                        homeRestoreFocusKey = homeRestoreFocusKey,
+                        settingsRestoreFocusKey = settingsRestoreFocusKey,
+                        onHomeFocusKeyChanged = {},
+                        onSettingsFocusKeyChanged = {
+                            settingsRestoreFocusKey = it
+                            selectedMediaId = null
+                            playerOriginFocusKey = null
+                        },
+                        onPlayerBack = returnFromPlayer,
+                        onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onForceRescan = {
+                            isRescanVisible = true
+                            mainViewModel.startLibraryPreparation(force = true)
+                        },
+                        onPreviewAmbientMode = onPreviewAmbientMode,
+                        onOpenLibrary = { destination -> selectDrawerDestination(destination) },
+                        onContentFocused = { focusKey, requester ->
+                            lastFocusedRequesters[focusKey] = requester
+                        },
+                        onMediaClick = { focusKey, mediaId, requester, episodeOnly ->
+                            lastFocusedRequesters[focusKey] = requester
+                            mainViewModel.setActiveMedia(mediaId)
+                            selectedEpisodeOnly = episodeOnly
+                            selectedMediaId = mediaId
+                        },
+                        onMediaLongClick = { _, media, requester, fromContinue, opensToRight, episodeOnly ->
+                            contextMediaId = media.id
+                            contextFromContinue = fromContinue
                             contextEpisodeOnly = episodeOnly
-                        contextFocusRequester = requester
-                        contextOpensToRight = opensToRight
-                        mediaActionsViewModel.load(media.id)
-                    }
-                )
+                            contextFocusRequester = requester
+                            contextOpensToRight = opensToRight
+                            mediaActionsViewModel.load(media.id)
+                        }
+                    )
+                }
             }
 
             // Compose this after NavigationDrawer so Aperture owns the top-level
@@ -539,6 +548,8 @@ fun NavGraph(
                     onPlayFromBeginning = {
                         contextFocusRequester = null
                         contextMediaId = null
+                        selectedEpisodeOnly = contextEpisodeOnly
+                        selectedMediaId = mediaId
                         playerOriginFocusKey = currentFocusKey
                         onNavigate(Destination.Player(mediaId, true))
                     },
@@ -568,9 +579,9 @@ fun NavGraph(
             MediaDetailsModal(
                 mediaId = selectedMediaId,
                 episodeOnly = selectedEpisodeOnly,
+                isPlaybackActive = !showDrawer,
                 viewModel = viewModel(),
                 onPlay = { mediaId, startFromBeginning ->
-                    selectedMediaId = null
                     playerOriginFocusKey = currentFocusKey
                     onNavigate(Destination.Player(mediaId, startFromBeginning))
                 },
@@ -630,6 +641,8 @@ private fun Destination.focusKey(): String? = when (this) {
 private fun NavContent(
     homeViewModel: HomeViewModel,
     backstack: NavBackStack<Destination>,
+    displayedDestinations: List<Destination>,
+    browsingPaused: Boolean,
     onMediaClick: (String, Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (String, me.xdan.aperture.data.local.entity.MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerRequesters: Map<String, FocusRequester>,
@@ -646,7 +659,7 @@ private fun NavContent(
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
     NavDisplay(
-        backStack = backstack
+        backStack = displayedDestinations
     ) { destination ->
         NavEntry<Destination>(destination) {
             val focusKey = destination.focusKey()
@@ -670,6 +683,7 @@ private fun NavContent(
             when (destination) {
                 is Destination.Home -> HomeScreen(
                     viewModel = homeViewModel,
+                    browsingPaused = browsingPaused,
                     onMediaClick = episodeAwareMediaClick,
                     onMediaLongClick = mediaLongClick,
                     drawerFocusRequester = drawerFocusRequester,

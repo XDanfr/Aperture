@@ -63,6 +63,7 @@ import me.xdan.aperture.ui.theme.GlassBackground
 fun MediaDetailsModal(
     mediaId: Long?,
     episodeOnly: Boolean = false,
+    isPlaybackActive: Boolean = false,
     viewModel: MediaDetailsViewModel,
     onPlay: (Long, Boolean) -> Unit,
     onClose: () -> Unit,
@@ -79,10 +80,11 @@ fun MediaDetailsModal(
     var waitForLeftRelease by remember { mutableStateOf(false) }
     var restoreFocusAfterClose by remember { mutableStateOf(false) }
     var displayedMedia by remember { mutableStateOf<MediaEntity?>(null) }
+    var panelMediaId by remember { mutableStateOf<Long?>(null) }
     var showAssetPicker by remember { mutableStateOf(false) }
     var showEpisodePicker by remember { mutableStateOf(false) }
     var restoreEpisodeButtonAfterPicker by remember { mutableStateOf(false) }
-    val isVisible = mediaId != null && displayedMedia != null
+    val isVisible = mediaId != null && displayedMedia != null && !isPlaybackActive
     val hasActiveProgress = playbackProgress?.let { progress ->
         progress.duration > 0 &&
             progress.position >= progress.duration * 0.05 &&
@@ -97,18 +99,27 @@ fun MediaDetailsModal(
         onClose()
     }
 
-    LaunchedEffect(mediaId, episodeOnly) {
+    LaunchedEffect(mediaId, episodeOnly, isPlaybackActive) {
+        if (isPlaybackActive) return@LaunchedEffect
         if (mediaId != null) {
-            displayedMedia = null
-            viewModel.loadMedia(mediaId, preferActiveEpisode = !episodeOnly)
+            // Reopen on the episode selected in this panel, then refresh progress.
+            val resumeMediaId = if (panelMediaId == mediaId) displayedMedia?.id ?: mediaId else mediaId
+            if (panelMediaId != mediaId) {
+                displayedMedia = null
+                showEpisodePicker = false
+                showAssetPicker = false
+            }
+            panelMediaId = mediaId
+            viewModel.loadMedia(resumeMediaId, preferActiveEpisode = !episodeOnly)
         } else if (displayedMedia != null) {
             delay(320)
             displayedMedia = null
+            panelMediaId = null
         }
     }
 
     LaunchedEffect(media, mediaId) {
-        if (mediaId != null && (media?.id == mediaId || episodes.any { it.id == media?.id })) {
+        if (mediaId != null && (media?.id == mediaId || (episodes.any { it.id == mediaId } && episodes.any { it.id == media?.id }))) {
             displayedMedia = media
         }
     }
@@ -139,7 +150,7 @@ fun MediaDetailsModal(
         }
     }
 
-    if (mediaId != null || displayedMedia != null) {
+    if (!isPlaybackActive && (mediaId != null || displayedMedia != null)) {
         Dialog(
             onDismissRequest = { if (mediaId != null) closeModal() },
             properties = DialogProperties(

@@ -60,13 +60,18 @@ fun HomeScreen(
     onFocusKeyChanged: (String) -> Unit,
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit = {},
-    onOpenLibrary: (Destination) -> Unit = {}
+    onOpenLibrary: (Destination) -> Unit = {},
+    browsingPaused: Boolean = false
 ) {
     val state by viewModel.homeState.collectAsState()
     val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
+    var displayedState by remember { mutableStateOf(state) }
+    LaunchedEffect(state, browsingPaused) {
+        if (!browsingPaused) displayedState = state
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
+        when (val s = displayedState) {
             HomeState.Loading -> {
                 Text("Scanning library...", modifier = Modifier.align(Alignment.Center))
             }
@@ -108,7 +113,8 @@ fun HomeScreen(
                     onContentFocused = onContentFocused,
                     onActiveMediaChanged = onActiveMediaChanged,
                     onOpenLibrary = onOpenLibrary,
-                    roundedSpotlight = roundedSpotlight
+                    roundedSpotlight = roundedSpotlight,
+                    browsingPaused = browsingPaused
                 )
             }
         }
@@ -128,7 +134,8 @@ private fun HomeContent(
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
     onOpenLibrary: (Destination) -> Unit,
-    roundedSpotlight: Boolean
+    roundedSpotlight: Boolean,
+    browsingPaused: Boolean
 ) {
     val listState = rememberLazyListState()
     val refreshAlpha = remember { Animatable(1f) }
@@ -211,7 +218,8 @@ private fun HomeContent(
                 onContentFocused = onContentFocused,
                 onActiveMediaChanged = onActiveMediaChanged,
                 allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates,
-                roundedSpotlight = roundedSpotlight
+                roundedSpotlight = roundedSpotlight,
+                browsingPaused = browsingPaused
             )
         }
         items(state.rows, key = { it.title }) { row ->
@@ -247,7 +255,8 @@ private fun FeaturedCarousel(
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
     allowUnfocusedArtworkUpdates: Boolean,
-    roundedSpotlight: Boolean
+    roundedSpotlight: Boolean,
+    browsingPaused: Boolean
 ) {
     if (featured.isEmpty()) return
 
@@ -320,6 +329,7 @@ private fun FeaturedCarousel(
         Carousel(
             itemCount = featured.size,
             carouselState = carouselState,
+            autoScrollDurationMillis = if (browsingPaused) Long.MAX_VALUE else CarouselDefaults.TimeToDisplayItemMillis,
             modifier = Modifier
                 .fillMaxSize()
                 .onFocusChanged { focusState ->
@@ -469,7 +479,9 @@ private fun HomeMediaRow(
             horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            itemsIndexed(row.items, key = { _, media -> media.id }) { index, media ->
+            itemsIndexed(row.items, key = { _, media ->
+                if (row.title == "Continue Watching" && media.type == "EPISODE") "show:${media.title}" else "media:${media.id}"
+            }) { index, media ->
                 val focusKey = "row:${row.title}:${media.id}"
                 MediaCard(
                     media = media,
