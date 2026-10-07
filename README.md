@@ -81,7 +81,7 @@ Aperture is currently in **ALPHA**. Here is what is being tracked for future inc
 ### Planned Features
 
 - [X] **Transition to Material 3 Expressive**: Very large rewrite planned for v0.5, using official Expressive tokens (this is complete and will arrive in the next update)
-- [ ] **Complete OpenSubtitles Integration**
+- [X] **Complete OpenSubtitles Integration**: (Complete in v0.5)
 - [ ] **Proper audio synchronisation**: Forwards and backwards
 - [ ] **Default audio track selection**: accessible in settings
 #### Further Out
