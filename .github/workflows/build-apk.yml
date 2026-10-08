@@ -1,0 +1,97 @@
+name: Build signed APKs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-apks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+
+      - name: Prepare API keys
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          OPENSUBTITLES_API_KEY: ${{ secrets.OPENSUBTITLES_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          def escape(value):
+              return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('=', '\\=').replace(':', '\\:').replace(' ', '\\ ')
+          keys = ['TMDB_API_KEY', 'OPENSUBTITLES_API_KEY']
+          for key in keys:
+              if not os.environ.get(key):
+                  raise SystemExit(f'Missing repository secret: {key}')
+          Path('local.properties').write_text(''.join(f'{key}={escape(os.environ[key])}\n' for key in keys))
+          PY
+
+      - name: Build release variants
+        run: bash ./gradlew --no-daemon :app:assembleStandardRelease :app:assembleCreatorRelease
+
+      - name: Sign and verify APKs
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          keystore="$RUNNER_TEMP/aperture-release.jks"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          mkdir -p signed-apks
+          tools="$ANDROID_HOME/build-tools/37.0.0"
+          for variant in standard creator; do
+            source="app/build/outputs/apk/$variant/release/app-$variant-release-unsigned.apk"
+            aligned="$RUNNER_TEMP/aperture-$variant-aligned.apk"
+            output="signed-apks/Aperture-$variant-release.apk"
+            test -f "$source"
+            "$tools/zipalign" -P 16 -f 4 "$source" "$aligned"
+            "$tools/apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+              --out "$output" "$aligned"
+            "$tools/apksigner" verify --verbose "$output"
+            "$tools/zipalign" -c -P 16 4 "$output"
+            rm -f "$aligned"
+          done
+          cd signed-apks
+          sha256sum *.apk > SHA256SUMS.txt
+
+      - name: Upload signed APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-signed-apks-${{ github.run_number }}
+          path: |
+            signed-apks/*.apk
+            signed-apks/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Clean up private build inputs
+        if: always()
+        run: rm -f local.properties "$RUNNER_TEMP/aperture-release.jks"
