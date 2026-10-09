@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.animateDpAsState
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.layout
@@ -355,6 +357,9 @@ fun PlayerScreen(
                 Log.d("PlayerScreen", "Creating PlayerView, initial nativePlayer: ${nativePlayer != null}, useGLSurface: $useGLSurface")
                 PlayerView(themedContext).apply {
                     useController = false
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     subtitleView?.visibility = View.GONE
                     this.player = nativePlayer
                 }
@@ -368,7 +373,7 @@ fun PlayerScreen(
                 view.subtitleView?.visibility = View.GONE
                 view.resizeMode = videoResizeMode.media3Mode
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().focusProperties { canFocus = false }
         )
     }
 
