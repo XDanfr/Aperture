@@ -112,8 +112,6 @@ fun PlayerScreen(
     val nativePlayer by player.nativePlayer.collectAsState()
     val hostView = LocalView.current
     val windowInfo = LocalWindowInfo.current
-    var playerHasFocus by remember { mutableStateOf(false) }
-    var initialPlaybackFocusSettled by remember { mutableStateOf(false) }
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     var isQuickMenuVisible by remember { mutableStateOf(false) }
     var wasPlayingBeforeQuickMenu by remember { mutableStateOf(false) }
@@ -240,24 +238,19 @@ fun PlayerScreen(
         isOsdVisible -> controlsFocusRequester
         else -> playerFocusRequester
     })
-    LaunchedEffect(playbackState == androidx.media3.common.Player.STATE_READY) {
-        if (playbackState != androidx.media3.common.Player.STATE_READY || initialPlaybackFocusSettled) {
-            return@LaunchedEffect
-        }
-        // The first decoder setup and the outgoing details dialog can settle
-        // after the initial focus request. Retry only during this entry handoff.
-        delay(350)
+    LaunchedEffect(nativePlayer, useGLSurface, playbackState, classicPlayerControls) {
+        // Engine attachment and buffering can change after the first focus
+        // request. Restore once per transition, without a focus-loss loop.
+        if (nativePlayer == null || isQuickMenuVisible || noticeVisible) return@LaunchedEffect
+        delay(300)
         repeat(10) {
-            if (playerHasFocus) {
-                initialPlaybackFocusSettled = true
-                return@LaunchedEffect
-            }
             if (windowInfo.isWindowFocused) {
-                runCatching { currentEntryFocusRequester.requestFocus() }
+                if (runCatching { currentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
             }
             delay(100)
         }
-        initialPlaybackFocusSettled = true
     }
 
     fun saveProgressAndBack() {
@@ -343,7 +336,6 @@ fun PlayerScreen(
                 } else false
             }
             .focusRequester(playerFocusRequester)
-            .onFocusChanged { playerHasFocus = it.hasFocus }
             .focusable()
     ) {
     key(useGLSurface) {

@@ -19,6 +19,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,6 +140,7 @@ private fun HomeContent(
     roundedSpotlight: Boolean,
     browsingPaused: Boolean
 ) {
+    val currentlyBrowsingPaused by rememberUpdatedState(browsingPaused)
     val listState = rememberLazyListState()
     val refreshAlpha = remember { Animatable(1f) }
     val resolvedRestoreFocusKey = restoreFocusKey.takeIf { key ->
@@ -163,6 +165,7 @@ private fun HomeContent(
             listState.scrollToItem(0, 0)
             delay(100)
             repeat(3) {
+                if (currentlyBrowsingPaused) return@LaunchedEffect
                 if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
                     return@LaunchedEffect
                 }
@@ -194,7 +197,7 @@ private fun HomeContent(
                 listState.animateScrollToItem(0)
                 onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
                 delay(80)
-                runCatching { contentEntryFocusRequester.requestFocus() }
+                if (!currentlyBrowsingPaused) runCatching { contentEntryFocusRequester.requestFocus() }
                 refreshAlpha.animateTo(1f, tween(320))
             } finally {
                 // Focus-driven scrolling can cancel the refresh scroll. Never
@@ -297,8 +300,8 @@ private fun FeaturedCarousel(
         }
     }
 
-    LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex) {
-        if (focusActiveSpotlight) {
+    LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex, browsingPaused) {
+        if (focusActiveSpotlight && !browsingPaused) {
             delay(16)
             runCatching {
                 if (isContentEntry) {
