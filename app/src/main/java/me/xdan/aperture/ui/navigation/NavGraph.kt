@@ -875,14 +875,6 @@ private fun NavContent(
             }
             Box(
                 Modifier.fillMaxSize()
-                    .focusProperties {
-                        onEnter = {
-                            // Browsing remains composed beneath playback and
-                            // dialogs, but its delayed focus requests must not
-                            // take input from the foreground player or menu.
-                            if (browsingPaused && destination !is Destination.Player) cancelFocusChange()
-                        }
-                    }
                     .onFocusChanged { pageHasFocus = it.hasFocus }
                     .focusGroup()
             ) {
