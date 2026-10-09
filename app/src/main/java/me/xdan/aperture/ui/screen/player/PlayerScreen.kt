@@ -852,7 +852,11 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
     val previewLoader = remember(context) { PreviewFrameLoader(context) }
     val targetProgress = if (scrubbing && duration > 0L) (seekPosition.toFloat() / duration).coerceIn(0f, 1f) else progress.coerceIn(0f, 1f)
     val animatedProgress by androidx.compose.animation.core.animateFloatAsState(targetValue = targetProgress, animationSpec = androidx.compose.animation.core.tween(80), label = "thinSeekProgress")
-    val waveAmplitude = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
+    val waveAmplitude by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f,
+        animationSpec = tween(220),
+        label = "playerWaveAmplitude"
+    )
     val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
     LaunchedEffect(previewPosition, scrubbing, mediaSource) {
         previewBitmap = null
@@ -880,17 +884,7 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
                 }
             }
         }
-        if (waveAmplitude > 0f) {
-            LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { 1f }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
-        } else {
-            androidx.compose.material3.LinearProgressIndicator(
-                progress = { animatedProgress },
-                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                drawStopIndicator = {}
-            )
-        }
+        LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { waveAmplitude }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
     }
 }
 
