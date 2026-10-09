@@ -24,7 +24,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Install Android SDK
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+        run: |
+          sdkmanager --channel=3 --install "platforms;android-37.0" "build-tools;37.0.0"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
 
       - name: Prepare API keys
         env:
