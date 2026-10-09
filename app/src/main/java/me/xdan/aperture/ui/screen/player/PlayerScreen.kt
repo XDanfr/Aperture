@@ -132,10 +132,13 @@ fun PlayerScreen(
     var nextEpisodeDismissed by remember(media?.id) { mutableStateOf(false) }
     var remainingMillis by remember(media?.id) { mutableLongStateOf(Long.MAX_VALUE) }
     var advancingEpisode by remember { mutableStateOf(false) }
+    var entryMediaLoaded by remember(mediaId) { mutableStateOf(false) }
     val currentOnPlaybackMediaChanged by rememberUpdatedState(onPlaybackMediaChanged)
     LaunchedEffect(media?.id) {
         advancingEpisode = false
-        media?.id?.let(currentOnPlaybackMediaChanged)
+        val loadedId = media?.id
+        if (loadedId == mediaId) entryMediaLoaded = true
+        if (entryMediaLoaded && loadedId != null) currentOnPlaybackMediaChanged(loadedId)
     }
     LaunchedEffect(player, media?.id) {
         while (isActive) {
