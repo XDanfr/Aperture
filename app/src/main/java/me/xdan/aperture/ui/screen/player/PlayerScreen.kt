@@ -888,7 +888,17 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
                 }
             }
         }
-        LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { waveAmplitude }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
+        if (waveAmplitude > 0f) {
+            LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { 1f }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
+        } else {
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                drawStopIndicator = {}
+            )
+        }
     }
 }
 
