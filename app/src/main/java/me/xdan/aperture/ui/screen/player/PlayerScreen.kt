@@ -212,44 +212,23 @@ fun PlayerScreen(
     LaunchedEffect(nextEpisodeVisible) {
         if (nextEpisodeVisible) {
             viewModel.hideOsd()
-            nextEpisodeFocusRequester.requestFocus()
         }
     }
 
-    LaunchedEffect(isOsdVisible, isQuickMenuVisible, noticeVisible, nextEpisodeVisible) {
-        if (noticeVisible) {
-            noticeFocusRequester.requestFocus()
-        } else if (nextEpisodeVisible) {
-            // The popup owns focus until it closes; the OSD timer must not
-            // move focus from Dismiss back to the preview card.
-        } else if (isOsdVisible && !isQuickMenuVisible) {
-            controlsFocusRequester.requestFocus()
-        } else if (isQuickMenuVisible) {
-            quickMenuFocusRequester.requestFocus()
-        } else {
-            playerFocusRequester.requestFocus()
-        }
-    }
-
-    val currentEntryFocusRequester by rememberUpdatedState(when {
+    val desiredFocusRequester = when {
         noticeVisible -> noticeFocusRequester
         nextEpisodeVisible -> nextEpisodeFocusRequester
         isQuickMenuVisible -> quickMenuFocusRequester
         isOsdVisible -> controlsFocusRequester
         else -> playerFocusRequester
-    })
-    LaunchedEffect(nativePlayer, useGLSurface, playbackState, classicPlayerControls) {
-        // Engine attachment and buffering can change after the first focus
-        // request. Restore once per transition, without a focus-loss loop.
-        if (nativePlayer == null || isQuickMenuVisible || noticeVisible) return@LaunchedEffect
-        delay(300)
+    }
+    LaunchedEffect(desiredFocusRequester, windowInfo.isWindowFocused) {
+        if (!windowInfo.isWindowFocused) return@LaunchedEffect
+        withFrameNanos { }
+        withFrameNanos { }
         repeat(10) {
-            if (windowInfo.isWindowFocused) {
-                if (runCatching { currentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
-                    return@LaunchedEffect
-                }
-            }
-            delay(100)
+            if (runCatching { desiredFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            delay(50)
         }
     }
 

@@ -834,6 +834,10 @@ private fun NavContent(
     canRecoverContentFocus: (String) -> Boolean,
     onContentFocused: (String, FocusRequester) -> Unit
 ) {
+    // NavDisplay caches entries while their destination keys stay unchanged.
+    // The browsing stack deliberately stays unchanged underneath Player.
+    val currentBrowsingPaused by rememberUpdatedState(browsingPaused)
+    val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
     NavDisplay(
         backStack = displayedDestinations
     ) { destination ->
@@ -857,8 +861,7 @@ private fun NavContent(
                 focusKey?.let { onContentFocused(it, requester) }
             }
             var pageHasFocus by remember { mutableStateOf(false) }
-            val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
-            val recoveryEnabled = focusKey != null && canRecoverContentFocus(focusKey)
+            val recoveryEnabled = focusKey != null && currentCanRecoverContentFocus(focusKey)
             LaunchedEffect(recoveryEnabled, pageHasFocus) {
                 if (!recoveryEnabled || pageHasFocus) return@LaunchedEffect
                 // A loading/empty target may be removed after a successful handoff.
@@ -881,7 +884,7 @@ private fun NavContent(
                 when (destination) {
                     is Destination.Home -> HomeScreen(
                         viewModel = homeViewModel,
-                        browsingPaused = browsingPaused,
+                        browsingPaused = currentBrowsingPaused,
                         onMediaClick = episodeAwareMediaClick,
                         onMediaLongClick = mediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
