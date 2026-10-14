@@ -26,17 +26,27 @@ accent, independently of the app theme (including Material TV). Material tonal
 roles keep the blades at tone 40, intersections at tone 20 and play/wordmark at
 tone 80. All three colours crossfade with the title. Failed extraction falls
 back to the selected theme's logo palette. Brand and clock cards have symmetric
-rounded corners, a restrained dark/artwork tint and a faint edge highlight.
+rounded corners and a flat, dark surface with restrained artwork colour influence.
 On Android 12 and newer, the actual artwork behind each card is frosted with a
 32 dp blur; the foreground logo and text remain sharp. One artwork-only graphics
 layer is shared by the cards, avoiding extra image requests or bitmap copies.
 Older TVs use a stronger tint for legibility when native blur is unavailable.
+The surface has no reflective rim or lighting gradient.
 
 The monochrome version is a fully opaque single-colour silhouette. Internal
 overlap shading is omitted because a themed launcher icon supplies one tint.
 Adaptive foregrounds retain the existing safe-area padding; legacy square and
 round icons are generated separately. The TV banner uses the app's own Outfit
 SemiBold font, converted into vector paths in `aperture-banner.svg`.
+
+The adaptive banner foreground has its own expanded viewport in
+`aperture-banner-foreground.svg`. Android expands adaptive child layers by 25%
+on every side; compensating in the source keeps the entire logo and wordmark
+inside the visible banner instead of clipping their sides. Foregrounds and flat
+fallbacks are exported for all five densities. The onboarding drawable keeps
+its full-size artwork, separate from the padded adaptive launcher layer.
+Run `python tools/check_brand_assets.py` to check every density against Android's
+enlarged foreground viewport; the branding PR workflow runs the same checks.
 
 Run `python tools/generate_brand_assets.py` from the repository root with Python,
 Pillow, fontTools and Inkscape installed to regenerate every checked-in density,

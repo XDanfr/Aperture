@@ -6,6 +6,7 @@ on:
       - 'app/src/main/**'
       - 'artwork/**'
       - 'tools/generate_brand_assets.py'
+      - 'tools/check_brand_assets.py'
       - '.github/workflows/branding-check.yml'
   workflow_dispatch:
 
@@ -32,6 +33,10 @@ jobs:
           fi
       - name: Build debug and run unit tests
         run: bash ./gradlew --no-daemon :app:assembleStandardDebug :app:testStandardDebugUnitTest
+      - name: Check TV banner viewport
+        run: |
+          python -m pip install --disable-pip-version-check Pillow
+          python tools/check_brand_assets.py
       - uses: actions/upload-artifact@v4
         with:
           name: Aperture-branding-debug

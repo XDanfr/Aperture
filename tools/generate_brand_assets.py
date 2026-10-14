@@ -114,11 +114,24 @@ banner_svg = header + f'<rect width="1280" height="720" fill="{BACKGROUND}"/>' +
 (ART / 'aperture-banner.svg').write_text(banner_svg)
 full_banner = render(banner_svg, 1280)
 foreground_banner = render(header + banner_body + '</svg>', 1280)
+# AdaptiveIconDrawable expands each child by 25% on every side (1.5x total).
+# Expand the source viewport by the same amount so the visible result matches
+# the flat banner. Only launcher foregrounds get this padding; onboarding uses
+# the full-size drawable foreground below.
+adaptive_header = header.replace('viewBox="0 0 1280 720"',
+                                 'viewBox="-320 -180 1920 1080"')
+adaptive_banner_svg = adaptive_header + banner_body + '</svg>\n'
+(ART / 'aperture-banner-foreground.svg').write_text(adaptive_banner_svg)
+adaptive_foreground_banner = render(adaptive_banner_svg, 1280)
 for p in [MAIN / 'assets/ic_banner.png', MAIN / 'res/drawable/ic_banner.png']:
     save(full_banner, p)
 save(foreground_banner, MAIN / 'res/drawable/ic_banner_foreground.png')
-save(full_banner.resize((320, 180), Image.Resampling.LANCZOS), MAIN / 'res/mipmap-xhdpi/ic_banner.png')
-save(foreground_banner.resize((320, 180), Image.Resampling.LANCZOS), MAIN / 'res/mipmap-xhdpi/ic_banner_foreground.png')
+for density, size in [('mdpi', (160, 90)), ('hdpi', (240, 135)), ('xhdpi', (320, 180)),
+                      ('xxhdpi', (480, 270)), ('xxxhdpi', (640, 360))]:
+    resource = MAIN / 'res' / f'mipmap-{density}'
+    save(full_banner.resize(size, Image.Resampling.LANCZOS), resource / 'ic_banner.png')
+    save(adaptive_foreground_banner.resize(size, Image.Resampling.LANCZOS),
+         resource / 'ic_banner_foreground.png')
 for name in ['ic_launcher_background', 'ic_banner_background']:
     (MAIN / 'res/values' / f'{name}.xml').write_text(
         f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="{name}">{BACKGROUND}</color>\n</resources>\n')

@@ -1,7 +1,6 @@
 package me.xdan.aperture.ui.screen.ambient
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
@@ -17,7 +16,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
@@ -77,15 +75,7 @@ internal fun AmbientGlassSurface(
     val canBlur = backdrop != null && blur.isSupported()
     var origin by remember { mutableStateOf(Offset.Zero) }
     val base = Color(0xFF111014)
-    val tint = Brush.verticalGradient(
-        listOf(
-            lerp(base, accent, 0.10f).copy(alpha = if (canBlur) 0.46f else 0.78f),
-            base.copy(alpha = if (canBlur) 0.62f else 0.86f)
-        )
-    )
-    val rim = Brush.verticalGradient(
-        listOf(Color.White.copy(alpha = 0.16f), accent.copy(alpha = 0.08f), Color.White.copy(alpha = 0.04f))
-    )
+    val tint = lerp(base, accent, 0.06f).copy(alpha = if (canBlur) 0.68f else 0.88f)
     Box(modifier = modifier.clip(shape)) {
         if (canBlur && backdrop != null) {
             Box(
@@ -99,7 +89,7 @@ internal fun AmbientGlassSurface(
                     }
             )
         }
-        Box(Modifier.matchParentSize().background(tint).border(0.75.dp, rim, shape))
+        Box(Modifier.matchParentSize().background(tint))
         content()
     }
 }
