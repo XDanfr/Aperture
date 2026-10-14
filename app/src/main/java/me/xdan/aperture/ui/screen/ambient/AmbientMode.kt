@@ -173,21 +173,14 @@ private fun CinematicAmbientMode(
 
         if (current == null) AmbientArtworkEmptyState()
 
-        BrandChip(
+        AmbientBrandCluster(
             palette = palette,
             spinKey = transitionKey,
+            showClock = showClock,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 38.dp, top = 34.dp)
         )
-        if (showClock) {
-            AmbientClock(
-                accent = palette.play,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 38.dp, top = 108.dp)
-            )
-        }
     }
 }
 
@@ -324,9 +317,10 @@ private fun PosterWallAmbientMode(
         }
 
         when (brandPlacement) {
-            AmbientBrandPlacement.TOP_LEFT -> BrandChip(
+            AmbientBrandPlacement.TOP_LEFT -> AmbientBrandCluster(
                 palette = palette,
                 spinKey = spinKey,
+                showClock = showClock,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = 38.dp, top = 34.dp)
@@ -349,17 +343,12 @@ private fun PosterWallAmbientMode(
             }
         }
 
-        if (showClock) {
+        if (showClock && brandPlacement == AmbientBrandPlacement.CENTRE) {
             AmbientClock(
                 accent = accent,
-                modifier = when (brandPlacement) {
-                    AmbientBrandPlacement.TOP_LEFT -> Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 38.dp, top = 108.dp)
-                    AmbientBrandPlacement.CENTRE -> Modifier
-                        .align(Alignment.Center)
-                        .offset(y = 164.dp)
-                }
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = 164.dp)
             )
         }
     }
@@ -422,6 +411,19 @@ private fun AmbientPosterSlot(
 }
 
 @Composable
+private fun AmbientBrandCluster(
+    palette: ApertureBrandPalette,
+    spinKey: Int,
+    showClock: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BrandChip(palette = palette, spinKey = spinKey)
+        if (showClock) AmbientClock(accent = palette.play)
+    }
+}
+
+@Composable
 private fun BrandChip(
     palette: ApertureBrandPalette,
     spinKey: Int,
@@ -429,7 +431,9 @@ private fun BrandChip(
 ) {
     AmbientBrandChip(
         accent = palette.play,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomEnd = 28.dp, bottomStart = 12.dp),
+        shape = RoundedCornerShape(
+            topStart = 28.dp, topEnd = 28.dp, bottomEnd = 28.dp, bottomStart = 12.dp
+        ),
         contentPadding = PaddingValues(start = 14.dp, top = 10.dp, end = 24.dp, bottom = 10.dp),
         modifier = modifier
     ) {
@@ -465,7 +469,9 @@ private fun AmbientClock(
     }
     AmbientBrandChip(
         accent = accent,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 24.dp, bottomEnd = 24.dp, bottomStart = 24.dp),
+        shape = RoundedCornerShape(
+            topStart = 12.dp, topEnd = 24.dp, bottomEnd = 24.dp, bottomStart = 24.dp
+        ),
         contentPadding = PaddingValues(horizontal = 21.dp, vertical = 10.dp),
         modifier = modifier
     ) {
