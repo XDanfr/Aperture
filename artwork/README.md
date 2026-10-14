@@ -60,13 +60,14 @@ Launch morphs a circle into a soft square, rounds it back into a seed, then
 unfolds it into the exact approved blade paths. Dark intersections are computed
 from the current geometry; the play symbol emerges as the ring settles.
 The sidebar turns the blade ring while the play symbol stays upright. Sidebar
-and Ambient Mode use the original default spatial spring for a full turn.
-Closing lets a turn settle; reopening retargets the same spring while preserving
-its current velocity. Launch once again ties its 90°/180°/360° rotations to the
-shape morphs, using the original default/slow spatial springs.
+and Ambient Mode restore the original 650 ms ease-in-out rotation. A small
+four-degree overtravel then settles with the official fast spatial spring token.
+The launch morph uses the same turn and spring landing while keeping its shape
+transitions on the Expressive spatial tokens.
 
 Motion uses `MotionScheme.expressive()` through the brand methods in
-`ApertureMotion`: fast/default/slow spatial specs for shape, scale and rotation;
+`ApertureMotion`: fast/default/slow spatial specs for shape, scale and the spin
+settle;
 fast/default effects specs for opacity. Compose animator-duration scaling also
 governs completion.
 

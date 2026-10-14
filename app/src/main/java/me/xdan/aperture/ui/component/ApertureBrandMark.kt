@@ -1,12 +1,9 @@
 package me.xdan.aperture.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import me.xdan.aperture.ui.theme.ApertureTheme
 
@@ -19,18 +16,17 @@ internal fun ApertureBrandMark(
     palette: ApertureBrandPalette = currentApertureBrandPalette()
 ) {
     val motion = ApertureTheme.motion
-    var targetRotation by remember { mutableFloatStateOf(0f) }
-    val rotation by animateFloatAsState(
-        targetValue = targetRotation,
-        animationSpec = motion.brandSpatial(),
-        label = "Aperture shutter rotation"
-    )
+    val rotation = remember { Animatable(0f) }
     LaunchedEffect(spinBlades, spinKey) {
-        if (spinBlades) targetRotation += 360f
-        // Closing lets this turn settle. Reopening retargets the same spring,
-        // preserving velocity instead of snapping the blades back to zero.
+        if (spinBlades) {
+            rotation.snapTo(0f)
+            rotation.animateBrandTurn(motion)
+        } else {
+            // 0° and 360° are visually identical; reset to prime the next spin.
+            rotation.snapTo(0f)
+        }
     }
     ApertureBrandArtwork(modifier = modifier, palette = palette) {
-        ApertureBrandPose(rotation = rotation)
+        ApertureBrandPose(rotation = rotation.value)
     }
 }
