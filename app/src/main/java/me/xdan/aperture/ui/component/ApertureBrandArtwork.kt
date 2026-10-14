@@ -30,11 +30,11 @@ data class ApertureBrandPose(
  * Reading animation state in the draw phase avoids recomposing the surrounding UI.
  */
 @Composable
-fun ApertureBrandArtwork(
+internal fun ApertureBrandArtwork(
     modifier: Modifier = Modifier,
+    palette: ApertureBrandPalette = currentApertureBrandPalette(),
     pose: () -> ApertureBrandPose = { ApertureBrandPose() }
 ) {
-    val colors = currentApertureBrandPalette()
     val settledBlades = remember { brandBlades(1f, 0f) }
     val settledOverlaps = remember { brandOverlaps(settledBlades) }
     val playPath = remember { brandPlayPath() }
@@ -53,17 +53,17 @@ fun ApertureBrandArtwork(
                 scale(state.scale, pivot = BrandCentre) {
                     rotate(state.rotation, BrandCentre) {
                         if (state.assembly == 0f) {
-                            drawPath(brandMorphPath(state.seedShape, 0f, 0f), colors.blade)
+                            drawPath(brandMorphPath(state.seedShape, 0f, 0f), palette.blade)
                         } else {
-                            blades.forEach { drawPath(it, colors.blade) }
+                            blades.forEach { drawPath(it, palette.blade) }
                             overlaps.forEach {
-                                drawPath(it, colors.overlap, alpha = state.overlapAlpha.coerceIn(0f, 1f))
+                                drawPath(it, palette.overlap, alpha = state.overlapAlpha.coerceIn(0f, 1f))
                             }
                         }
                     }
                     if (state.playAlpha > 0f && state.playScale > 0f) {
                         scale(state.playScale, pivot = BrandCentre) {
-                            drawPath(playPath, colors.play, alpha = state.playAlpha.coerceIn(0f, 1f))
+                            drawPath(playPath, palette.play, alpha = state.playAlpha.coerceIn(0f, 1f))
                         }
                     }
                 }

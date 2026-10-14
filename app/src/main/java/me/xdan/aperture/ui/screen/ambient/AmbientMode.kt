@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,15 +36,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,6 +62,9 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.ApertureBrandMark
+import me.xdan.aperture.ui.component.ApertureBrandPalette
+import me.xdan.aperture.ui.component.artworkApertureBrandPalette
+import me.xdan.aperture.ui.component.currentApertureBrandPalette
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
 import me.xdan.aperture.util.BackdropImageUsage
 import me.xdan.aperture.util.backdropImageSpec
@@ -116,23 +116,21 @@ private fun CinematicAmbientMode(
     showClock: Boolean,
     artworkAccent: suspend (String) -> Int?
 ) {
-    val themeAccent = MaterialTheme.colorScheme.primary
-    val currentThemeAccent by rememberUpdatedState(themeAccent)
+    val themePalette = currentApertureBrandPalette()
     val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.backdropPath}" } }
     var current by remember(mediaKey) { mutableStateOf(media.randomOrNull()) }
-    var logoAccent by remember(mediaKey) { mutableStateOf(themeAccent) }
+    var logoAccent by remember(mediaKey) { mutableStateOf<Color?>(null) }
     var transitionKey by remember(mediaKey) { mutableIntStateOf(0) }
     val artworkAlpha = remember(mediaKey) { Animatable(0f) }
-    val animatedLogoAccent by animateColorAsState(
-        targetValue = logoAccent,
-        animationSpec = tween(CinematicTransitionMillis, easing = FastOutSlowInEasing),
-        label = "ambientArtworkAccent"
-    )
+    val targetPalette = remember(logoAccent, themePalette) {
+        logoAccent?.let(::artworkApertureBrandPalette) ?: themePalette
+    }
+    val palette = animatedAmbientPalette(targetPalette)
 
     LaunchedEffect(mediaKey) {
         artworkAlpha.snapTo(0f)
         current?.backdropPath?.let { path ->
-            logoAccent = artworkAccent(path)?.let { Color(it) } ?: currentThemeAccent
+            logoAccent = artworkAccent(path)?.let { Color(it) }
         }
         if (current != null) {
             artworkAlpha.animateTo(
@@ -146,7 +144,6 @@ private fun CinematicAmbientMode(
             val nextAccent = next.backdropPath
                 ?.let { artworkAccent(it) }
                 ?.let { Color(it) }
-                ?: currentThemeAccent
             delay(CinematicHoldMillis)
             artworkAlpha.animateTo(
                 0f,
@@ -177,7 +174,7 @@ private fun CinematicAmbientMode(
         if (current == null) AmbientArtworkEmptyState()
 
         BrandChip(
-            accent = animatedLogoAccent,
+            palette = palette,
             spinKey = transitionKey,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -185,7 +182,7 @@ private fun CinematicAmbientMode(
         )
         if (showClock) {
             AmbientClock(
-                accent = animatedLogoAccent,
+                accent = palette.play,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = 38.dp, top = 108.dp)
@@ -270,7 +267,8 @@ private fun PosterWallAmbientMode(
     showClock: Boolean
 ) {
     val background = MaterialTheme.colorScheme.background
-    val accent = MaterialTheme.colorScheme.primary
+    val palette = currentApertureBrandPalette()
+    val accent = palette.play
     val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.posterPath}" } }
     var spinKey by remember(mediaKey, brandPlacement) { mutableIntStateOf(0) }
 
@@ -327,30 +325,27 @@ private fun PosterWallAmbientMode(
 
         when (brandPlacement) {
             AmbientBrandPlacement.TOP_LEFT -> BrandChip(
-                accent = accent,
+                palette = palette,
                 spinKey = spinKey,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = 38.dp, top = 34.dp)
             )
-            AmbientBrandPlacement.CENTRE -> Box(
+            AmbientBrandPlacement.CENTRE -> AmbientBrandSurface(
+                accent = accent,
+                shape = RoundedCornerShape(72.dp),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(272.dp)
-                    .background(background, CircleShape),
-                contentAlignment = Alignment.Center
+                    .size(248.dp)
             ) {
-                Box(
-                    Modifier
-                        .size(210.dp)
-                        .blur(28.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                        .background(accent.copy(alpha = 0.18f), CircleShape)
-                )
-                ApertureBrandMark(
-                    modifier = Modifier.size(176.dp),
-                    spinBlades = spinKey > 0,
-                    spinKey = spinKey
-                )
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    ApertureBrandMark(
+                        modifier = Modifier.size(176.dp),
+                        spinBlades = spinKey > 0,
+                        spinKey = spinKey,
+                        palette = palette
+                    )
+                }
             }
         }
 
@@ -428,19 +423,21 @@ private fun AmbientPosterSlot(
 
 @Composable
 private fun BrandChip(
-    accent: Color,
+    palette: ApertureBrandPalette,
     spinKey: Int,
     modifier: Modifier = Modifier
 ) {
-    AmbientGlassChip(
-        accent = accent,
-        contentPadding = PaddingValues(start = 12.dp, top = 8.dp, end = 22.dp, bottom = 8.dp),
+    AmbientBrandChip(
+        accent = palette.play,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomEnd = 28.dp, bottomStart = 12.dp),
+        contentPadding = PaddingValues(start = 14.dp, top = 10.dp, end = 24.dp, bottom = 10.dp),
         modifier = modifier
     ) {
         ApertureBrandMark(
             modifier = Modifier.size(46.dp),
             spinBlades = spinKey > 0,
-            spinKey = spinKey
+            spinKey = spinKey,
+            palette = palette
         )
         Spacer(Modifier.width(9.dp))
         Text(
@@ -448,7 +445,7 @@ private fun BrandChip(
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = ApertureBrandFontFamily
             ),
-            color = accent
+            color = palette.play
         )
     }
 }
@@ -466,9 +463,10 @@ private fun AmbientClock(
             delay(30_000L)
         }
     }
-    AmbientGlassChip(
+    AmbientBrandChip(
         accent = accent,
-        contentPadding = PaddingValues(horizontal = 19.dp, vertical = 9.dp),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 24.dp, bottomEnd = 24.dp, bottomStart = 24.dp),
+        contentPadding = PaddingValues(horizontal = 21.dp, vertical = 10.dp),
         modifier = modifier
     ) {
         Text(
@@ -480,36 +478,52 @@ private fun AmbientClock(
 }
 
 @Composable
-private fun AmbientGlassChip(
+private fun AmbientBrandChip(
     accent: Color,
+    shape: Shape,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .blur(22.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                .background(accent.copy(alpha = 0.32f), CircleShape)
-        )
+    AmbientBrandSurface(accent = accent, shape = shape, modifier = modifier) {
         Row(
-            modifier = Modifier
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            accent.copy(alpha = 0.28f),
-                            Color.Black.copy(alpha = 0.48f)
-                        )
-                    ),
-                    CircleShape
-                )
-                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                .padding(contentPadding),
+            modifier = Modifier.padding(contentPadding),
             verticalAlignment = Alignment.CenterVertically,
             content = content
         )
     }
+}
+
+/** An opaque dark surface keeps the mark readable over bright or busy artwork. */
+@Composable
+private fun AmbientBrandSurface(
+    accent: Color,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val base = Color(0xFF111014)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                Brush.horizontalGradient(
+                    listOf(lerp(base, accent, 0.12f), lerp(base, accent, 0.025f))
+                )
+            )
+    ) {
+        content()
+    }
+}
+
+/** Build tonal roles once per title, then animate each role without recalculating HCT per frame. */
+@Composable
+private fun animatedAmbientPalette(target: ApertureBrandPalette): ApertureBrandPalette {
+    val spec = tween<Color>(CinematicTransitionMillis, easing = FastOutSlowInEasing)
+    val blade by animateColorAsState(target.blade, spec, label = "ambientBlade")
+    val overlap by animateColorAsState(target.overlap, spec, label = "ambientOverlap")
+    val play by animateColorAsState(target.play, spec, label = "ambientPlay")
+    return target.copy(blade = blade, overlap = overlap, play = play)
 }
 
 @Composable

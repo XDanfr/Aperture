@@ -55,6 +55,20 @@ class ApertureBrandThemeTest {
         assertEquals(cyan.primary, next.play)
     }
 
+    @Test
+    fun cinematicArtworkSuppliesACompleteReadableTonalPalette() {
+        val red = artworkApertureBrandPalette(Color(0xFFDF7468))
+        val cyan = artworkApertureBrandPalette(Color(0xFF54B8D2))
+        assertNotEquals(red.blade, cyan.blade)
+        assertNotEquals(red.overlap, cyan.overlap)
+        assertNotEquals(red.play, cyan.play)
+        listOf(red, cyan).forEach { palette ->
+            assertEquals(40.0, tone(palette.blade), 0.3)
+            assertEquals(20.0, tone(palette.overlap), 0.3)
+            assertEquals(80.0, tone(palette.play), 0.3)
+        }
+    }
+
     private fun scheme(option: ApertureThemeOption) = apertureDarkColorScheme(
         themeId = option.id,
         primary = option.primary,
