@@ -16,11 +16,10 @@ internal suspend fun Animatable<Float, AnimationVector1D>.animateBrandTurn(motio
     val start = value % 360f
     snapTo(start)
     animateTo(
-        targetValue = start + 360f,
+        targetValue = start + 360f - BrandSpinBounceDegrees,
         animationSpec = tween(BrandSpinDurationMillis, easing = BrandSpinEasing)
     )
-    // A few degrees of spring overshoot give the turn a soft, physical landing.
-    animateTo(start + 360f + BrandSpinBounceDegrees, motion.brandFastSpatial())
+    // The final four degrees spring through their target, giving the turn a soft landing.
     animateTo(start + 360f, motion.brandFastSpatial())
     snapTo(start)
 }
