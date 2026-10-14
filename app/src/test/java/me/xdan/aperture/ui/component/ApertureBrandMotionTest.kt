@@ -2,6 +2,7 @@ package me.xdan.aperture.ui.component
 
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.TargetBasedAnimation
+import androidx.compose.animation.core.getVelocityFromNanos
 import me.xdan.aperture.ui.theme.tokens.ApertureMotion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
