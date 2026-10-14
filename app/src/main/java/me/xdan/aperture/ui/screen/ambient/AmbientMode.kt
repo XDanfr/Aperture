@@ -348,7 +348,6 @@ private fun PosterWallAmbientMode(
                 )
                 ApertureBrandMark(
                     modifier = Modifier.size(176.dp),
-                    accent = accent,
                     spinBlades = spinKey > 0,
                     spinKey = spinKey
                 )
@@ -440,7 +439,6 @@ private fun BrandChip(
     ) {
         ApertureBrandMark(
             modifier = Modifier.size(46.dp),
-            accent = accent,
             spinBlades = spinKey > 0,
             spinKey = spinKey
         )
@@ -523,7 +521,6 @@ private fun AmbientArtworkEmptyState() {
     ) {
         ApertureBrandMark(
             modifier = Modifier.size(120.dp),
-            accent = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(18.dp))
         Text(

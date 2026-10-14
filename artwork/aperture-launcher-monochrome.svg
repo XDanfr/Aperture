@@ -1,14 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="-38 -38 176 176">
-  <defs>
-  </defs>
-  <g fill="#ffffff" fill-opacity="0.72">
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(0 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(60 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(120 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(180 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(240 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(300 50 50)"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="-38 -38 176 176" role="img" aria-labelledby="title desc">
+  <title id="title">Aperture — Expressive</title>
+  <desc id="desc">Aperture single-colour silhouette for Android themed icons.</desc>
+  <g id="shutter-blades">
+    <path id="blade-1" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)" />
+    <path id="blade-2" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)" />
+    <path id="blade-3" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)" />
+    <path id="blade-4" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)" />
+    <path id="blade-5" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)" />
+    <path id="blade-6" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)" />
   </g>
-  <path fill="#ffffff" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z"/>
+
+  <path id="play" fill="#FFFFFF" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z" />
 </svg>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">Aperture — Expressive</title>
+  <desc id="desc">Six equal rounded shutter blades in Aperture Purple Inverse Primary #6750A4, with opaque On Primary #381E72 intersections and a foreground Primary #D0BCFF play symbol. The repeated flat intersections describe an interwoven ring rather than an opaque stack. Transparent background. Geometry preserved from the approved icon.</desc>
+  <defs>
+    <clipPath id="blade-clip-0" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)"/></clipPath>
+    <clipPath id="blade-clip-1" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)"/></clipPath>
+    <clipPath id="blade-clip-2" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)"/></clipPath>
+    <clipPath id="blade-clip-3" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)"/></clipPath>
+    <clipPath id="blade-clip-4" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)"/></clipPath>
+    <clipPath id="blade-clip-5" clipPathUnits="userSpaceOnUse"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)"/></clipPath>
+  </defs>
+  <!-- Exact colours from app/src/main/java/me/xdan/aperture/ui/theme/Color.kt. -->
+  <!-- Equal blade colours preserve the rotational balance; no blade is assigned foreground emphasis. -->
+  <g id="shutter-blades">
+    <path id="blade-1" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)"/>
+    <path id="blade-2" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)"/>
+    <path id="blade-3" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)"/>
+    <path id="blade-4" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)"/>
+    <path id="blade-5" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)"/>
+    <path id="blade-6" fill="#6750A4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)"/>
+  </g>
+  <!-- Shared intersections use one dark opaque fill. There is no blur, shadow or alpha mixing. -->
+  <g id="solid-intersections" fill="#381E72">
+    <g clip-path="url(#blade-clip-0)"><path id="intersection-1" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)"/></g>
+    <g clip-path="url(#blade-clip-1)"><path id="intersection-2" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)"/></g>
+    <g clip-path="url(#blade-clip-2)"><path id="intersection-3" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)"/></g>
+    <g clip-path="url(#blade-clip-3)"><path id="intersection-4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)"/></g>
+    <g clip-path="url(#blade-clip-4)"><path id="intersection-5" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)"/></g>
+    <g clip-path="url(#blade-clip-5)"><path id="intersection-6" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)"/></g>
+  </g>
+  <path id="play" fill="#D0BCFF" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z"/>
+</svg>
