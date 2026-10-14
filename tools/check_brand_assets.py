@@ -69,5 +69,24 @@ class BannerAssetsTest(unittest.TestCase):
             '{http://schemas.android.com/apk/res/android}drawable'))
 
 
+class MonochromeIconTest(unittest.TestCase):
+    def test_each_density_retains_play_blade_and_intersection_tones(self):
+        expected_tones = {(255, 255, 255), (176, 176, 176), (48, 48, 48)}
+        assets = RES.parent / 'assets/res'
+        for density in SIZES:
+            with self.subTest(density=density):
+                png = Image.open(assets / f'mipmap-{density}/ic_launcher_monochrome.png').convert('RGBA')
+                webp = Image.open(RES / f'mipmap-{density}/ic_launcher_monochrome.webp').convert('RGBA')
+                for image in (png, webp):
+                    pixels = image.tobytes()
+                    opaque_colours = {
+                        tuple(pixels[index:index + 3])
+                        for index in range(0, len(pixels), 4)
+                        if pixels[index + 3] >= 250
+                    }
+                    self.assertTrue(expected_tones.issubset(opaque_colours))
+                    self.assertTrue(all(red == green == blue for red, green, blue in opaque_colours))
+
+
 if __name__ == '__main__':
     unittest.main()

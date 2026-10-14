@@ -14,6 +14,9 @@ MAIN = ROOT / 'app/src/main'
 ART = ROOT / 'artwork'
 BACKGROUND = '#111014'
 PRIMARY = '#D0BCFF'
+MONO_PLAY = '#FFFFFF'
+MONO_BLADE = '#B0B0B0'
+MONO_OVERLAP = '#303030'
 NS = 'http://www.w3.org/2000/svg'
 ET.register_namespace('', NS)
 SOURCE = ET.parse(ART / 'aperture-logo.svg').getroot()
@@ -25,15 +28,20 @@ def variant(viewbox='0 0 100 100', size=512, mono=False):
     root.set('width', str(size))
     root.set('height', str(size))
     if mono:
-        for child in list(root):
-            if child.get('id') == 'solid-intersections' or child.tag.endswith('defs'):
-                root.remove(child)
         for element in root.iter():
-            if 'fill' in element.attrib:
-                element.set('fill', '#FFFFFF')
-        for element in root.iter():
-            if element.tag.endswith('desc'):
-                element.text = 'Aperture single-colour silhouette for Android themed icons.'
+            element_id = element.get('id')
+            if element_id and element_id.startswith('blade-'):
+                element.set('fill', MONO_BLADE)
+            elif element_id == 'solid-intersections':
+                element.set('fill', MONO_OVERLAP)
+            elif element_id == 'play':
+                element.set('fill', MONO_PLAY)
+            elif element.tag.endswith('desc'):
+                element.text = (
+                    'Aperture grayscale monochrome icon: white play symbol, '
+                    'grey shutter blades and dark intersections. Android launchers '
+                    'may apply one theme tint to the monochrome adaptive-icon layer.'
+                )
     return '\n'.join(line.rstrip() for line in ET.tostring(root, encoding='unicode').splitlines())
 
 
