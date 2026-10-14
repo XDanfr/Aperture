@@ -1,15 +1,13 @@
 package me.xdan.aperture.ui.component
 
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.launch
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 /** The approved opaque mark. The play symbol stays still while the shutter turns. */
@@ -21,24 +19,18 @@ internal fun ApertureBrandMark(
     palette: ApertureBrandPalette = currentApertureBrandPalette()
 ) {
     val motion = ApertureTheme.motion
-    val rotation = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    var spinning by remember { mutableStateOf(false) }
+    var targetRotation by remember { mutableFloatStateOf(0f) }
+    val rotation by animateFloatAsState(
+        targetValue = targetRotation,
+        animationSpec = motion.brandSpatial(),
+        label = "Aperture shutter rotation"
+    )
     LaunchedEffect(spinBlades, spinKey) {
-        if (spinBlades && !spinning) {
-            spinning = true
-            scope.launch {
-                try {
-                    rotation.animateBrandTurn(motion)
-                } finally {
-                    spinning = false
-                }
-            }
-        }
-        // Finish the current turn on close. Repeated opens neither accelerate it
-        // nor queue more revolutions. Leaving the composition cancels the scope.
+        if (spinBlades) targetRotation += 360f
+        // Closing lets this turn settle. Reopening retargets the same spring,
+        // preserving velocity instead of snapping the blades back to zero.
     }
     ApertureBrandArtwork(modifier = modifier, palette = palette) {
-        ApertureBrandPose(rotation = rotation.value)
+        ApertureBrandPose(rotation = rotation)
     }
 }

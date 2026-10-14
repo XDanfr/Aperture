@@ -25,9 +25,12 @@ Cinematic Ambient Mode overrides the logo with the current backdrop's extracted
 accent, independently of the app theme (including Material TV). Material tonal
 roles keep the blades at tone 40, intersections at tone 20 and play/wordmark at
 tone 80. All three colours crossfade with the title. Failed extraction falls
-back to the selected theme's logo palette. The brand and clock use opaque dark
-surfaces with a restrained 12% → 2.5% accent gradient and asymmetric rounded
-corners; bright artwork cannot show through or wash out the mark.
+back to the selected theme's logo palette. Brand and clock cards have symmetric
+rounded corners, a restrained dark/artwork tint and a faint edge highlight.
+On Android 12 and newer, the actual artwork behind each card is frosted with a
+32 dp blur; the foreground logo and text remain sharp. One artwork-only graphics
+layer is shared by the cards, avoiding extra image requests or bitmap copies.
+Older TVs use a stronger tint for legibility when native blur is unavailable.
 
 The monochrome version is a fully opaque single-colour silhouette. Internal
 overlap shading is omitted because a themed launcher icon supplies one tint.
@@ -43,17 +46,16 @@ path is retained as a compatibility copy of the new mark.
 Launch morphs a circle into a soft square, rounds it back into a seed, then
 unfolds it into the exact approved blade paths. Dark intersections are computed
 from the current geometry; the play symbol emerges as the ring settles.
-The sidebar turns the blade ring while the play symbol stays upright. Launch,
-sidebar and Ambient Mode share a 180°/second cruise, with a 240 ms acceleration
-and an official slow spatial spring for the final 8°. A full turn takes roughly
-2–3 seconds. Closing lets a turn finish; reopening while it is running neither
-accelerates it nor queues another revolution.
+The sidebar turns the blade ring while the play symbol stays upright. Sidebar
+and Ambient Mode use the original default spatial spring for a full turn.
+Closing lets a turn settle; reopening retargets the same spring while preserving
+its current velocity. Launch once again ties its 90°/180°/360° rotations to the
+shape morphs, using the original default/slow spatial springs.
 
 Motion uses `MotionScheme.expressive()` through the brand methods in
-`ApertureMotion`: fast/default/slow spatial specs for shape, scale and the small
-rotation settle; fast/default effects specs for opacity. Large rotations use
-the explicit speed above, rather than applying a spring to an entire turn.
-Compose animator-duration scaling also governs completion.
+`ApertureMotion`: fast/default/slow spatial specs for shape, scale and rotation;
+fast/default effects specs for opacity. Compose animator-duration scaling also
+governs completion.
 
 References:
 - https://m3.material.io/styles/motion/overview/how-it-works

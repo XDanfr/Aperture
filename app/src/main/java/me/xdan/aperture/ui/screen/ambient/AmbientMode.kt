@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,7 +44,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -86,6 +86,7 @@ fun AmbientMode(
     val hostView = LocalView.current
     val allMedia by viewModel.media.collectAsState()
     val settings by viewModel.settings.collectAsState()
+    val glassBackdrop = rememberAmbientGlassBackdrop()
 
     // Ambient Mode is Aperture's own idle experience, so Android's native
     // dream/screensaver must not replace it while the mode is visible. Restore
@@ -96,17 +97,21 @@ fun AmbientMode(
         onDispose { hostView.keepScreenOn = wasKeepingScreenOn }
     }
 
-    when (settings.mode) {
-        AmbientModeType.CINEMATIC -> CinematicAmbientMode(
-            media = remember(allMedia) { eligibleCinematicMedia(allMedia) },
-            showClock = settings.showClock,
-            artworkAccent = viewModel::artworkAccent
-        )
-        AmbientModeType.POSTER_WALL -> PosterWallAmbientMode(
-            media = remember(allMedia) { eligiblePosterMedia(allMedia) },
-            brandPlacement = settings.wallBrandPlacement,
-            showClock = settings.showClock
-        )
+    CompositionLocalProvider(LocalAmbientGlassBackdrop provides glassBackdrop) {
+        when (settings.mode) {
+            AmbientModeType.CINEMATIC -> CinematicAmbientMode(
+                media = remember(allMedia) { eligibleCinematicMedia(allMedia) },
+                showClock = settings.showClock,
+                glassBackdrop = glassBackdrop,
+                artworkAccent = viewModel::artworkAccent
+            )
+            AmbientModeType.POSTER_WALL -> PosterWallAmbientMode(
+                media = remember(allMedia) { eligiblePosterMedia(allMedia) },
+                brandPlacement = settings.wallBrandPlacement,
+                showClock = settings.showClock,
+                glassBackdrop = glassBackdrop
+            )
+        }
     }
 }
 
@@ -114,6 +119,7 @@ fun AmbientMode(
 private fun CinematicAmbientMode(
     media: List<MediaEntity>,
     showClock: Boolean,
+    glassBackdrop: AmbientGlassBackdropState,
     artworkAccent: suspend (String) -> Int?
 ) {
     val themePalette = currentApertureBrandPalette()
@@ -164,14 +170,16 @@ private fun CinematicAmbientMode(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        current?.let { item ->
-            CinematicArtwork(
-                media = item,
-                modifier = Modifier.graphicsLayer { alpha = artworkAlpha.value }
-            )
-        }
+        AmbientGlassBackdrop(glassBackdrop, Modifier.fillMaxSize()) {
+            current?.let { item ->
+                CinematicArtwork(
+                    media = item,
+                    modifier = Modifier.graphicsLayer { alpha = artworkAlpha.value }
+                )
+            }
 
-        if (current == null) AmbientArtworkEmptyState()
+            if (current == null) AmbientArtworkEmptyState()
+        }
 
         AmbientBrandCluster(
             palette = palette,
@@ -257,7 +265,8 @@ private fun CinematicArtwork(
 private fun PosterWallAmbientMode(
     media: List<MediaEntity>,
     brandPlacement: AmbientBrandPlacement,
-    showClock: Boolean
+    showClock: Boolean,
+    glassBackdrop: AmbientGlassBackdropState
 ) {
     val background = MaterialTheme.colorScheme.background
     val palette = currentApertureBrandPalette()
@@ -277,43 +286,45 @@ private fun PosterWallAmbientMode(
             .fillMaxSize()
             .background(background)
     ) {
-        if (media.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 26.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                repeat(PosterRows) { row ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
-                    ) {
-                        repeat(PosterColumns) { column ->
-                            val index = row * PosterColumns + column
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AmbientPosterSlot(
-                                    media = media,
-                                    mediaKey = mediaKey,
-                                    index = index,
+        AmbientGlassBackdrop(glassBackdrop, Modifier.fillMaxSize().background(background)) {
+            if (media.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 26.dp, vertical = 22.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    repeat(PosterRows) { row ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(18.dp)
+                        ) {
+                            repeat(PosterColumns) { column ->
+                                val index = row * PosterColumns + column
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxHeight()
-                                        .aspectRatio(2f / 3f)
-                                )
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AmbientPosterSlot(
+                                        media = media,
+                                        mediaKey = mediaKey,
+                                        index = index,
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .aspectRatio(2f / 3f)
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            } else {
+                AmbientArtworkEmptyState()
             }
-        } else {
-            AmbientArtworkEmptyState()
         }
 
         when (brandPlacement) {
@@ -325,7 +336,7 @@ private fun PosterWallAmbientMode(
                     .align(Alignment.TopStart)
                     .padding(start = 38.dp, top = 34.dp)
             )
-            AmbientBrandPlacement.CENTRE -> AmbientBrandSurface(
+            AmbientBrandPlacement.CENTRE -> AmbientGlassSurface(
                 accent = accent,
                 shape = RoundedCornerShape(72.dp),
                 modifier = Modifier
@@ -431,9 +442,7 @@ private fun BrandChip(
 ) {
     AmbientBrandChip(
         accent = palette.play,
-        shape = RoundedCornerShape(
-            topStart = 28.dp, topEnd = 28.dp, bottomEnd = 28.dp, bottomStart = 12.dp
-        ),
+        shape = RoundedCornerShape(28.dp),
         contentPadding = PaddingValues(start = 14.dp, top = 10.dp, end = 24.dp, bottom = 10.dp),
         modifier = modifier
     ) {
@@ -469,9 +478,7 @@ private fun AmbientClock(
     }
     AmbientBrandChip(
         accent = accent,
-        shape = RoundedCornerShape(
-            topStart = 12.dp, topEnd = 24.dp, bottomEnd = 24.dp, bottomStart = 24.dp
-        ),
+        shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(horizontal = 21.dp, vertical = 10.dp),
         modifier = modifier
     ) {
@@ -491,34 +498,12 @@ private fun AmbientBrandChip(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    AmbientBrandSurface(accent = accent, shape = shape, modifier = modifier) {
+    AmbientGlassSurface(accent = accent, shape = shape, modifier = modifier) {
         Row(
             modifier = Modifier.padding(contentPadding),
             verticalAlignment = Alignment.CenterVertically,
             content = content
         )
-    }
-}
-
-/** An opaque dark surface keeps the mark readable over bright or busy artwork. */
-@Composable
-private fun AmbientBrandSurface(
-    accent: Color,
-    shape: Shape,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val base = Color(0xFF111014)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(lerp(base, accent, 0.12f), lerp(base, accent, 0.025f))
-                )
-            )
-    ) {
-        content()
     }
 }
 

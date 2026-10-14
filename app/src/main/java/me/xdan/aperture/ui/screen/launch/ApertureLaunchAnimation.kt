@@ -19,7 +19,6 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.ui.component.ApertureBrandArtwork
 import me.xdan.aperture.ui.component.currentApertureBrandPalette
 import me.xdan.aperture.ui.component.ApertureBrandPose
-import me.xdan.aperture.ui.component.animateBrandTurn
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 /** Circle → soft square → circle → six blades, followed by a springing play symbol. */
@@ -37,26 +36,26 @@ fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifie
     val playAlpha = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         coroutineScope {
-            launch { rotation.animateBrandTurn(motion) }
+            launch { scale.animateTo(1f, motion.brandFastSpatial()) }
+            launch { rotation.animateTo(90f, motion.brandSpatial()) }
+            seedShape.animateTo(1f, motion.brandFastSpatial())
+        }
+        coroutineScope {
+            launch { rotation.animateTo(180f, motion.brandSpatial()) }
+            seedShape.animateTo(0f, motion.brandFastSpatial())
+        }
+        coroutineScope {
+            launch { rotation.animateTo(360f, motion.brandSlowSpatial()) }
+            launch { assembly.animateTo(1f, motion.brandSlowSpatial()) }
             launch {
+                snapshotFlow { assembly.value }.first { it >= 0.7f }
+                overlaps.animateTo(1f, motion.brandEffects())
+            }
+            launch {
+                snapshotFlow { assembly.value }.first { it >= 0.9f }
                 coroutineScope {
-                    launch { scale.animateTo(1f, motion.brandFastSpatial()) }
-                    seedShape.animateTo(1f, motion.brandFastSpatial())
-                }
-                seedShape.animateTo(0f, motion.brandFastSpatial())
-                coroutineScope {
-                    launch { assembly.animateTo(1f, motion.brandSlowSpatial()) }
-                    launch {
-                        snapshotFlow { assembly.value }.first { it >= 0.7f }
-                        overlaps.animateTo(1f, motion.brandEffects())
-                    }
-                    launch {
-                        snapshotFlow { assembly.value }.first { it >= 0.9f }
-                        coroutineScope {
-                            launch { playAlpha.animateTo(1f, motion.brandFastEffects()) }
-                            playScale.animateTo(1f, motion.brandFastSpatial())
-                        }
-                    }
+                    launch { playAlpha.animateTo(1f, motion.brandFastEffects()) }
+                    playScale.animateTo(1f, motion.brandFastSpatial())
                 }
             }
         }
