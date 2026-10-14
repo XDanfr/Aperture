@@ -110,8 +110,25 @@ logo_parts = ''.join(ET.tostring(e, encoding='unicode') for e in root if e.tag.e
 banner_body = (f'<g transform="translate(136 200) scale(3.2)">{logo_parts}</g>'
                f'<g fill="{PRIMARY}" transform="translate(512 403) scale({scale} {-scale})">' + ''.join(word) + '</g>')
 header = f'<svg xmlns="{NS}" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Aperture">'
-banner_svg = header + f'<rect width="1280" height="720" fill="{BACKGROUND}"/>' + banner_body + '</svg>\n'
+banner_background_body = '''<defs>
+  <linearGradient id="purple-spectrum" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#111014"/><stop offset="0.34" stop-color="#211A2E"/>
+    <stop offset="0.68" stop-color="#381E72"/><stop offset="1" stop-color="#6750A4"/>
+  </linearGradient>
+  <radialGradient id="purple-halo" cx="0.94" cy="0.16" r="0.72">
+    <stop offset="0" stop-color="#D0BCFF" stop-opacity="0.48"/><stop offset="0.52" stop-color="#6750A4" stop-opacity="0.24"/>
+    <stop offset="1" stop-color="#6750A4" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1280" height="720" fill="#111014"/>
+<rect width="1280" height="720" fill="url(#purple-spectrum)"/>
+<rect width="1280" height="720" fill="url(#purple-halo)"/>
+<path d="M0 594 C218 538 310 659 515 720 H0Z" fill="#381E72" opacity="0.72"/>
+<path d="M1000 0 H1280 V342 C1168 298 1138 158 1000 0Z" fill="#D0BCFF" opacity="0.12"/>'''
+banner_background_svg = header + banner_background_body + '</svg>\n'
+banner_svg = header + banner_background_body + banner_body + '</svg>\n'
 (ART / 'aperture-banner.svg').write_text(banner_svg)
+(ART / 'aperture-banner-background.svg').write_text(banner_background_svg)
 full_banner = render(banner_svg, 1280)
 foreground_banner = render(header + banner_body + '</svg>', 1280)
 # AdaptiveIconDrawable expands each child by 25% on every side (1.5x total).
@@ -123,6 +140,11 @@ adaptive_header = header.replace('viewBox="0 0 1280 720"',
 adaptive_banner_svg = adaptive_header + banner_body + '</svg>\n'
 (ART / 'aperture-banner-foreground.svg').write_text(adaptive_banner_svg)
 adaptive_foreground_banner = render(adaptive_banner_svg, 1280)
+adaptive_background_svg = (adaptive_header
+                           + f'<rect x="-320" y="-180" width="1920" height="1080" fill="{BACKGROUND}"/>'
+                           + banner_background_body + '</svg>\n')
+(ART / 'aperture-banner-background-adaptive.svg').write_text(adaptive_background_svg)
+adaptive_background_banner = render(adaptive_background_svg, 1280)
 for p in [MAIN / 'assets/ic_banner.png', MAIN / 'res/drawable/ic_banner.png']:
     save(full_banner, p)
 save(foreground_banner, MAIN / 'res/drawable/ic_banner_foreground.png')
@@ -132,9 +154,11 @@ for density, size in [('mdpi', (160, 90)), ('hdpi', (240, 135)), ('xhdpi', (320,
     save(full_banner.resize(size, Image.Resampling.LANCZOS), resource / 'ic_banner.png')
     save(adaptive_foreground_banner.resize(size, Image.Resampling.LANCZOS),
          resource / 'ic_banner_foreground.png')
-for name in ['ic_launcher_background', 'ic_banner_background']:
+    save(adaptive_background_banner.resize(size, Image.Resampling.LANCZOS),
+         resource / 'ic_banner_background_art.png')
+for name in ['ic_launcher_background']:
     (MAIN / 'res/values' / f'{name}.xml').write_text(
         f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="{name}">{BACKGROUND}</color>\n</resources>\n')
 for svg in ART.glob('*.svg'):
     svg.write_text('\n'.join(line.rstrip() for line in svg.read_text().splitlines()) + '\n')
-print('Regenerated launcher, monochrome, legacy and TV banner assets from artwork/aperture-logo.svg.')
+print('Regenerated launcher, monochrome, legacy and layered TV banner assets from artwork/aperture-logo.svg.')

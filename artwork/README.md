@@ -37,16 +37,19 @@ The monochrome version is a fully opaque single-colour silhouette. Internal
 overlap shading is omitted because a themed launcher icon supplies one tint.
 Adaptive foregrounds retain the existing safe-area padding; legacy square and
 round icons are generated separately. The TV banner uses the app's own Outfit
-SemiBold font, converted into vector paths in `aperture-banner.svg`.
+SemiBold font, converted into vector paths in `aperture-banner.svg`. Its layered
+purple-spectrum backdrop is defined in `aperture-banner-background.svg`; the
+adaptive banner uses the same artwork as a separate background layer so Google
+TV can sample the palette without baking it into the transparent logo layer.
 
-The adaptive banner foreground has its own expanded viewport in
-`aperture-banner-foreground.svg`. Android expands adaptive child layers by 25%
-on every side; compensating in the source keeps the entire logo and wordmark
-inside the visible banner instead of clipping their sides. Foregrounds and flat
-fallbacks are exported for all five densities. The onboarding drawable keeps
-its full-size artwork, separate from the padded adaptive launcher layer.
-Run `python tools/check_brand_assets.py` to check every density against Android's
-enlarged foreground viewport; the branding PR workflow runs the same checks.
+The adaptive banner foreground and background have their own expanded viewport
+masters. Android expands adaptive child layers by 25% on every side; compensating
+in the source keeps the complete visible artwork aligned inside the banner.
+Both adaptive layers and flat fallbacks are exported for all five densities. The
+onboarding drawable keeps its full-size artwork, separate from the padded
+adaptive launcher layers. Run `python tools/check_brand_assets.py` to check every
+density against Android's enlarged adaptive layers; the branding PR workflow
+runs the same checks.
 
 Run `python tools/generate_brand_assets.py` from the repository root with Python,
 Pillow, fontTools and Inkscape installed to regenerate every checked-in density,

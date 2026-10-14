@@ -3,7 +3,7 @@
 from pathlib import Path
 import unittest
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 RES = Path(__file__).resolve().parents[1] / 'app/src/main/res'
 SIZES = {'mdpi': (160, 90), 'hdpi': (240, 135), 'xhdpi': (320, 180),
@@ -29,9 +29,12 @@ class BannerAssetsTest(unittest.TestCase):
             with self.subTest(density=density):
                 folder = RES / f'mipmap-{density}'
                 foreground = Image.open(folder / 'ic_banner_foreground.png').convert('RGBA')
+                background = Image.open(folder / 'ic_banner_background_art.png').convert('RGBA')
                 flat = Image.open(folder / 'ic_banner.png').convert('RGBA')
                 self.assertEqual(size, foreground.size)
+                self.assertEqual(size, background.size)
                 self.assertEqual(size, flat.size)
+                self.assertEqual((255, 255), background.getchannel('A').getextrema())
                 self.assertEqual((255, 255), flat.getchannel('A').getextrema())
                 bounds = ink_bounds(foreground)
                 self.assertIsNotNone(bounds)
@@ -47,11 +50,22 @@ class BannerAssetsTest(unittest.TestCase):
                 # Leave visible margins after enlargement; neither end may touch the mask.
                 self.assertGreater(actual[0], size[0] * 0.06)
                 self.assertLess(actual[2], size[0] * 0.94)
+                # Background and padded foreground must reconstruct the flat banner
+                # after Android's 1.5x adaptive-layer enlargement and centre crop.
+                adaptive_bg = adaptive_viewport(background)
+                adaptive_fg = adaptive_viewport(foreground)
+                reconstructed = Image.alpha_composite(adaptive_bg, adaptive_fg).convert('RGB')
+                expected_banner = flat.convert('RGB')
+                mean_error = sum(ImageStat.Stat(ImageChops.difference(
+                    reconstructed, expected_banner)).mean) / 3
+                self.assertLess(mean_error, 4.0)
 
     def test_launcher_uses_the_padded_foreground(self):
         import xml.etree.ElementTree as ET
         root = ET.parse(RES / 'mipmap-anydpi-v26/ic_banner.xml').getroot()
         self.assertEqual('@mipmap/ic_banner_foreground', root.find('foreground').get(
+            '{http://schemas.android.com/apk/res/android}drawable'))
+        self.assertEqual('@mipmap/ic_banner_background_art', root.find('background').get(
             '{http://schemas.android.com/apk/res/android}drawable'))
 
 
