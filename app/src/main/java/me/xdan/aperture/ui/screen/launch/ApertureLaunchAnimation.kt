@@ -17,13 +17,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import me.xdan.aperture.ui.component.ApertureBrandArtwork
-import me.xdan.aperture.ui.component.ApertureBrandColors
+import me.xdan.aperture.ui.component.currentApertureBrandPalette
 import me.xdan.aperture.ui.component.ApertureBrandPose
 import me.xdan.aperture.ui.theme.ApertureTheme
 
 /** Circle → soft square → circle → six blades, followed by a springing play symbol. */
 @Composable
 fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = currentApertureBrandPalette()
     val motion = ApertureTheme.motion
     val finished = rememberUpdatedState(onFinished)
     val seedShape = remember { Animatable(0f) }
@@ -63,7 +64,7 @@ fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifie
         finished.value()
     }
     Box(
-        modifier.fillMaxSize().background(ApertureBrandColors.background),
+        modifier.fillMaxSize().background(colors.background),
         contentAlignment = Alignment.Center
     ) {
         ApertureBrandArtwork(Modifier.size(224.dp)) {

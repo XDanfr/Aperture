@@ -10,6 +10,17 @@ solid intersections are also drawn by `ApertureBrandArtwork` in Compose.
 | Play symbol and wordmark | Primary | `#D0BCFF` |
 | Launcher and TV banner background | Background | `#111014` |
 
+In-app launch, sidebar and Ambient Mode marks read the active TV Material colour
+scheme: Inverse Primary for blades, On Primary for intersections, and Primary
+for the play symbol. Material TV deliberately retains the approved Aperture
+Purple palette. Launcher assets, the wordmark and exported SVGs retain that same
+purple brand identity.
+
+Each non-purple theme now supplies its own Inverse Primary, generated at Material
+tone 40 through Google's public `MaterialColors.getColorRoles` API. This role
+animates alongside Primary when switching themes or changing artwork accents.
+The existing other theme roles are preserved.
+
 The monochrome version is a fully opaque single-colour silhouette. Internal
 overlap shading is omitted because a themed launcher icon supplies one tint.
 Adaptive foregrounds retain the existing safe-area padding; legacy square and

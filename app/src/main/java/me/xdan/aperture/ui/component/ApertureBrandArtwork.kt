@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -14,14 +13,6 @@ import androidx.compose.ui.graphics.drawscope.translate
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
-
-/** Fixed brand colours from Aperture Purple; app theme changes do not recolour the logo. */
-object ApertureBrandColors {
-    val blade = Color(0xFF6750A4) // Inverse Primary
-    val overlap = Color(0xFF381E72) // On Primary
-    val play = Color(0xFFD0BCFF) // Primary
-    val background = Color(0xFF111014) // Background
-}
 
 data class ApertureBrandPose(
     val seedShape: Float = 0f,
@@ -43,6 +34,7 @@ fun ApertureBrandArtwork(
     modifier: Modifier = Modifier,
     pose: () -> ApertureBrandPose = { ApertureBrandPose() }
 ) {
+    val colors = currentApertureBrandPalette()
     val settledBlades = remember { brandBlades(1f, 0f) }
     val settledOverlaps = remember { brandOverlaps(settledBlades) }
     val playPath = remember { brandPlayPath() }
@@ -61,17 +53,17 @@ fun ApertureBrandArtwork(
                 scale(state.scale, pivot = BrandCentre) {
                     rotate(state.rotation, BrandCentre) {
                         if (state.assembly == 0f) {
-                            drawPath(brandMorphPath(state.seedShape, 0f, 0f), ApertureBrandColors.blade)
+                            drawPath(brandMorphPath(state.seedShape, 0f, 0f), colors.blade)
                         } else {
-                            blades.forEach { drawPath(it, ApertureBrandColors.blade) }
+                            blades.forEach { drawPath(it, colors.blade) }
                             overlaps.forEach {
-                                drawPath(it, ApertureBrandColors.overlap, alpha = state.overlapAlpha.coerceIn(0f, 1f))
+                                drawPath(it, colors.overlap, alpha = state.overlapAlpha.coerceIn(0f, 1f))
                             }
                         }
                     }
                     if (state.playAlpha > 0f && state.playScale > 0f) {
                         scale(state.playScale, pivot = BrandCentre) {
-                            drawPath(playPath, ApertureBrandColors.play, alpha = state.playAlpha.coerceIn(0f, 1f))
+                            drawPath(playPath, colors.play, alpha = state.playAlpha.coerceIn(0f, 1f))
                         }
                     }
                 }

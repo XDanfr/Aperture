@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Vibrant Material 3 Palette
 val Primary = Color(0xFFD0BCFF)
+val InversePrimary = Color(0xFF6750A4)
 val OnPrimary = Color(0xFF381E72)
 val PrimaryContainer = Color(0xFF4F378B)
 val OnPrimaryContainer = Color(0xFFEADDFF)
