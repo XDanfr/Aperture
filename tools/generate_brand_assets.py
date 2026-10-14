@@ -15,8 +15,8 @@ ART = ROOT / 'artwork'
 BACKGROUND = '#111014'
 PRIMARY = '#D0BCFF'
 MONO_PLAY = '#FFFFFF'
-MONO_BLADE = '#B0B0B0'
-MONO_OVERLAP = '#303030'
+MONO_BLADE_OPACITY = 0.72
+MONO_OVERLAP_OPACITY = 0.32
 NS = 'http://www.w3.org/2000/svg'
 ET.register_namespace('', NS)
 SOURCE = ET.parse(ART / 'aperture-logo.svg').getroot()
@@ -28,19 +28,40 @@ def variant(viewbox='0 0 100 100', size=512, mono=False):
     root.set('width', str(size))
     root.set('height', str(size))
     if mono:
+        defs = next(element for element in root if element.tag.endswith('defs'))
+        blades = next(element for element in root if element.get('id') == 'shutter-blades')
+        overlaps = next(element for element in root if element.get('id') == 'solid-intersections')
+        mask = ET.Element(f'{{{NS}}}mask', {
+            'id': 'monochrome-blade-mask',
+            'maskUnits': 'userSpaceOnUse',
+            'x': '0',
+            'y': '0',
+            'width': '100',
+            'height': '100',
+        })
+        ET.SubElement(mask, f'{{{NS}}}rect', {
+            'x': '0', 'y': '0', 'width': '100', 'height': '100', 'fill': '#FFFFFF'
+        })
+        cutouts = deepcopy(overlaps)
+        cutouts.set('fill', '#000000')
+        for element in cutouts.iter():
+            element.attrib.pop('id', None)
+        mask.append(cutouts)
+        defs.append(mask)
+        blades.set('mask', 'url(#monochrome-blade-mask)')
+        blades.set('opacity', str(MONO_BLADE_OPACITY))
+        overlaps.set('fill', MONO_PLAY)
+        overlaps.set('opacity', str(MONO_OVERLAP_OPACITY))
         for element in root.iter():
             element_id = element.get('id')
-            if element_id and element_id.startswith('blade-'):
-                element.set('fill', MONO_BLADE)
-            elif element_id == 'solid-intersections':
-                element.set('fill', MONO_OVERLAP)
-            elif element_id == 'play':
+            if (element_id and element_id.startswith('blade-')) or element_id == 'play':
                 element.set('fill', MONO_PLAY)
             elif element.tag.endswith('desc'):
                 element.text = (
-                    'Aperture grayscale monochrome icon: white play symbol, '
-                    'grey shutter blades and dark intersections. Android launchers '
-                    'may apply one theme tint to the monochrome adaptive-icon layer.'
+                    'Aperture monochrome icon with a single white source colour: '
+                    'the play symbol is fully opaque, blades are 72 percent opaque, '
+                    'and intersections are 32 percent opaque. Blade fill is cut away '
+                    'beneath intersections so alpha levels remain distinct under theme tinting.'
                 )
     return '\n'.join(line.rstrip() for line in ET.tostring(root, encoding='unicode').splitlines())
 

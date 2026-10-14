@@ -33,10 +33,10 @@ layer is shared by the cards, avoiding extra image requests or bitmap copies.
 Older TVs use a stronger tint for legibility when native blur is unavailable.
 The surface has no reflective rim or lighting gradient.
 
-The grayscale monochrome artwork keeps the play symbol white, blades mid-grey
-and intersections dark grey. Android themed-icon launchers may tint the
-`<monochrome>` adaptive layer as one colour; the tonal source artwork is also
-useful anywhere the grayscale icon is shown directly.
+The monochrome adaptive layer uses one white source colour with distinct alpha:
+the play symbol is fully opaque, blades are 72% opaque and intersections are
+32% opaque. Blade shapes are cut out under intersections, so the lower overlap
+opacity stays intact when a launcher applies its Material You theme tint.
 Adaptive foregrounds retain the existing safe-area padding; legacy square and
 round icons are generated separately. The TV banner uses the app's own Outfit
 SemiBold font, converted into vector paths in `aperture-banner.svg`. Its layered

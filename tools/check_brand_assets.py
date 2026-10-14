@@ -70,22 +70,23 @@ class BannerAssetsTest(unittest.TestCase):
 
 
 class MonochromeIconTest(unittest.TestCase):
-    def test_each_density_retains_play_blade_and_intersection_tones(self):
-        expected_tones = {(255, 255, 255), (176, 176, 176), (48, 48, 48)}
+    def test_each_density_keeps_three_alpha_levels_under_one_theme_tint(self):
         assets = RES.parent / 'assets/res'
         for density in SIZES:
             with self.subTest(density=density):
                 png = Image.open(assets / f'mipmap-{density}/ic_launcher_monochrome.png').convert('RGBA')
                 webp = Image.open(RES / f'mipmap-{density}/ic_launcher_monochrome.webp').convert('RGBA')
                 for image in (png, webp):
-                    pixels = image.tobytes()
-                    opaque_colours = {
-                        tuple(pixels[index:index + 3])
-                        for index in range(0, len(pixels), 4)
-                        if pixels[index + 3] >= 250
-                    }
-                    self.assertTrue(expected_tones.issubset(opaque_colours))
-                    self.assertTrue(all(red == green == blue for red, green, blue in opaque_colours))
+                    for (x, y), expected_alpha in (
+                        ((50, 22), 82),   # dark intersection
+                        ((80, 24), 184),  # blade body
+                        ((50, 50), 255),  # foreground play symbol
+                    ):
+                        px = round((x + 38) / 176 * image.width)
+                        py = round((y + 38) / 176 * image.height)
+                        red, green, blue, alpha = image.getpixel((px, py))
+                        self.assertEqual((255, 255, 255), (red, green, blue))
+                        self.assertAlmostEqual(expected_alpha, alpha, delta=12)
 
 
 if __name__ == '__main__':
