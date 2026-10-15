@@ -17,24 +17,15 @@ import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
-import android.content.Context
-import androidx.core.graphics.drawable.toBitmap
-import coil.imageLoader
-import coil.request.ImageRequest
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
-import me.xdan.aperture.ui.artwork.extractArtworkAccent
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
     private val updateManager: UpdateManager,
-    @ApplicationContext private val context: Context
+    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore
 ) : ViewModel() {
 
     private var preparationJob: Job? = null
@@ -55,9 +46,7 @@ class MainViewModel @Inject constructor(
 
     private val _dynamicAccentArgb = MutableStateFlow<Int?>(null)
     val dynamicAccentArgb: StateFlow<Int?> = _dynamicAccentArgb
-    private val artworkAccentCache = mutableMapOf<String, Int>()
-    private var requestedActiveMediaId: Long? = null
-    private var dynamicThemeJob: Job? = null
+    private val activeMediaId = MutableStateFlow<Long?>(null)
 
     val isTutorialRequired = userPreferencesRepository.isTutorialRequired.stateIn(
         viewModelScope,
@@ -72,6 +61,12 @@ class MainViewModel @Inject constructor(
     val updateState = updateManager.state
 
     init {
+        viewModelScope.launch {
+            me.xdan.aperture.ui.artwork.dynamicArtworkSeeds(
+                activeMediaId, mediaRepository.getAllMedia(), userPreferencesRepository.themeId,
+                artworkPalettes::observeSeed
+            ).collect { _dynamicAccentArgb.value = it }
+        }
         viewModelScope.launch {
             userPreferencesRepository.isOnboardingCompleted
                 .filter { it }
@@ -119,41 +114,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun setActiveMedia(mediaId: Long) {
-        if (themeId.value != "dynamic") return
-        requestedActiveMediaId = mediaId
-        dynamicThemeJob?.cancel()
-
-        viewModelScope.launch {
-            val media = mediaRepository.getMediaById(mediaId) ?: return@launch
-            val artworkPath = media.backdropPath ?: media.posterPath ?: return@launch
-            val cacheKey = "$mediaId:$artworkPath"
-
-            artworkAccentCache[cacheKey]?.let {
-                _dynamicAccentArgb.value = it
-                return@launch
-            }
-
-            dynamicThemeJob = viewModelScope.launch {
-                // Avoid recolouring the whole app while the user is rapidly
-                // traversing a row; settle briefly on the focused card first.
-                kotlinx.coroutines.delay(140)
-                if (requestedActiveMediaId != mediaId) return@launch
-                
-                val url = TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath
-                val accent = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val result = context.imageLoader.execute(
-                            ImageRequest.Builder(context).data(url).allowHardware(false).build()
-                        )
-                        result.drawable?.toBitmap()?.let(::extractArtworkAccent)
-                    }.getOrNull()
-                }
-                if (accent != null) {
-                    artworkAccentCache[cacheKey] = accent
-                    if (requestedActiveMediaId == mediaId) _dynamicAccentArgb.value = accent
-                }
-            }
-        }
+        activeMediaId.value = mediaId
     }
 
 }

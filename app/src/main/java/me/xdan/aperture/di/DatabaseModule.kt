@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import me.xdan.aperture.data.local.AppDatabase
+import me.xdan.aperture.data.local.dao.ArtworkPaletteDao
 import me.xdan.aperture.data.local.dao.MediaDao
 import me.xdan.aperture.data.local.dao.PlaybackProgressDao
 import javax.inject.Singleton
@@ -69,6 +70,15 @@ object DatabaseModule {
         }
     }
 
+    internal val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS artwork_palettes (artworkPath TEXT NOT NULL, seedArgb INTEGER NOT NULL, extractionVersion INTEGER NOT NULL, PRIMARY KEY(artworkPath))")
+        }
+    }
+
+    @Provides
+    fun provideArtworkPaletteDao(db: AppDatabase): ArtworkPaletteDao = db.artworkPaletteDao()
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -82,7 +92,8 @@ object DatabaseModule {
                 MIGRATION_3_4,
                 MIGRATION_4_5,
                 MIGRATION_5_6,
-                MIGRATION_6_7
+                MIGRATION_6_7,
+                MIGRATION_7_8
             )
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
