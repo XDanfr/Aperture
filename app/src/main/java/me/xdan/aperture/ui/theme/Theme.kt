@@ -1,7 +1,5 @@
 package me.xdan.aperture.ui.theme
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -70,52 +68,25 @@ fun ApertureTheme(
     val accent = if (themeId == "dynamic") dynamicAccent ?: option.primary else option.primary
     val secondary = if (themeId == "dynamic") accent.copy(alpha = 0.86f) else option.secondary
     val tertiary = if (themeId == "dynamic") accent.copy(alpha = 0.72f) else option.tertiary
-    val animatedAccent = animateColorAsState(
-        targetValue = accent,
-        animationSpec = tween(durationMillis = 520),
-        label = "apertureThemeAccent"
-    ).value
-    val targetInversePrimary = remember(accent) { inversePrimaryForAccent(accent) }
-    val animatedInversePrimary = animateColorAsState(
-        targetValue = targetInversePrimary,
-        animationSpec = tween(durationMillis = 520),
-        label = "apertureThemeInversePrimary"
-    ).value
-    val animatedSecondary = animateColorAsState(
-        targetValue = secondary,
-        animationSpec = tween(durationMillis = 520),
-        label = "apertureThemeSecondary"
-    ).value
-    val animatedTertiary = animateColorAsState(
-        targetValue = tertiary,
-        animationSpec = tween(durationMillis = 520),
-        label = "apertureThemeTertiary"
-    ).value
-
-    val scheme = apertureDarkColorScheme(
-        themeId = themeId,
-        primary = animatedAccent,
-        inversePrimary = animatedInversePrimary,
-        secondary = animatedSecondary,
-        tertiary = animatedTertiary
-    )
-
-    val apertureColorScheme = remember {
-        scheme.toApertureColorScheme()
+    // Settle the global palette once; animating these roles invalidates the whole theme tree.
+    val scheme = remember(themeId, accent, secondary, tertiary) {
+        apertureDarkColorScheme(
+            themeId = themeId,
+            primary = accent,
+            inversePrimary = inversePrimaryForAccent(accent),
+            secondary = secondary,
+            tertiary = tertiary
+        )
     }
-
-    // Efficiently update semantic roles when the base Material scheme changes
-    apertureColorScheme.updateFrom(scheme.toApertureColorScheme())
-
-    val tokens = remember(apertureColorScheme, themeId, animatedAccent) {
+    val tokens = remember(scheme, themeId) {
         ApertureTokens(
-            colorScheme = apertureColorScheme,
+            colorScheme = scheme.toApertureColorScheme(),
             typography = ApertureTypography(Typography),
             shapes = ApertureShapes(),
             motion = ApertureMotion(),
             spacing = ApertureSpacing(),
             elevation = ApertureElevation(),
-            brandAccent = if (themeId == "classic") Primary else animatedAccent,
+            brandAccent = if (themeId == "classic") Primary else accent,
             isMaterialTv = themeId == "classic"
         )
     }
