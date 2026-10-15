@@ -22,7 +22,7 @@ import me.xdan.aperture.ui.component.ApertureBrandPose
 import me.xdan.aperture.ui.component.animateBrandTurn
 import me.xdan.aperture.ui.theme.ApertureTheme
 
-/** Circle → soft square → circle → six blades, followed by a springing play symbol. */
+/** Circle → soft square → six-sided cookie → six blades, followed by a springing play symbol. */
 @Composable
 fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     val colors = currentApertureBrandPalette()
@@ -41,7 +41,7 @@ fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifie
             launch {
                 scale.animateTo(1f, motion.brandFastSpatial())
                 seedShape.animateTo(1f, motion.brandFastSpatial())
-                seedShape.animateTo(0f, motion.brandFastSpatial())
+                seedShape.animateTo(2f, motion.brandFastSpatial())
             }
         }
         coroutineScope {

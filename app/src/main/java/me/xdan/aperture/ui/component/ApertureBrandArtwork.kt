@@ -15,6 +15,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 data class ApertureBrandPose(
+    /** 0=circle, 1=soft square, 2=six-sided cookie. */
     val seedShape: Float = 0f,
     val assembly: Float = 1f,
     val rotation: Float = 0f,
@@ -74,7 +75,7 @@ internal fun ApertureBrandArtwork(
 
 private val BrandCentre = Offset(50f, 50f)
 
-// Eight corresponding quadratic segments enable real circle → soft square → blade morphs.
+// Corresponding quadratic segments enable circle → soft square → cookie → blade morphs.
 // Lines use their midpoint as the control point, preserving the approved SVG exactly.
 private val BladeStart = Offset(54.3f, 19.8f)
 private val BladeSegments = listOf(
@@ -88,7 +89,7 @@ private val BladeSegments = listOf(
     Offset(49.2f, 19.8f) to BladeStart
 )
 private val SquareStart = Offset(42f, 32f)
-private val SquareSegments = listOf(
+private val SquareCoarseSegments = listOf(
     Offset(50f, 32f) to Offset(58f, 32f),
     Offset(68f, 32f) to Offset(68f, 42f),
     Offset(68f, 50f) to Offset(68f, 58f),
@@ -105,12 +106,73 @@ private fun radialPoint(degrees: Float, radius: Float): Offset {
 }
 
 private val CircleStart = radialPoint(-112.5f, 16f)
-private val CircleSegments = List(8) { index ->
+private val CircleCoarseSegments = List(8) { index ->
     val startAngle = -112.5f + 45f * index
     radialPoint(startAngle + 22.5f, 16f / cos(PI / 8).toFloat()) to radialPoint(startAngle + 45f, 16f)
 }
 
+/** Split each existing quadratic into three exact sub-curves for shape correspondence. */
+private fun subdivideQuadratics(start: Offset, segments: List<Pair<Offset, Offset>>): List<Pair<Offset, Offset>> {
+    var segmentStart = start
+    return buildList(segments.size * 3) {
+        segments.forEach { (control, end) ->
+            fun pointAt(t: Float): Offset {
+                val inverse = 1f - t
+                return segmentStart * (inverse * inverse) + control * (2f * inverse * t) + end * (t * t)
+            }
+            var from = 0f
+            repeat(3) {
+                val to = (it + 1) / 3f
+                val fromPoint = pointAt(from)
+                val toPoint = pointAt(to)
+                val halfDerivative = (control - segmentStart) * (1f - from) + (end - control) * from
+                val subControl = fromPoint + halfDerivative * (to - from)
+                add(subControl to toPoint)
+                from = to
+            }
+            segmentStart = end
+        }
+    }
+}
+
+private val SquareSegments = subdivideQuadratics(SquareStart, SquareCoarseSegments)
+private val CircleSegments = subdivideQuadratics(CircleStart, CircleCoarseSegments)
+private val BladeMorphSegments = subdivideQuadratics(BladeStart, BladeSegments)
+
+/** Material 3 Expressive's six-point cookie: alternating outer and inner radii, softly rounded. */
+private val CookiePoints = List(12) { index ->
+    val angle = -90.0 + 30.0 * index
+    val radius = if (index % 2 == 0) 18f else 13.5f
+    radialPoint(angle.toFloat(), radius)
+}
+private val CookieIncoming = CookiePoints.indices.map { index ->
+    val point = CookiePoints[index]
+    val previous = CookiePoints[(index + CookiePoints.size - 1) % CookiePoints.size]
+    interpolate(point, previous, 0.34f)
+}
+private val CookieOutgoing = CookiePoints.indices.map { index ->
+    val point = CookiePoints[index]
+    val next = CookiePoints[(index + 1) % CookiePoints.size]
+    interpolate(point, next, 0.34f)
+}
+private val CookieStart = CookieIncoming.first()
+private val CookieSegments = buildList(24) {
+    CookiePoints.indices.forEach { index ->
+        add(CookiePoints[index] to CookieOutgoing[index])
+        val next = (index + 1) % CookiePoints.size
+        add(interpolate(CookieOutgoing[index], CookieIncoming[next], 0.5f) to CookieIncoming[next])
+    }
+}
+
+private val CircleMorphStart = CircleStart
+private val SquareMorphStart = SquareStart
+private val BladeMorphStart = BladeStart
+
 private fun interpolate(a: Offset, b: Offset, progress: Float) = a + (b - a) * progress
+
+private fun seedPoint(circle: Offset, square: Offset, cookie: Offset, phase: Float): Offset =
+    if (phase <= 1f) interpolate(circle, square, phase.coerceIn(0f, 1f))
+    else interpolate(square, cookie, (phase - 1f).coerceIn(0f, 1f))
 
 private fun rotated(point: Offset, degrees: Float): Offset {
     val radians = degrees * PI / 180.0
@@ -124,14 +186,14 @@ private fun rotated(point: Offset, degrees: Float): Offset {
 
 @Suppress("DEPRECATION")
 private fun brandMorphPath(seedShape: Float, assembly: Float, rotation: Float) = Path().apply {
-    fun point(circle: Offset, square: Offset, blade: Offset): Offset = rotated(
-        interpolate(interpolate(circle, square, seedShape), blade, assembly), rotation
+    fun point(circle: Offset, square: Offset, cookie: Offset, blade: Offset): Offset = rotated(
+        interpolate(seedPoint(circle, square, cookie, seedShape), blade, assembly), rotation
     )
-    val start = point(CircleStart, SquareStart, BladeStart)
+    val start = point(CircleMorphStart, SquareMorphStart, CookieStart, BladeMorphStart)
     moveTo(start.x, start.y)
-    repeat(8) { index ->
-        val control = point(CircleSegments[index].first, SquareSegments[index].first, BladeSegments[index].first)
-        val end = point(CircleSegments[index].second, SquareSegments[index].second, BladeSegments[index].second)
+    repeat(CookieSegments.size) { index ->
+        val control = point(CircleSegments[index].first, SquareSegments[index].first, CookieSegments[index].first, BladeMorphSegments[index].first)
+        val end = point(CircleSegments[index].second, SquareSegments[index].second, CookieSegments[index].second, BladeMorphSegments[index].second)
         quadraticBezierTo(control.x, control.y, end.x, end.y)
     }
     close()
