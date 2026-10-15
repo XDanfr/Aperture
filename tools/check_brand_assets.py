@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Check TV banner sizes and Android's enlarged adaptive foreground viewport."""
+from pathlib import Path
+import unittest
+
+from PIL import Image, ImageChops, ImageStat
+
+RES = Path(__file__).resolve().parents[1] / 'app/src/main/res'
+SIZES = {'mdpi': (160, 90), 'hdpi': (240, 135), 'xhdpi': (320, 180),
+         'xxhdpi': (480, 270), 'xxxhdpi': (640, 360)}
+
+
+def ink_bounds(image):
+    return image.getchannel('A').point(lambda alpha: 255 if alpha >= 32 else 0).getbbox()
+
+
+def adaptive_viewport(image):
+    # AdaptiveIconDrawable.getExtraInsetFraction() adds 25% on each side.
+    width, height = image.size
+    expanded = image.resize((round(width * 1.5), round(height * 1.5)), Image.Resampling.LANCZOS)
+    left, top = (expanded.width - width) // 2, (expanded.height - height) // 2
+    return expanded.crop((left, top, left + width, top + height))
+
+
+class BannerAssetsTest(unittest.TestCase):
+    def test_each_density_preserves_the_complete_visible_banner(self):
+        full_artwork = Image.open(RES / 'drawable/ic_banner_foreground.png').convert('RGBA')
+        for density, size in SIZES.items():
+            with self.subTest(density=density):
+                folder = RES / f'mipmap-{density}'
+                foreground = Image.open(folder / 'ic_banner_foreground.png').convert('RGBA')
+                background = Image.open(folder / 'ic_banner_background_art.png').convert('RGBA')
+                flat = Image.open(folder / 'ic_banner.png').convert('RGBA')
+                self.assertEqual(size, foreground.size)
+                self.assertEqual(size, background.size)
+                self.assertEqual(size, flat.size)
+                self.assertEqual((255, 255), background.getchannel('A').getextrema())
+                self.assertEqual((255, 255), flat.getchannel('A').getextrema())
+                bounds = ink_bounds(foreground)
+                self.assertIsNotNone(bounds)
+                # Content must fit the centre two-thirds before Android's enlargement.
+                self.assertGreaterEqual(bounds[0], size[0] / 6)
+                self.assertGreaterEqual(bounds[1], size[1] / 6)
+                self.assertLessEqual(bounds[2], size[0] * 5 / 6)
+                self.assertLessEqual(bounds[3], size[1] * 5 / 6)
+                expected = ink_bounds(full_artwork.resize(size, Image.Resampling.LANCZOS))
+                actual = ink_bounds(adaptive_viewport(foreground))
+                for wanted, rendered in zip(expected, actual):
+                    self.assertAlmostEqual(wanted, rendered, delta=2)
+                # Leave visible margins after enlargement; neither end may touch the mask.
+                self.assertGreater(actual[0], size[0] * 0.06)
+                self.assertLess(actual[2], size[0] * 0.94)
+                # Background and padded foreground must reconstruct the flat banner
+                # after Android's 1.5x adaptive-layer enlargement and centre crop.
+                adaptive_bg = adaptive_viewport(background)
+                adaptive_fg = adaptive_viewport(foreground)
+                reconstructed = Image.alpha_composite(adaptive_bg, adaptive_fg).convert('RGB')
+                expected_banner = flat.convert('RGB')
+                mean_error = sum(ImageStat.Stat(ImageChops.difference(
+                    reconstructed, expected_banner)).mean) / 3
+                self.assertLess(mean_error, 4.0)
+
+    def test_launcher_uses_the_padded_foreground(self):
+        import xml.etree.ElementTree as ET
+        root = ET.parse(RES / 'mipmap-anydpi-v26/ic_banner.xml').getroot()
+        self.assertEqual('@mipmap/ic_banner_foreground', root.find('foreground').get(
+            '{http://schemas.android.com/apk/res/android}drawable'))
+        self.assertEqual('@mipmap/ic_banner_background_art', root.find('background').get(
+            '{http://schemas.android.com/apk/res/android}drawable'))
+
+
+class MonochromeIconTest(unittest.TestCase):
+    def test_each_density_keeps_three_alpha_levels_under_one_theme_tint(self):
+        assets = RES.parent / 'assets/res'
+        for density in SIZES:
+            with self.subTest(density=density):
+                png = Image.open(assets / f'mipmap-{density}/ic_launcher_monochrome.png').convert('RGBA')
+                webp = Image.open(RES / f'mipmap-{density}/ic_launcher_monochrome.webp').convert('RGBA')
+                for image in (png, webp):
+                    for (x, y), expected_alpha in (
+                        ((50, 22), 82),   # dark intersection
+                        ((80, 24), 184),  # blade body
+                        ((50, 50), 255),  # foreground play symbol
+                    ):
+                        px = round((x + 38) / 176 * image.width)
+                        py = round((y + 38) / 176 * image.height)
+                        red, green, blue, alpha = image.getpixel((px, py))
+                        self.assertEqual((255, 255, 255), (red, green, blue))
+                        self.assertAlmostEqual(expected_alpha, alpha, delta=12)
+
+
+if __name__ == '__main__':
+    unittest.main()

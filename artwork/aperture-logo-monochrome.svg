@@ -1,15 +1,40 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">Aperture — Expressive</title>
+  <desc id="desc">Aperture monochrome icon with a single white source colour: the play symbol is fully opaque, blades are 72 percent opaque, and intersections are 32 percent opaque. Blade fill is cut away beneath intersections so alpha levels remain distinct under theme tinting.</desc>
   <defs>
-  </defs>
-
-  <g fill="#ffffff" fill-opacity="0.72">
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(0 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(60 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(120 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(180 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(240 50 50)"/>
-    <path d="M54 20 H85.2 Q88.5 20 89.7 22.5 Q90.5 24.3 88.1 26.7 L68.7 43.1 Q65 46.8 61.3 43.1 L48.1 29.9 Q44.3 26.1 47 22.3 Q49 20 54 20 Z" transform="rotate(300 50 50)"/>
+    <clipPath id="blade-clip-0" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)" /></clipPath>
+    <clipPath id="blade-clip-1" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)" /></clipPath>
+    <clipPath id="blade-clip-2" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)" /></clipPath>
+    <clipPath id="blade-clip-3" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)" /></clipPath>
+    <clipPath id="blade-clip-4" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)" /></clipPath>
+    <clipPath id="blade-clip-5" clipPathUnits="userSpaceOnUse" fill="#FFFFFF"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)" /></clipPath>
+  <mask id="monochrome-blade-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect x="0" y="0" width="100" height="100" fill="#FFFFFF" /><g fill="#000000">
+    <g clip-path="url(#blade-clip-0)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)" /></g>
+    <g clip-path="url(#blade-clip-1)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)" /></g>
+    <g clip-path="url(#blade-clip-2)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)" /></g>
+    <g clip-path="url(#blade-clip-3)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)" /></g>
+    <g clip-path="url(#blade-clip-4)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)" /></g>
+    <g clip-path="url(#blade-clip-5)"><path d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)" /></g>
   </g>
-  <path fill="#ffffff" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z"/>
+  </mask></defs>
+
+
+  <g id="shutter-blades" mask="url(#monochrome-blade-mask)" opacity="0.72">
+    <path id="blade-1" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)" />
+    <path id="blade-2" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)" />
+    <path id="blade-3" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)" />
+    <path id="blade-4" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)" />
+    <path id="blade-5" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)" />
+    <path id="blade-6" fill="#FFFFFF" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)" />
+  </g>
+
+  <g id="solid-intersections" fill="#FFFFFF" opacity="0.32">
+    <g clip-path="url(#blade-clip-0)"><path id="intersection-1" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(60 50 50)" /></g>
+    <g clip-path="url(#blade-clip-1)"><path id="intersection-2" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(120 50 50)" /></g>
+    <g clip-path="url(#blade-clip-2)"><path id="intersection-3" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(180 50 50)" /></g>
+    <g clip-path="url(#blade-clip-3)"><path id="intersection-4" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(240 50 50)" /></g>
+    <g clip-path="url(#blade-clip-4)"><path id="intersection-5" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(300 50 50)" /></g>
+    <g clip-path="url(#blade-clip-5)"><path id="intersection-6" d="M54.3 19.8 H83.4 Q88.7 19.8 89.2 23.2 Q89.6 25.3 86.7 27.8 L69.5 42.8 Q65 47.3 60.5 42.8 L48.3 30.6 Q43.7 26 47.1 22.1 Q49.2 19.8 54.3 19.8 Z" transform="rotate(0 50 50)" /></g>
+  </g>
+  <path id="play" fill="#FFFFFF" d="M45.2 38.5 L62.1 47.7 Q66.2 50 62.1 52.3 L45.2 61.5 Q42 63.2 41.2 59.8 Q41 59.1 41 57.6 V42.4 Q41 40.9 41.2 40.2 Q42 36.8 45.2 38.5 Z" />
 </svg>

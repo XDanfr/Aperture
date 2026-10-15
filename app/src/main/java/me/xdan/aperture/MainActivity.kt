@@ -138,10 +138,11 @@ class MainActivity : ComponentActivity() {
                 themeId = themeId,
                 dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
             ) {
+                val brandMotion = ApertureTheme.motion
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedVisibility(
                         visible = launchFinished,
-                        enter = fadeIn(tween(360)) + scaleIn(tween(420), initialScale = 0.985f)
+                        enter = fadeIn(brandMotion.brandEffects()) + scaleIn(brandMotion.brandSpatial(), initialScale = 0.985f)
                     ) {
                         androidx.tv.material3.Surface(
                             modifier = Modifier.fillMaxSize(),
@@ -239,7 +240,7 @@ class MainActivity : ComponentActivity() {
 
                     AnimatedVisibility(
                         visible = !launchFinished,
-                        exit = fadeOut(tween(260))
+                        exit = fadeOut(brandMotion.brandFastEffects())
                     ) {
                         ApertureLaunchAnimation(
                             onFinished = { launchFinished = true }

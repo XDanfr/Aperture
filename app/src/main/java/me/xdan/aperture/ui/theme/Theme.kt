@@ -36,6 +36,7 @@ val ApertureThemeOptions = listOf(
 
 private val DarkColorScheme = darkColorScheme(
     primary = Primary,
+    inversePrimary = InversePrimary,
     onPrimary = OnPrimary,
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer,
@@ -74,6 +75,12 @@ fun ApertureTheme(
         animationSpec = tween(durationMillis = 520),
         label = "apertureThemeAccent"
     ).value
+    val targetInversePrimary = remember(accent) { inversePrimaryForAccent(accent) }
+    val animatedInversePrimary = animateColorAsState(
+        targetValue = targetInversePrimary,
+        animationSpec = tween(durationMillis = 520),
+        label = "apertureThemeInversePrimary"
+    ).value
     val animatedSecondary = animateColorAsState(
         targetValue = secondary,
         animationSpec = tween(durationMillis = 520),
@@ -85,30 +92,13 @@ fun ApertureTheme(
         label = "apertureThemeTertiary"
     ).value
 
-    val scheme = if (themeId == "purple") {
-        DarkColorScheme
-    } else {
-        darkColorScheme(
-            primary = animatedAccent,
-            onPrimary = if (themeId == "classic") Color(0xFF1A191C) else Color(0xFF151218),
-            primaryContainer = if (themeId == "classic") Color(0xFFE7E2E8) else animatedAccent.copy(alpha = 0.30f),
-            onPrimaryContainer = if (themeId == "classic") Color(0xFF454047) else animatedAccent,
-            secondary = animatedSecondary,
-            onSecondary = Color(0xFF151218),
-            secondaryContainer = if (themeId == "classic") Color(0xFFDCD7DE) else animatedSecondary.copy(alpha = 0.20f),
-            onSecondaryContainer = if (themeId == "classic") Color(0xFF464047) else animatedSecondary,
-            tertiary = animatedTertiary,
-            onTertiary = Color(0xFF20151A),
-            tertiaryContainer = if (themeId == "classic") Color(0xFFD8D2D9) else animatedTertiary.copy(alpha = 0.20f),
-            onTertiaryContainer = if (themeId == "classic") Color(0xFF443D45) else animatedTertiary,
-            background = Color(0xFF111014),
-            onBackground = Color(0xFFF1ECF2),
-            surface = Color(0xFF111014),
-            onSurface = Color(0xFFF1ECF2),
-            surfaceVariant = Color(0xFF252229),
-            onSurfaceVariant = Color(0xFFE6E0E8)
-        )
-    }
+    val scheme = apertureDarkColorScheme(
+        themeId = themeId,
+        primary = animatedAccent,
+        inversePrimary = animatedInversePrimary,
+        secondary = animatedSecondary,
+        tertiary = animatedTertiary
+    )
 
     val apertureColorScheme = remember {
         scheme.toApertureColorScheme()
@@ -220,4 +210,39 @@ private fun ColorScheme.toApertureColorScheme(): ApertureColorScheme {
         border = border,
         borderVariant = borderVariant
     )
+}
+
+/** Builds the TV Material roles without a composition, including each accent's inverse role. */
+internal fun apertureDarkColorScheme(
+    themeId: String,
+    primary: Color,
+    inversePrimary: Color,
+    secondary: Color,
+    tertiary: Color
+): ColorScheme {
+    return if (themeId == "purple") {
+        DarkColorScheme
+    } else {
+        darkColorScheme(
+            primary = primary,
+            inversePrimary = inversePrimary,
+            onPrimary = if (themeId == "classic") Color(0xFF1A191C) else Color(0xFF151218),
+            primaryContainer = if (themeId == "classic") Color(0xFFE7E2E8) else primary.copy(alpha = 0.30f),
+            onPrimaryContainer = if (themeId == "classic") Color(0xFF454047) else primary,
+            secondary = secondary,
+            onSecondary = Color(0xFF151218),
+            secondaryContainer = if (themeId == "classic") Color(0xFFDCD7DE) else secondary.copy(alpha = 0.20f),
+            onSecondaryContainer = if (themeId == "classic") Color(0xFF464047) else secondary,
+            tertiary = tertiary,
+            onTertiary = Color(0xFF20151A),
+            tertiaryContainer = if (themeId == "classic") Color(0xFFD8D2D9) else tertiary.copy(alpha = 0.20f),
+            onTertiaryContainer = if (themeId == "classic") Color(0xFF443D45) else tertiary,
+            background = Color(0xFF111014),
+            onBackground = Color(0xFFF1ECF2),
+            surface = Color(0xFF111014),
+            onSurface = Color(0xFFF1ECF2),
+            surfaceVariant = Color(0xFF252229),
+            onSurfaceVariant = Color(0xFFE6E0E8)
+        )
+    }
 }
