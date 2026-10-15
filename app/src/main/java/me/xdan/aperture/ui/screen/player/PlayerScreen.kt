@@ -831,11 +831,9 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
     val previewLoader = remember(context) { PreviewFrameLoader(context) }
     val targetProgress = if (scrubbing && duration > 0L) (seekPosition.toFloat() / duration).coerceIn(0f, 1f) else progress.coerceIn(0f, 1f)
     val animatedProgress by androidx.compose.animation.core.animateFloatAsState(targetValue = targetProgress, animationSpec = androidx.compose.animation.core.tween(80), label = "thinSeekProgress")
-    val waveAmplitude by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f,
-        animationSpec = tween(220),
-        label = "playerWaveAmplitude"
-    )
+    // The indicator animates amplitude changes internally. Feeding it an animated
+    // target can drop the final value when playback (and progress updates) stops.
+    val waveAmplitude = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
     val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
     LaunchedEffect(previewPosition, scrubbing, mediaSource) {
         previewBitmap = null
