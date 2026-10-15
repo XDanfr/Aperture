@@ -1,5 +1,8 @@
 package me.xdan.aperture.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -64,39 +67,63 @@ fun ApertureTheme(
     dynamicAccent: Color? = null,
     content: @Composable () -> Unit
 ) {
-    val option = ApertureThemeOptions.firstOrNull { it.id == themeId } ?: ApertureThemeOptions.first()
-    val accent = if (themeId == "dynamic") dynamicAccent ?: option.primary else option.primary
-    val secondary = if (themeId == "dynamic") accent.copy(alpha = 0.86f) else option.secondary
-    val tertiary = if (themeId == "dynamic") accent.copy(alpha = 0.72f) else option.tertiary
-    // Settle the global palette once; animating these roles invalidates the whole theme tree.
-    val scheme = remember(themeId, accent, secondary, tertiary) {
-        apertureDarkColorScheme(
-            themeId = themeId,
-            primary = accent,
-            inversePrimary = inversePrimaryForAccent(accent),
-            secondary = secondary,
-            tertiary = tertiary
-        )
+    val target = remember(themeId, dynamicAccent) {
+        val option = ApertureThemeOptions.firstOrNull { it.id == themeId } ?: ApertureThemeOptions.first()
+        if (themeId == "dynamic") {
+            dynamicArtworkColorScheme(dynamicAccent ?: option.primary)
+        } else {
+            apertureDarkColorScheme(themeId, option.primary, inversePrimaryForAccent(option.primary), option.secondary, option.tertiary)
+        }
     }
-    val tokens = remember(scheme, themeId) {
+    AnimatedApertureTheme(target, themeId == "classic", content)
+}
+
+@Composable
+private fun AnimatedApertureTheme(target: ColorScheme, isMaterialTv: Boolean, content: @Composable () -> Unit) {
+    val motion = remember { ApertureMotion() }
+    val spec = remember(motion) { motion.brandFastEffects<Color>() }
+    val primary by animateColorAsState(target.primary, spec, label = "themePrimary")
+    val inversePrimary by animateColorAsState(target.inversePrimary, spec, label = "themeInversePrimary")
+    val onPrimary by animateColorAsState(target.onPrimary, spec, label = "themeOnPrimary")
+    val primaryContainer by animateColorAsState(target.primaryContainer, spec, label = "themePrimaryContainer")
+    val onPrimaryContainer by animateColorAsState(target.onPrimaryContainer, spec, label = "themeOnPrimaryContainer")
+    val secondary by animateColorAsState(target.secondary, spec, label = "themeSecondary")
+    val onSecondary by animateColorAsState(target.onSecondary, spec, label = "themeOnSecondary")
+    val secondaryContainer by animateColorAsState(target.secondaryContainer, spec, label = "themeSecondaryContainer")
+    val onSecondaryContainer by animateColorAsState(target.onSecondaryContainer, spec, label = "themeOnSecondaryContainer")
+    val tertiary by animateColorAsState(target.tertiary, spec, label = "themeTertiary")
+    val onTertiary by animateColorAsState(target.onTertiary, spec, label = "themeOnTertiary")
+    val tertiaryContainer by animateColorAsState(target.tertiaryContainer, spec, label = "themeTertiaryContainer")
+    val onTertiaryContainer by animateColorAsState(target.onTertiaryContainer, spec, label = "themeOnTertiaryContainer")
+    val scheme = target.copy(
+        primary = primary, inversePrimary = inversePrimary, onPrimary = onPrimary,
+        primaryContainer = primaryContainer, onPrimaryContainer = onPrimaryContainer,
+        secondary = secondary, onSecondary = onSecondary,
+        secondaryContainer = secondaryContainer, onSecondaryContainer = onSecondaryContainer,
+        tertiary = tertiary, onTertiary = onTertiary,
+        tertiaryContainer = tertiaryContainer, onTertiaryContainer = onTertiaryContainer
+    )
+    // Keep the static CompositionLocal's value stable throughout the fade. Only consumers
+    // reading changed colour state need recomposition; spacing, motion and shape readers skip it.
+    val tokens = remember {
         ApertureTokens(
             colorScheme = scheme.toApertureColorScheme(),
             typography = ApertureTypography(Typography),
             shapes = ApertureShapes(),
-            motion = ApertureMotion(),
+            motion = motion,
             spacing = ApertureSpacing(),
             elevation = ApertureElevation(),
-            brandAccent = if (themeId == "classic") Primary else accent,
-            isMaterialTv = themeId == "classic"
+            brandAccent = if (isMaterialTv) Primary else primary,
+            isMaterialTv = isMaterialTv
         )
     }
-
+    SideEffect {
+        tokens.colorScheme.updateFromMaterial(scheme)
+        tokens.brandAccent = if (isMaterialTv) Primary else primary
+        tokens.isMaterialTv = isMaterialTv
+    }
     CompositionLocalProvider(LocalApertureTokens provides tokens) {
-        MaterialTheme(
-            colorScheme = scheme,
-            typography = Typography,
-            content = content
-        )
+        MaterialTheme(colorScheme = scheme, typography = Typography, content = content)
     }
 }
 
@@ -216,4 +243,32 @@ internal fun apertureDarkColorScheme(
             onSurfaceVariant = Color(0xFFE6E0E8)
         )
     }
+}
+
+private fun ApertureColorScheme.updateFromMaterial(scheme: ColorScheme) {
+    surfaceBright = scheme.surfaceVariant
+    surfaceDim = scheme.surface
+    surfaceContainer = scheme.surfaceVariant
+    surfaceContainerLow = scheme.surface
+    surfaceContainerHigh = scheme.surfaceVariant
+    surfaceContainerHighest = scheme.surfaceVariant
+    mediaCardBackground = scheme.surfaceVariant
+    focusedMediaCardBackground = scheme.primaryContainer
+    heroBackground = scheme.surface
+    playbackOverlay = scheme.background.copy(alpha = 0.8f)
+    metadataBackground = scheme.surface.copy(alpha = 0.6f)
+    shelfBackground = Color.Transparent
+    primary = scheme.primary
+    onPrimary = scheme.onPrimary
+    primaryContainer = scheme.primaryContainer
+    onPrimaryContainer = scheme.onPrimaryContainer
+    secondary = scheme.secondary
+    background = scheme.background
+    onBackground = scheme.onBackground
+    surface = scheme.surface
+    onSurface = scheme.onSurface
+    surfaceVariant = scheme.surfaceVariant
+    onSurfaceVariant = scheme.onSurfaceVariant
+    border = scheme.border
+    borderVariant = scheme.borderVariant
 }

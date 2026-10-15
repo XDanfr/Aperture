@@ -106,6 +106,7 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.nextlib.media3ext)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.palette)
     implementation(libs.converter.moshi)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)

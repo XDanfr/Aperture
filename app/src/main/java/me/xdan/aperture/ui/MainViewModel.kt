@@ -17,27 +17,15 @@ import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import javax.inject.Inject
-import android.content.Context
-import androidx.core.graphics.drawable.toBitmap
-import coil.imageLoader
-import coil.request.ImageRequest
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
-import me.xdan.aperture.ui.artwork.extractArtworkAccent
-import me.xdan.aperture.ui.artwork.DynamicAccentController
-import coil.size.Precision
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
     private val updateManager: UpdateManager,
-    @ApplicationContext private val context: Context
+    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore
 ) : ViewModel() {
 
     private var preparationJob: Job? = null
@@ -58,32 +46,7 @@ class MainViewModel @Inject constructor(
 
     private val _dynamicAccentArgb = MutableStateFlow<Int?>(null)
     val dynamicAccentArgb: StateFlow<Int?> = _dynamicAccentArgb
-    private val dynamicAccentController = DynamicAccentController(
-        scope = viewModelScope,
-        resolveArtwork = { mediaId ->
-            mediaRepository.getMediaById(mediaId)?.let { it.backdropPath ?: it.posterPath }
-        },
-        loadAccent = { artworkPath ->
-            withContext(Dispatchers.IO) {
-                try {
-                    val result = context.imageLoader.execute(
-                        ImageRequest.Builder(context)
-                            .data(TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath)
-                            .size(32, 32)
-                            .precision(Precision.EXACT)
-                            .allowHardware(false)
-                            .build()
-                    )
-                    result.drawable?.toBitmap(32, 32)?.let(::extractArtworkAccent)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    null
-                }
-            }
-        },
-        onAccent = { _dynamicAccentArgb.value = it }
-    )
+    private val activeMediaId = MutableStateFlow<Long?>(null)
 
     val isTutorialRequired = userPreferencesRepository.isTutorialRequired.stateIn(
         viewModelScope,
@@ -99,9 +62,10 @@ class MainViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            userPreferencesRepository.themeId.collect { id ->
-                if (id != "dynamic") dynamicAccentController.cancel()
-            }
+            me.xdan.aperture.ui.artwork.dynamicArtworkSeeds(
+                activeMediaId, mediaRepository.getAllMedia(), userPreferencesRepository.themeId,
+                artworkPalettes::observeSeed
+            ).collect { _dynamicAccentArgb.value = it }
         }
         viewModelScope.launch {
             userPreferencesRepository.isOnboardingCompleted
@@ -150,8 +114,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun setActiveMedia(mediaId: Long) {
-        if (themeId.value != "dynamic") return
-        dynamicAccentController.request(mediaId)
+        activeMediaId.value = mediaId
     }
 
 }

@@ -1,53 +1,72 @@
 package me.xdan.aperture.ui.theme
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.tv.material3.MaterialTheme
 import me.xdan.aperture.ui.theme.tokens.ApertureTokens
 import me.xdan.aperture.ui.theme.tokens.LocalApertureTokens
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
+import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
 class ApertureThemeTest {
-    @get:Rule
-    val compose = createComposeRule()
+    @get:Rule val compose = createComposeRule()
 
     @Test
-    fun dynamicPaletteSettlesWithoutAnimationFramesAndReusesTokens() {
-        val accent = mutableStateOf(Color(0xFFFF7474))
-        val unrelated = mutableIntStateOf(0)
+    fun colourFadeKeepsTokensStableAndSkipsUnrelatedContent() {
+        val accent = mutableStateOf(Color(0xFFCC3333))
         var primary = Color.Unspecified
         var semanticPrimary = Color.Unspecified
         var tokens: ApertureTokens? = null
+        var unrelatedCompositions = 0
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            val currentAccent = accent.value
-            val tick = unrelated.intValue
-            ApertureTheme(themeId = "dynamic", dynamicAccent = currentAccent) {
-                val materialPrimary = MaterialTheme.colorScheme.primary
-                val currentTokens = LocalApertureTokens.current
-                SideEffect {
-                    check(tick >= 0)
-                    primary = materialPrimary
-                    semanticPrimary = currentTokens.colorScheme.primary
-                    tokens = currentTokens
+            ApertureTheme(themeId = "dynamic", dynamicAccent = accent.value) {
+                UnrelatedProbe { unrelatedCompositions++ }
+                ColourProbe { material, semantic, current ->
+                    primary = material
+                    semanticPrimary = semantic
+                    tokens = current
                 }
             }
         }
-        compose.runOnIdle { accent.value = Color(0xFF72D4EF) }
-        compose.mainClock.advanceTimeByFrame()
+        val originalTokens = tokens
+        val originalColour = primary
+        val initialCompositions = unrelatedCompositions
+        val targetSeed = Color(0xFF008577)
+        val targetColour = dynamicArtworkColorScheme(targetSeed).primary
+        compose.runOnIdle { accent.value = targetSeed }
+        compose.mainClock.advanceTimeBy(64)
         compose.runOnIdle {
-            assertEquals(accent.value, primary)
-            assertEquals(accent.value, semanticPrimary)
+            assertNotEquals(originalColour, primary)
+            assertNotEquals(targetColour, primary)
+            assertSame(originalTokens, tokens)
         }
-        val settledTokens = tokens
-        compose.runOnIdle { unrelated.intValue++ }
-        compose.mainClock.advanceTimeByFrame()
-        compose.runOnIdle { assertSame(settledTokens, tokens) }
+        val duringFadeCompositions = unrelatedCompositions
+        assertTrue(duringFadeCompositions <= initialCompositions + 1)
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle {
+            assertEquals(targetColour, primary)
+            assertEquals(targetColour, semanticPrimary)
+            assertSame(originalTokens, tokens)
+            assertEquals(duringFadeCompositions, unrelatedCompositions)
+        }
     }
+}
+
+@Composable
+private fun UnrelatedProbe(composed: () -> Unit) {
+    ApertureTheme.spacing
+    SideEffect(composed)
+}
+
+@Composable
+private fun ColourProbe(colours: (Color, Color, ApertureTokens) -> Unit) {
+    val material = MaterialTheme.colorScheme.primary
+    val tokens = LocalApertureTokens.current
+    val semantic = tokens.colorScheme.primary
+    SideEffect { colours(material, semantic, tokens) }
 }
