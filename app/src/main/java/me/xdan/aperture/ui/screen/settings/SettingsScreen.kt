@@ -1701,6 +1701,7 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
                     Text("• Jetpack Compose")
                     Text("• Coil")
                     Text("• Retrofit, OkHttp and Moshi")
+                    Text("• Outfit typeface (SIL Open Font License 1.1)")
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
                     Button(
                         onClick = onDismiss,
