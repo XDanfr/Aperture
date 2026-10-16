@@ -59,6 +59,22 @@ class MainViewModel @Inject constructor(
         .map { it.firstOrNull() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val ambientSettings = combine(
+        userPreferencesRepository.ambientMode,
+        userPreferencesRepository.ambientWallBrandPlacement,
+        userPreferencesRepository.ambientShowClock
+    ) { mode, placement, clock ->
+        me.xdan.aperture.domain.model.AmbientSettings(mode, placement, clock)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), me.xdan.aperture.domain.model.AmbientSettings())
+
+    fun setAmbientSettings(settings: me.xdan.aperture.domain.model.AmbientSettings) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAmbientMode(settings.mode)
+            userPreferencesRepository.setAmbientWallBrandPlacement(settings.wallBrandPlacement)
+            userPreferencesRepository.setAmbientShowClock(settings.showClock)
+        }
+    }
+
     val updateState = updateManager.state
     val legacyCleanupRequired = legacyMigration.cleanupRequired
 
@@ -108,7 +124,7 @@ class MainViewModel @Inject constructor(
 
     fun completeOnboarding(showTutorial: Boolean = false) {
         viewModelScope.launch {
-            userPreferencesRepository.setTutorialRequired(showTutorial && !legacyMigration.wasLegacyInstallDetected)
+            userPreferencesRepository.setTutorialRequired(showTutorial)
             userPreferencesRepository.setOnboardingCompleted(true)
         }
     }

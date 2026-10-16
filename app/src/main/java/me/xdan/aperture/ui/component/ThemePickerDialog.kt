@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.platform.LocalWindowInfo
 import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
 
@@ -26,22 +27,24 @@ import me.xdan.aperture.ui.theme.ApertureThemeOptions
 fun ThemePickerDialog(
     selectedThemeId: String,
     onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onboarding: Boolean = false
+    onDismiss: () -> Unit
 ) {
     val firstRequester = remember { FocusRequester() }
     val themeRows = remember { ApertureThemeOptions.chunked(3) }
-    val initialThemeId = remember { selectedThemeId }
+    val initialThemeId = remember { ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.id ?: ApertureThemeOptions.first().id }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
         initialFirstVisibleItemIndex = ApertureThemeOptions.indexOfFirst { it.id == initialThemeId }.coerceAtLeast(0) / 3
     )
 
-    LaunchedEffect(Unit) {
-        delay(80)
-        runCatching { firstRequester.requestFocus() }
-    }
-
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val windowInfo = LocalWindowInfo.current
+        LaunchedEffect(windowInfo.isWindowFocused) {
+            if (!windowInfo.isWindowFocused) return@LaunchedEffect
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }.first { it }
+            withFrameNanos { }
+            withFrameNanos { }
+            firstRequester.requestFocus()
+        }
         Box(
             Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)),
             contentAlignment = Alignment.Center
@@ -106,7 +109,7 @@ fun ThemePickerDialog(
                         }
                     }
                     Spacer(Modifier.height(ApertureTheme.spacing.medium))
-                    Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(if (onboarding) "Continue" else "Done") }
+                    Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
                 }
             }
         }

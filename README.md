@@ -39,7 +39,7 @@
 
 ### Updating from 0.4.2-alpha or earlier
 
-0.5 uses a new signing key and the package name `cc.xdan.aperture`. Install and open the new APK. If the old app is detected, Aperture will guide you through uninstalling it, then choosing a theme and rebuilding your library. Settings, My List and watch progress start fresh; your media files remain on your device.
+0.5 uses a new signing key and the package name `cc.xdan.aperture`. Install and open the new APK. If the old app is detected, Aperture will guide you through uninstalling it, then rebuilding your library. While scanning, you can choose a theme and customise Ambient mode. When ready, choose Get started or Learn Aperture. Settings, My List and watch progress start fresh; your media files remain on your device.
 
 ### Quick Install (Recommended)
 

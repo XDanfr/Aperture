@@ -5,6 +5,8 @@ import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,8 +30,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -38,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +64,10 @@ import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
+import me.xdan.aperture.ui.screen.settings.AmbientSettingsDialog
+import me.xdan.aperture.domain.model.AmbientSettings
+import me.xdan.aperture.domain.model.AmbientModeType
+import me.xdan.aperture.ui.theme.ApertureThemeOptions
 import me.xdan.aperture.ui.component.ThemePickerDialog
 import me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator
 import me.xdan.aperture.ui.theme.ApertureTheme
@@ -74,9 +82,25 @@ fun OnboardingScreen(
     rescanMode: Boolean = false,
     onRescanComplete: () -> Unit = onComplete,
     selectedThemeId: String = "purple",
-    onSelectTheme: (String) -> Unit = {}
+    onSelectTheme: (String) -> Unit = {},
+    ambientSettings: AmbientSettings = AmbientSettings(),
+    onSaveAmbient: (AmbientSettings) -> Unit = {},
+    onLearn: () -> Unit = onComplete
 ) {
-    var themeChosen by rememberSaveable(rescanMode) { mutableStateOf(rescanMode) }
+    var showThemePicker by remember { mutableStateOf(false) }
+    var showAmbientSettings by remember { mutableStateOf(false) }
+    val themeRequester = remember { FocusRequester() }
+    val ambientRequester = remember { FocusRequester() }
+    var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
+    val windowInfo = LocalWindowInfo.current
+    LaunchedEffect(pendingFocus, windowInfo.isWindowFocused) {
+        if (!windowInfo.isWindowFocused) return@LaunchedEffect
+        val requester = pendingFocus ?: return@LaunchedEffect
+        androidx.compose.runtime.withFrameNanos { }
+        androidx.compose.runtime.withFrameNanos { }
+        requester.requestFocus()
+        pendingFocus = null
+    }
     val permissionState = rememberPermissionState(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_VIDEO
@@ -87,22 +111,21 @@ fun OnboardingScreen(
     val hasLibraryAccess = permissionState.status.isGranted
     var rescanHasStarted by remember(rescanMode) { mutableStateOf(!rescanMode) }
 
-    LaunchedEffect(hasLibraryAccess, themeChosen) {
-        if (hasLibraryAccess && themeChosen) onStartPreparation()
+    LaunchedEffect(hasLibraryAccess) {
+        if (hasLibraryAccess) onStartPreparation()
     }
 
-    LaunchedEffect(progress.stage, themeChosen) {
-        if (!themeChosen) return@LaunchedEffect
+    LaunchedEffect(progress.stage) {
         if (rescanMode && progress.stage in setOf(
                 LibraryPreparationStage.DISCOVERING,
                 LibraryPreparationStage.MATCHING
             )) {
             rescanHasStarted = true
         }
-        if (progress.stage == LibraryPreparationStage.COMPLETE) {
+        if (rescanMode && progress.stage == LibraryPreparationStage.COMPLETE) {
             if (rescanMode && !rescanHasStarted) return@LaunchedEffect
             delay(700)
-            if (rescanMode) onRescanComplete() else onComplete()
+            onRescanComplete()
         }
     }
 
@@ -111,14 +134,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (!themeChosen) {
-            ThemePickerDialog(
-                selectedThemeId = selectedThemeId,
-                onSelect = onSelectTheme,
-                onDismiss = { themeChosen = true },
-                onboarding = true
-            )
-        } else if (rescanMode || hasLibraryAccess) {
+        if (rescanMode || hasLibraryAccess) {
             PosterBackground(progress.posterPaths)
             Box(
                 modifier = Modifier
@@ -132,13 +148,75 @@ fun OnboardingScreen(
                         )
                     )
             )
-            PreparationPanel(
-                progress = progress,
-                onRetry = onStartPreparation,
-                onSkip = onSkip,
-                rescanMode = rescanMode,
-                modifier = Modifier.align(Alignment.Center)
-            )
+            if (rescanMode) {
+                PreparationPanel(
+                    progress = progress,
+                    onRetry = onStartPreparation,
+                    onSkip = onSkip,
+                    onComplete = onComplete,
+                    onLearn = onLearn,
+                    rescanMode = true,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(ApertureTheme.spacing.large).align(Alignment.Center),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    PreparationPanel(
+                        progress = progress,
+                        onRetry = onStartPreparation,
+                        onSkip = onSkip,
+                        onComplete = onComplete,
+                        onLearn = onLearn,
+                        focusEnabled = !showThemePicker && !showAmbientSettings,
+                        modifier = Modifier.weight(1.5f).heightIn(max = 480.dp)
+                    )
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = ApertureTheme.shapes.dialog,
+                        colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), contentColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Column(
+                            Modifier.padding(ApertureTheme.spacing.large),
+                            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                        ) {
+                            Text("Customise Aperture", style = MaterialTheme.typography.headlineSmall)
+                            Text(
+                                "Choose your theme and what to show while Aperture is idle. You can change these later in Settings.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = { showThemePicker = true },
+                                modifier = Modifier.fillMaxWidth().focusRequester(themeRequester)
+                            ) {
+                                Column {
+                                    Text("Theme")
+                                    Text(
+                                        ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.label ?: "Aperture Purple",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showAmbientSettings = true },
+                                modifier = Modifier.fillMaxWidth().focusRequester(ambientRequester)
+                            ) {
+                                Column {
+                                    Text("Ambient mode")
+                                    Text(
+                                        (if (ambientSettings.mode == AmbientModeType.CINEMATIC) "Cinematic" else "Poster wall") +
+                                            if (ambientSettings.showClock) " · Clock on" else " · Clock off",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } else {
             PermissionPanel(
                 onGrantPermission = permissionState::launchPermissionRequest,
@@ -146,6 +224,31 @@ fun OnboardingScreen(
             )
         }
     }
+    if (showThemePicker) {
+        ThemePickerDialog(
+            selectedThemeId = selectedThemeId,
+            onSelect = onSelectTheme,
+            onDismiss = {
+                showThemePicker = false
+                pendingFocus = themeRequester
+            }
+        )
+    }
+    if (showAmbientSettings) {
+        AmbientSettingsDialog(
+            initial = ambientSettings,
+            onSave = {
+                onSaveAmbient(it)
+                showAmbientSettings = false
+                pendingFocus = ambientRequester
+            },
+            onDismiss = {
+                showAmbientSettings = false
+                pendingFocus = ambientRequester
+            }
+        )
+    }
+
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -155,7 +258,7 @@ private fun PermissionPanel(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.72f)),
+        colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.72f), contentColor = MaterialTheme.colorScheme.onSurface),
         shape = ApertureTheme.shapes.dialog,
         modifier = modifier.width(540.dp)
     ) {
@@ -192,7 +295,10 @@ private fun PreparationPanel(
     progress: LibraryPreparationProgress,
     onRetry: () -> Unit,
     onSkip: () -> Unit,
+    onComplete: () -> Unit,
+    onLearn: () -> Unit,
     rescanMode: Boolean = false,
+    focusEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val isDiscovering = progress.stage == LibraryPreparationStage.IDLE ||
@@ -202,25 +308,22 @@ private fun PreparationPanel(
     val isComplete = progress.stage == LibraryPreparationStage.COMPLETE
 
     val skipFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(isComplete) {
-        if (!isComplete) {
-            repeat(15) {
-                delay(100)
-                if (runCatching { skipFocusRequester.requestFocus() }.getOrDefault(false)) {
-                    return@LaunchedEffect
-                }
-            }
-        }
+    val currentFocusEnabled by rememberUpdatedState(focusEnabled)
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.withFrameNanos { }
+        androidx.compose.runtime.withFrameNanos { }
+        if (!rescanMode && currentFocusEnabled) skipFocusRequester.requestFocus()
     }
 
     Surface(
         colors = SurfaceDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = ApertureTheme.shapes.dialog,
         modifier = modifier.width(620.dp)
     ) {
-        Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
+        Column(modifier = Modifier.padding(ApertureTheme.spacing.large).verticalScroll(rememberScrollState())) {
             Text(
                 text = when {
                     isError -> "We hit a snag"
@@ -284,11 +387,15 @@ private fun PreparationPanel(
                     OutlinedButton(onClick = onRetry) { Text("Try again") }
                     Spacer(Modifier.width(ApertureTheme.spacing.medium))
                 }
-                if (!isComplete && !rescanMode) {
+                if (!rescanMode) {
+                    if (isComplete) {
+                        OutlinedButton(onClick = onLearn) { Text("Learn Aperture") }
+                        Spacer(Modifier.width(ApertureTheme.spacing.small))
+                    }
                     Button(
-                        onClick = onSkip,
+                        onClick = if (isComplete) onComplete else onSkip,
                         modifier = Modifier.focusRequester(skipFocusRequester)
-                    ) { Text("Skip") }
+                    ) { Text(if (isComplete) "Get started" else "Skip") }
                 }
             }
         }
@@ -301,8 +408,14 @@ private fun ProgressLabel(label: String, value: String, showLoading: Boolean = f
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.weight(1f))
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.width(ApertureTheme.spacing.small))
         Text(
             value,
             style = MaterialTheme.typography.titleMedium,

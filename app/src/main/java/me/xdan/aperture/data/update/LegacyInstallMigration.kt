@@ -12,12 +12,8 @@ import javax.inject.Singleton
 class LegacyInstallMigration @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val preferences = context.getSharedPreferences("package_migration", Context.MODE_PRIVATE)
     private val _cleanupRequired = MutableStateFlow(false)
     val cleanupRequired = _cleanupRequired.asStateFlow()
-
-    val wasLegacyInstallDetected: Boolean
-        get() = preferences.getBoolean("legacy_install_detected", false)
 
     init {
         refresh()
@@ -29,10 +25,6 @@ class LegacyInstallMigration @Inject constructor(
             true
         } catch (_: PackageManager.NameNotFoundException) {
             false
-        }
-        if (installed && !wasLegacyInstallDetected) {
-            // Persist before opening Android's uninstaller, which can outlive this process.
-            preferences.edit().putBoolean("legacy_install_detected", true).commit()
         }
         _cleanupRequired.value = installed
     }

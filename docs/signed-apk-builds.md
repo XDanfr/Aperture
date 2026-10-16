@@ -57,12 +57,13 @@ confirmation returns to the update dialog. If the system screen cannot open, the
 explains how to remove the old package in Android Settings.
 
 The app rechecks package presence on return rather than treating an activity result as
-proof of removal. Detection is persisted before opening the uninstaller, so restarting
-Aperture during migration still skips the post-onboarding tutorial after setup. A fresh
-install without the old package retains the normal tutorial.
+proof of removal. Both paths request video access and begin the onboarding scan.
+Theme and Ambient customisation remain available while scanning and once it finishes;
+the screen stays open until the user chooses **Get started** (no tutorial) or
+**Learn Aperture** (explicitly opens the tutorial). This includes migrating users, who
+can request the tutorial without it being shown automatically.
 
-Both paths begin with the shared theme picker, then request video access and perform the
-onboarding scan. Existing folders on removable storage must be selected again. Settings,
+Existing folders on removable storage must be selected again. Settings,
 My List, watch progress, stored permissions and account sign-ins are not copied from the
 old app. Uninstalling the old app removes its private data; it does not remove the user's
 media library files. The old release did not expose a cross-app database export, and the
