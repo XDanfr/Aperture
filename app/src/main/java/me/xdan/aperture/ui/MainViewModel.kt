@@ -64,6 +64,10 @@ class MainViewModel @Inject constructor(
 
     fun refreshLegacyInstall() = legacyMigration.refresh()
 
+    fun setTheme(themeId: String) {
+        viewModelScope.launch { userPreferencesRepository.setThemeId(themeId) }
+    }
+
     init {
         viewModelScope.launch {
             me.xdan.aperture.ui.artwork.dynamicArtworkSeeds(

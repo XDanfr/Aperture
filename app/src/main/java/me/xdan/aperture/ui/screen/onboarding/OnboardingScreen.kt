@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -59,6 +60,7 @@ import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
+import me.xdan.aperture.ui.component.ThemePickerDialog
 import me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator
 import me.xdan.aperture.ui.theme.ApertureTheme
 
@@ -70,8 +72,11 @@ fun OnboardingScreen(
     onSkip: () -> Unit,
     onComplete: () -> Unit,
     rescanMode: Boolean = false,
-    onRescanComplete: () -> Unit = onComplete
+    onRescanComplete: () -> Unit = onComplete,
+    selectedThemeId: String = "purple",
+    onSelectTheme: (String) -> Unit = {}
 ) {
+    var themeChosen by rememberSaveable(rescanMode) { mutableStateOf(rescanMode) }
     val permissionState = rememberPermissionState(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_VIDEO
@@ -82,11 +87,12 @@ fun OnboardingScreen(
     val hasLibraryAccess = permissionState.status.isGranted
     var rescanHasStarted by remember(rescanMode) { mutableStateOf(!rescanMode) }
 
-    LaunchedEffect(hasLibraryAccess) {
-        if (hasLibraryAccess) onStartPreparation()
+    LaunchedEffect(hasLibraryAccess, themeChosen) {
+        if (hasLibraryAccess && themeChosen) onStartPreparation()
     }
 
-    LaunchedEffect(progress.stage) {
+    LaunchedEffect(progress.stage, themeChosen) {
+        if (!themeChosen) return@LaunchedEffect
         if (rescanMode && progress.stage in setOf(
                 LibraryPreparationStage.DISCOVERING,
                 LibraryPreparationStage.MATCHING
@@ -105,7 +111,14 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (rescanMode || hasLibraryAccess) {
+        if (!themeChosen) {
+            ThemePickerDialog(
+                selectedThemeId = selectedThemeId,
+                onSelect = onSelectTheme,
+                onDismiss = { themeChosen = true },
+                onboarding = true
+            )
+        } else if (rescanMode || hasLibraryAccess) {
             PosterBackground(progress.posterPaths)
             Box(
                 modifier = Modifier

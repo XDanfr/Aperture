@@ -37,6 +37,10 @@
 > * Organise your media under `Movies/` and `TV Shows/` folders in local or extended storage (`Download`, `DCIM` and `Videos` are also supported).
 > * Use clean file names and standard TV structures (e.g. `Show Title/Season XX/SXXEXX.mp4`).
 
+### Updating from 0.4.2-alpha or earlier
+
+0.5 uses a new signing key and the package name `cc.xdan.aperture`. Install and open the new APK. If the old app is detected, Aperture will guide you through uninstalling it, then choosing a theme and rebuilding your library. Settings, My List and watch progress start fresh; your media files remain on your device.
+
 ### Quick Install (Recommended)
 
 Download the latest release `.apk` directly from the [Releases](https://github.com/XDanfr/Aperture/releases/latest) tab and sideload it onto your Android TV device.
