@@ -17,8 +17,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -831,9 +829,7 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
     val previewLoader = remember(context) { PreviewFrameLoader(context) }
     val targetProgress = if (scrubbing && duration > 0L) (seekPosition.toFloat() / duration).coerceIn(0f, 1f) else progress.coerceIn(0f, 1f)
     val animatedProgress by androidx.compose.animation.core.animateFloatAsState(targetValue = targetProgress, animationSpec = androidx.compose.animation.core.tween(80), label = "thinSeekProgress")
-    // The indicator animates amplitude changes internally. Feeding it an animated
-    // target can drop the final value when playback (and progress updates) stops.
-    val waveAmplitude = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
+    val wavy = isPlaying && !scrubbing && progress >= 0.05f
     val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
     LaunchedEffect(previewPosition, scrubbing, mediaSource) {
         previewBitmap = null
@@ -861,7 +857,11 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
                 }
             }
         }
-        LinearWavyProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().align(Alignment.Center), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant, trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke, stopSize = 0.dp, amplitude = { waveAmplitude }, wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength)
+        PlaybackWaveProgress(
+            progress = { animatedProgress },
+            wavy = wavy,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center)
+        )
     }
 }
 

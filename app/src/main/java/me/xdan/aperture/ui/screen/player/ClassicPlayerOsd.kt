@@ -24,8 +24,6 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -308,7 +306,7 @@ private fun ClassicPlayerSeekProgress(
         label = "classicSeekProgress"
     )
 
-    val waveAmplitude = if (isPlaying && !scrubbing && progress >= 0.05f) 1f else 0f
+    val wavy = isPlaying && !scrubbing && progress >= 0.05f
     val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
 
     LaunchedEffect(previewPosition, scrubbing, mediaSource) {
@@ -527,17 +525,10 @@ private fun ClassicPlayerSeekProgress(
             }
         }
 
-        LinearWavyProgressIndicator(
+        PlaybackWaveProgress(
             progress = { animatedProgress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
-            stopSize = 0.dp,
-            amplitude = { waveAmplitude },
-            wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength
+            wavy = wavy,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center)
         )
 
         if (handleSize > 0.dp && maxWidth > 0.dp) {
