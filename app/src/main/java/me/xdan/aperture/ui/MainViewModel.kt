@@ -25,7 +25,8 @@ class MainViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
     private val updateManager: UpdateManager,
-    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore
+    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore,
+    private val legacyMigration: me.xdan.aperture.data.update.LegacyInstallMigration
 ) : ViewModel() {
 
     private var preparationJob: Job? = null
@@ -59,6 +60,9 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val updateState = updateManager.state
+    val legacyCleanupRequired = legacyMigration.cleanupRequired
+
+    fun refreshLegacyInstall() = legacyMigration.refresh()
 
     init {
         viewModelScope.launch {
@@ -100,7 +104,7 @@ class MainViewModel @Inject constructor(
 
     fun completeOnboarding(showTutorial: Boolean = false) {
         viewModelScope.launch {
-            userPreferencesRepository.setTutorialRequired(showTutorial)
+            userPreferencesRepository.setTutorialRequired(showTutorial && !legacyMigration.wasLegacyInstallDetected)
             userPreferencesRepository.setOnboardingCompleted(true)
         }
     }

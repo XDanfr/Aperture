@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
             val updateState by mainViewModel.updateState.collectAsState()
             val onboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
             val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
+            val legacyCleanupRequired by mainViewModel.legacyCleanupRequired.collectAsState()
             val sponsorVerified by sponsorVerificationManager.isVerified.collectAsState()
             val sponsorVerificationState by sponsorVerificationManager.state.collectAsState()
             val scope = rememberCoroutineScope()
@@ -84,7 +85,7 @@ class MainActivity : ComponentActivity() {
                 is UpdateCheckState.Downloading -> state.update
                 else -> null
             }
-            val updateDialogVisible = launchFinished &&
+            val updateDialogVisible = launchFinished && !legacyCleanupRequired &&
                 offeredUpdate != null &&
                 offeredUpdate.version != dismissedUpdateVersion
             val updateBlocksSponsorPrompt = when (updateState) {
@@ -108,6 +109,7 @@ class MainActivity : ComponentActivity() {
                 BuildConfig.SPONSOR_PROMPTS_ENABLED &&
                 sponsorPromptDelayElapsed &&
                 onboardingCompleted == true &&
+                !legacyCleanupRequired &&
                 !tutorialRequired &&
                 !isPlayerActive &&
                 !isAmbientActive &&
@@ -153,10 +155,12 @@ class MainActivity : ComponentActivity() {
                             @Suppress("UNCHECKED_CAST")
                             val backstack = rememberNavBackStack(Destination.Home) as NavBackStack<Destination>
 
-                            LaunchedEffect(Unit) {
+                            LaunchedEffect(legacyCleanupRequired, onboardingCompleted) {
                                 while (true) {
                                     delay(1000)
-                                    if (!isPlayerActive &&
+                                    if (!legacyCleanupRequired &&
+                                        onboardingCompleted == true &&
+                                        !isPlayerActive &&
                                         !showSponsorPrompt &&
                                         !showSponsorQr &&
                                         !showSponsorVerification &&
@@ -167,7 +171,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (isAmbientActive) {
+                            if (legacyCleanupRequired) {
+                                me.xdan.aperture.ui.screen.onboarding.LegacyInstallCleanup(
+                                    onRecheck = mainViewModel::refreshLegacyInstall,
+                                    onCancel = { finish() }
+                                )
+                            } else if (isAmbientActive) {
                                 BackHandler {
                                     lastInteractionTime = System.currentTimeMillis()
                                     isAmbientActive = false
