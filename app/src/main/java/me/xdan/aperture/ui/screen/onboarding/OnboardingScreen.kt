@@ -380,7 +380,7 @@ private fun PreparationPanel(
 
             Spacer(Modifier.height(ApertureTheme.spacing.huge))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.End
             ) {
                 if (isError) {
