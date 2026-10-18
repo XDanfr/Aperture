@@ -32,7 +32,8 @@ internal fun AmbientSettingsDialog(
     initial: AmbientSettings,
     onSave: (AmbientSettings) -> Unit,
     onPreview: ((AmbientSettings) -> Unit)? = null,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    previewMedia: List<me.xdan.aperture.data.local.entity.MediaEntity>? = null
 ) {
     var settings by remember(initial) { mutableStateOf(initial) }
     val firstRequester = remember { FocusRequester() }
@@ -66,7 +67,7 @@ internal fun AmbientSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
-                            AmbientSettingsPreview(settings, Modifier.fillMaxWidth())
+                            AmbientSettingsPreview(settings, Modifier.fillMaxWidth(), media = previewMedia)
                             Text("Preview", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(

@@ -118,7 +118,7 @@ class OnboardingCustomisationTest {
         var saved: AmbientSettings? = null
         compose.setContent {
             ApertureTheme {
-                AmbientSettingsDialog(initial = AmbientSettings(), onSave = { saved = it }, onDismiss = {})
+                AmbientSettingsDialog(initial = AmbientSettings(), onSave = { saved = it }, onDismiss = {}, previewMedia = emptyList())
             }
         }
         awaitFocused("Cinematic")
