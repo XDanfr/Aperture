@@ -22,7 +22,7 @@
 ---
 
 <p align="center">
-  <img src="screenshots/RoundSpotlight.png" alt="Aperture home screen with Spotlight and Recently Added media" />
+  <img src="screenshots/expressive/home.webp" alt="Aperture home screen with Spotlight and Recently Added media" />
 </p>
 
 ## ✨ Features
@@ -60,18 +60,27 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="screenshots/OutfitMovies.png" width="49%" alt="Aperture Movies library" />
-  <img src="screenshots/OutfitShows.png" width="49%" alt="Aperture TV Shows library with episode rows" />
+  <img src="screenshots/expressive/home.webp" width="49%" alt="Aperture home screen with Backrooms in Spotlight and Recently Added media" />
+  <img src="screenshots/expressive/home-sidebar.webp" width="49%" alt="Aperture home screen with expanded navigation and Power Ballad in Spotlight" />
 </p>
 
 <p align="center">
-  <img src="screenshots/GroupPopup.png" width="49%" alt="Aperture grouped TV show details popup" />
-  <img src="screenshots/EpisodeSelect.png" width="49%" alt="Aperture season and episode selector" />
+  <img src="screenshots/expressive/movies.webp" width="49%" alt="Aperture movies library with a focused poster" />
+  <img src="screenshots/expressive/search.webp" width="49%" alt="Aperture search results with the on-screen keyboard" />
 </p>
 
 <p align="center">
-  <img src="screenshots/OutfitSearch.png" width="49%" alt="Aperture media search" />
-  <img src="screenshots/MetaSearch.png" width="49%" alt="Aperture manual artwork and metadata selection" />
+  <img src="screenshots/expressive/episodes.webp" width="49%" alt="Aperture season and episode selector for Breaking Bad" />
+  <img src="screenshots/expressive/details.webp" width="49%" alt="Aperture Big Hero 6 details with playback and My List controls" />
+</p>
+
+<p align="center">
+  <img src="screenshots/expressive/splash-minions.webp" width="49%" alt="Aperture Minions artwork splash screen" />
+  <img src="screenshots/expressive/splash-project-hail-mary.webp" width="49%" alt="Aperture Project Hail Mary artwork splash screen" />
+</p>
+
+<p align="center">
+  <img src="screenshots/expressive/buffering.webp" width="49%" alt="Aperture Breaking Bad buffering screen" />
 </p>
 
 ## 🗺️ Roadmap
