@@ -60,6 +60,7 @@ import kotlinx.coroutines.delay
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
+import me.xdan.aperture.domain.model.AmbientSettings
 import me.xdan.aperture.domain.model.AmbientModeType
 import me.xdan.aperture.ui.component.ApertureBrandMark
 import me.xdan.aperture.ui.component.ApertureBrandPalette
@@ -86,7 +87,6 @@ fun AmbientMode(
     val hostView = LocalView.current
     val allMedia by viewModel.media.collectAsState()
     val settings by viewModel.settings.collectAsState()
-    val glassBackdrop = rememberAmbientGlassBackdrop()
 
     // Ambient Mode is Aperture's own idle experience, so Android's native
     // dream/screensaver must not replace it while the mode is visible. Restore
@@ -97,19 +97,32 @@ fun AmbientMode(
         onDispose { hostView.keepScreenOn = wasKeepingScreenOn }
     }
 
+    AmbientScene(allMedia, settings, artworkAccent = viewModel::artworkAccent)
+}
+
+@Composable
+internal fun AmbientScene(
+    allMedia: List<MediaEntity>,
+    settings: AmbientSettings,
+    animate: Boolean = true,
+    artworkAccent: suspend (String) -> Int? = { null }
+) {
+    val glassBackdrop = rememberAmbientGlassBackdrop()
     CompositionLocalProvider(LocalAmbientGlassBackdrop provides glassBackdrop) {
         when (settings.mode) {
             AmbientModeType.CINEMATIC -> CinematicAmbientMode(
                 media = remember(allMedia) { eligibleCinematicMedia(allMedia) },
                 showClock = settings.showClock,
                 glassBackdrop = glassBackdrop,
-                artworkAccent = viewModel::artworkAccent
+                artworkAccent = artworkAccent,
+                animate = animate
             )
             AmbientModeType.POSTER_WALL -> PosterWallAmbientMode(
                 media = remember(allMedia) { eligiblePosterMedia(allMedia) },
                 brandPlacement = settings.wallBrandPlacement,
                 showClock = settings.showClock,
-                glassBackdrop = glassBackdrop
+                glassBackdrop = glassBackdrop,
+                animate = animate
             )
         }
     }
@@ -120,7 +133,8 @@ private fun CinematicAmbientMode(
     media: List<MediaEntity>,
     showClock: Boolean,
     glassBackdrop: AmbientGlassBackdropState,
-    artworkAccent: suspend (String) -> Int?
+    artworkAccent: suspend (String) -> Int?,
+    animate: Boolean
 ) {
     val themePalette = currentApertureBrandPalette()
     val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.backdropPath}" } }
@@ -133,7 +147,12 @@ private fun CinematicAmbientMode(
     }
     val palette = animatedAmbientPalette(targetPalette)
 
-    LaunchedEffect(mediaKey) {
+    LaunchedEffect(mediaKey, animate) {
+        if (!animate) {
+            artworkAlpha.snapTo(1f)
+            current?.backdropPath?.let { logoAccent = artworkAccent(it)?.let(::Color) }
+            return@LaunchedEffect
+        }
         artworkAlpha.snapTo(0f)
         current?.backdropPath?.let { path ->
             logoAccent = artworkAccent(path)?.let { Color(it) }
@@ -174,6 +193,7 @@ private fun CinematicAmbientMode(
             current?.let { item ->
                 CinematicArtwork(
                     media = item,
+                    animate = animate,
                     modifier = Modifier.graphicsLayer { alpha = artworkAlpha.value }
                 )
             }
@@ -195,6 +215,7 @@ private fun CinematicAmbientMode(
 @Composable
 private fun CinematicArtwork(
     media: MediaEntity,
+    animate: Boolean,
     modifier: Modifier = Modifier
 ) {
     val travel = remember(media.id) { Animatable(0f) }
@@ -205,7 +226,8 @@ private fun CinematicArtwork(
         backdropImageSpec(context, BackdropImageUsage.AMBIENT)
     }
 
-    LaunchedEffect(media.id) {
+    LaunchedEffect(media.id, animate) {
+        if (!animate) return@LaunchedEffect
         travel.animateTo(
             targetValue = 1f,
             animationSpec = tween(
@@ -266,7 +288,8 @@ private fun PosterWallAmbientMode(
     media: List<MediaEntity>,
     brandPlacement: AmbientBrandPlacement,
     showClock: Boolean,
-    glassBackdrop: AmbientGlassBackdropState
+    glassBackdrop: AmbientGlassBackdropState,
+    animate: Boolean
 ) {
     val background = MaterialTheme.colorScheme.background
     val palette = currentApertureBrandPalette()
@@ -274,7 +297,8 @@ private fun PosterWallAmbientMode(
     val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.posterPath}" } }
     var spinKey by remember(mediaKey, brandPlacement) { mutableIntStateOf(0) }
 
-    LaunchedEffect(mediaKey, brandPlacement) {
+    LaunchedEffect(mediaKey, brandPlacement, animate) {
+        if (!animate) return@LaunchedEffect
         while (true) {
             delay(WallSpinIntervalMillis)
             spinKey += 1
@@ -313,6 +337,7 @@ private fun PosterWallAmbientMode(
                                         media = media,
                                         mediaKey = mediaKey,
                                         index = index,
+                                        animate = animate,
                                         modifier = Modifier
                                             .fillMaxHeight()
                                             .aspectRatio(2f / 3f)
@@ -372,6 +397,7 @@ private fun AmbientPosterSlot(
     media: List<MediaEntity>,
     mediaKey: String,
     index: Int,
+    animate: Boolean,
     modifier: Modifier = Modifier
 ) {
     val random = remember(mediaKey, index) { Random(System.nanoTime() + index * 7_919L) }
@@ -382,12 +408,18 @@ private fun AmbientPosterSlot(
     val entrance = remember(mediaKey, index) { Animatable(0f) }
     val restingAlpha = remember(mediaKey, index) { 0.17f + random.nextFloat() * 0.20f }
 
-    LaunchedEffect(mediaKey, index) {
+    LaunchedEffect(mediaKey, index, animate) {
+        if (!animate) {
+            ready = true
+            entrance.snapTo(1f)
+            return@LaunchedEffect
+        }
         delay(index * 85L)
         ready = true
         entrance.animateTo(1f, tween(1_350, easing = FastOutSlowInEasing))
     }
-    LaunchedEffect(mediaKey, index) {
+    LaunchedEffect(mediaKey, index, animate) {
+        if (!animate) return@LaunchedEffect
         delay(6_000L + random.nextLong(7_000L))
         var generation = 0
         while (true) {

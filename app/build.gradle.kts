@@ -18,7 +18,7 @@ android {
     compileSdk = 37
     
     defaultConfig {
-        applicationId = "me.xdan.aperture"
+        applicationId = "cc.xdan.aperture"
         minSdk = 27
         targetSdk = 37
         versionCode = 13

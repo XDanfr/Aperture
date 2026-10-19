@@ -271,6 +271,8 @@ fun NavGraph(
     }
     val isOnboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
     val libraryPreparation by mainViewModel.libraryPreparation.collectAsState()
+    val selectedThemeId by mainViewModel.themeId.collectAsState()
+    val onboardingAmbientSettings by mainViewModel.ambientSettings.collectAsState()
     val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
     val tutorialExampleMedia by mainViewModel.tutorialExampleMedia.collectAsState()
 
@@ -348,7 +350,12 @@ fun NavGraph(
             progress = libraryPreparation,
             onStartPreparation = mainViewModel::startLibraryPreparation,
             onSkip = { mainViewModel.completeOnboarding(showTutorial = false) },
-            onComplete = { mainViewModel.completeOnboarding(showTutorial = true) }
+            onComplete = { mainViewModel.completeOnboarding(showTutorial = false) },
+            onLearn = { mainViewModel.completeOnboarding(showTutorial = true) },
+            selectedThemeId = selectedThemeId,
+            onSelectTheme = mainViewModel::setTheme,
+            ambientSettings = onboardingAmbientSettings,
+            onSaveAmbient = mainViewModel::setAmbientSettings
         )
     } else {
         ProvideFocusMemory {

@@ -25,7 +25,8 @@ class MainViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
     private val updateManager: UpdateManager,
-    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore
+    private val artworkPalettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore,
+    private val legacyMigration: me.xdan.aperture.data.update.LegacyInstallMigration
 ) : ViewModel() {
 
     private var preparationJob: Job? = null
@@ -58,7 +59,30 @@ class MainViewModel @Inject constructor(
         .map { it.firstOrNull() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val ambientSettings = combine(
+        userPreferencesRepository.ambientMode,
+        userPreferencesRepository.ambientWallBrandPlacement,
+        userPreferencesRepository.ambientShowClock
+    ) { mode, placement, clock ->
+        me.xdan.aperture.domain.model.AmbientSettings(mode, placement, clock)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), me.xdan.aperture.domain.model.AmbientSettings())
+
+    fun setAmbientSettings(settings: me.xdan.aperture.domain.model.AmbientSettings) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAmbientMode(settings.mode)
+            userPreferencesRepository.setAmbientWallBrandPlacement(settings.wallBrandPlacement)
+            userPreferencesRepository.setAmbientShowClock(settings.showClock)
+        }
+    }
+
     val updateState = updateManager.state
+    val legacyCleanupRequired = legacyMigration.cleanupRequired
+
+    fun refreshLegacyInstall() = legacyMigration.refresh()
+
+    fun setTheme(themeId: String) {
+        viewModelScope.launch { userPreferencesRepository.setThemeId(themeId) }
+    }
 
     init {
         viewModelScope.launch {
