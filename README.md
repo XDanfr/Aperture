@@ -60,8 +60,8 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="screenshots/expressive/home.webp" width="49%" alt="Aperture home screen with Backrooms in Spotlight and Recently Added media" />
   <img src="screenshots/expressive/home-sidebar.webp" width="49%" alt="Aperture home screen with expanded navigation and Power Ballad in Spotlight" />
+  <img src="screenshots/expressive/buffering.webp" width="49%" alt="Aperture Breaking Bad buffering screen" />
 </p>
 
 <p align="center">
@@ -77,10 +77,6 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 <p align="center">
   <img src="screenshots/expressive/splash-minions.webp" width="49%" alt="Aperture Minions artwork splash screen" />
   <img src="screenshots/expressive/splash-project-hail-mary.webp" width="49%" alt="Aperture Project Hail Mary artwork splash screen" />
-</p>
-
-<p align="center">
-  <img src="screenshots/expressive/buffering.webp" width="49%" alt="Aperture Breaking Bad buffering screen" />
 </p>
 
 ## 🗺️ Roadmap
