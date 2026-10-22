@@ -68,6 +68,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.tv.material3.Button
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -85,6 +86,7 @@ import me.xdan.aperture.ui.screen.settings.SettingsViewModel
 import me.xdan.aperture.ui.screen.settings.SubtitleAppearanceSettings
 import me.xdan.aperture.ui.theme.ApertureTheme
 
+@androidx.annotation.OptIn(UnstableApi::class)
 private enum class QuickMenuVideoResizeMode(
     val label: String,
     val description: String,
@@ -249,6 +251,7 @@ private fun QuickMenuCategories(
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun QuickMenuTrackPage(title: String, type: Int, player: PlayerEngine, firstFocusRequester: FocusRequester, emptyLabel: String, onClose: () -> Unit) {
     val tracks by player.tracks.collectAsState()
