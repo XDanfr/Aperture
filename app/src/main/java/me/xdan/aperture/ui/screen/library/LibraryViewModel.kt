@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
@@ -16,21 +15,13 @@ class LibraryViewModel @Inject constructor(
     repository: MediaRepository,
     preferences: UserPreferencesRepository
 ) : ViewModel() {
-    val movies = repository.getMediaByType("MOVIE")
-        .map { items -> items.sortedBy { it.title.lowercase() } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    val shows = repository.getMediaByType("EPISODE")
-        .map { items ->
-            items.sortedWith(
-                compareBy(
-                    { it.title.lowercase() },
-                    { it.seasonNumber ?: Int.MAX_VALUE },
-                    { it.episodeNumber ?: Int.MAX_VALUE }
-                )
-            )
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val content = LibraryContent(
+        repository.getMediaByType("MOVIE"),
+        repository.getMediaByType("EPISODE"),
+        viewModelScope
+    )
+    val movies = content.movies
+    val showGroups = content.showGroups
 
     val showPresentationMode = preferences.showPresentationMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "grouped")
@@ -40,14 +31,20 @@ data class ShowGroup(
     val title: String,
     val episodes: List<MediaEntity>
 ) {
-    val representative: MediaEntity
+    val representative: MediaEntity =
         // A show card must open at the first available episode, not whichever
         // episode happened to receive poster art first.
-        get() = episodes.minWithOrNull(
+        episodes.minWithOrNull(
             compareBy<MediaEntity>(
                 { it.seasonNumber ?: Int.MAX_VALUE },
                 { it.episodeNumber ?: Int.MAX_VALUE },
                 { it.id }
             )
         ) ?: episodes.first()
+
+    val seasons: List<ShowSeason> = episodes.groupBy { it.seasonNumber ?: 0 }
+        .toSortedMap()
+        .map { (number, episodes) -> ShowSeason(number, episodes) }
 }
+
+data class ShowSeason(val number: Int, val episodes: List<MediaEntity>)

@@ -33,18 +33,13 @@ fun ShowsScreen(
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit
 ) {
-    val episodes by viewModel.shows.collectAsState()
+    val groups by viewModel.showGroups.collectAsState()
     val presentationMode by viewModel.showPresentationMode.collectAsState()
-    if (episodes.isEmpty()) {
+    if (groups.isEmpty()) {
         EmptyLibrary("No TV shows found.", drawerFocusRequester, contentEntryFocusRequester, onContentFocused)
         return
     }
 
-    val groups = remember(episodes) {
-        episodes.groupBy { it.title }
-            .map { (title, items) -> ShowGroup(title, items) }
-            .sortedBy { it.title.lowercase() }
-    }
     if (presentationMode == "episodes") {
         EpisodeRows(
             groups = groups,
@@ -144,7 +139,7 @@ private fun EpisodeRows(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(group.title, style = MaterialTheme.typography.headlineSmall)
-                    group.episodes.groupBy { it.seasonNumber ?: 0 }.toSortedMap()
+                    group.seasons
                         .forEach { (season, seasonEpisodes) ->
                             Text(
                                 if (season > 0) "Season $season" else "Episodes",

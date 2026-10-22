@@ -11,6 +11,7 @@ interface MediaRepository {
     val mediaFolders: StateFlow<List<MediaFolder>>
 
     fun getAllMedia(): Flow<List<MediaEntity>>
+    /** Visible media in database title order (COLLATE NOCASE). */
     fun getMediaByType(type: String): Flow<List<MediaEntity>>
     fun getFavoriteMedia(): Flow<List<MediaEntity>>
     fun getHiddenMedia(): Flow<List<MediaEntity>>
