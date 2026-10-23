@@ -21,8 +21,8 @@ android {
         applicationId = "cc.xdan.aperture"
         minSdk = 27
         targetSdk = 37
-        versionCode = 13
-        versionName = "v0.5.0-pre-alpha"
+        versionCode = 14
+        versionName = "v0.5.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
