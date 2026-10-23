@@ -30,6 +30,7 @@ class UpdateManager @Inject constructor(
     val state: StateFlow<UpdateCheckState> = _state
 
     suspend fun checkForUpdates(silent: Boolean = false) {
+        if (!BuildConfig.SIDELOAD_UPDATES_ENABLED) return
         if (_state.value is UpdateCheckState.Checking) return
         _state.value = UpdateCheckState.Checking
         val result = withContext(Dispatchers.IO) {
@@ -59,6 +60,7 @@ class UpdateManager @Inject constructor(
     }
 
     suspend fun downloadAndInstall(update: UpdateCheckState.Available) {
+        if (!BuildConfig.SIDELOAD_UPDATES_ENABLED) return
         val apkUrl = update.apkUrl
         if (apkUrl == null) {
             openUri(update.releaseUrl)

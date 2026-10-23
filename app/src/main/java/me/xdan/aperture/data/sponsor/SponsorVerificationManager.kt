@@ -39,6 +39,7 @@ class SponsorVerificationManager @Inject constructor(
     val isVerified: StateFlow<Boolean> = _isVerified
 
     suspend fun verify() {
+        if (!BuildConfig.GITHUB_SPONSORSHIP_ENABLED) return
         if (_isVerified.value) return
         _state.value = SponsorVerificationState.RequestingCode
         runCatching { verifyInternal() }

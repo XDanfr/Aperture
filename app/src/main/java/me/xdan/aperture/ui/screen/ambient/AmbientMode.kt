@@ -88,15 +88,6 @@ fun AmbientMode(
     val allMedia by viewModel.media.collectAsState()
     val settings by viewModel.settings.collectAsState()
 
-    // Ambient Mode is Aperture's own idle experience, so Android's native
-    // dream/screensaver must not replace it while the mode is visible. Restore
-    // the previous value when the user dismisses Ambient Mode.
-    DisposableEffect(hostView) {
-        val wasKeepingScreenOn = hostView.keepScreenOn
-        hostView.keepScreenOn = true
-        onDispose { hostView.keepScreenOn = wasKeepingScreenOn }
-    }
-
     AmbientScene(allMedia, settings, artworkAccent = viewModel::artworkAccent)
 }
 

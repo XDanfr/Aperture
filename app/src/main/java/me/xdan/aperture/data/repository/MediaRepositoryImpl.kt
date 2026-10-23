@@ -191,12 +191,14 @@ class MediaRepositoryImpl @Inject constructor(
                             )?.use {
                                 val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
                                 val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+                                val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
                                 val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
 
                                 while (it.moveToNext()) {
                                     processFile(
                                         name = it.getString(nameColumn),
-                                        path = it.getString(dataColumn),
+                                        path = it.getString(dataColumn)?.takeIf { path -> path.isNotBlank() }
+                                            ?: android.content.ContentUris.withAppendedId(videoUri, it.getLong(idColumn)).toString(),
                                         duration = it.getLong(durationColumn)
                                     )
                                 }

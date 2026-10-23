@@ -20,7 +20,7 @@ class LegacyInstallMigration @Inject constructor(
     }
 
     fun refresh() {
-        val installed = try {
+        val installed = if (!me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) false else try {
             context.packageManager.getApplicationInfo(LEGACY_PACKAGE, 0)
             true
         } catch (_: PackageManager.NameNotFoundException) {

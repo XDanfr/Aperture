@@ -94,6 +94,8 @@ class OpenSubtitlesSessionManager @Inject constructor(
         } else {
             "https://$baseUrl"
         }
+        val uri = android.net.Uri.parse(withScheme)
+        require(uri.scheme == "https" && !uri.host.isNullOrBlank()) { "OpenSubtitles requires HTTPS" }
         return withScheme.trimEnd('/')
     }
 

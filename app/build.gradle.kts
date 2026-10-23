@@ -26,14 +26,38 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
+        buildConfigField("Boolean", "SIDELOAD_UPDATES_ENABLED", "true")
+        buildConfigField("Boolean", "GITHUB_SPONSORSHIP_ENABLED", "true")
+
         val tmdbApiKey = localProps.getProperty("TMDB_API_KEY") ?: ""
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
         val openSubtitlesApiKey = localProps.getProperty("OPENSUBTITLES_API_KEY") ?: ""
         buildConfigField("String", "OPENSUBTITLES_API_KEY", "\"$openSubtitlesApiKey\"")
     }
 
+    signingConfigs {
+        create("playUpload") {
+            val uploadStore = System.getenv("PLAY_UPLOAD_STORE_FILE")
+            if (!uploadStore.isNullOrBlank()) {
+                storeFile = file(uploadStore)
+                storePassword = System.getenv("PLAY_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("PLAY_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("PLAY_UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
     flavorDimensions += "distribution"
     productFlavors {
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "SPONSOR_PROMPTS_ENABLED", "false")
+            buildConfigField("Boolean", "GITHUB_SPONSORSHIP_ENABLED", "false")
+            buildConfigField("Boolean", "SIDELOAD_UPDATES_ENABLED", "false")
+            if (!System.getenv("PLAY_UPLOAD_STORE_FILE").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("playUpload")
+            }
+        }
         create("standard") {
             dimension = "distribution"
             buildConfigField("Boolean", "SPONSOR_PROMPTS_ENABLED", "true")
@@ -130,4 +154,8 @@ dependencies {
     "ksp"(libs.androidx.room.compiler)
     "ksp"(libs.moshi.kotlin.codegen)
     "ksp"(libs.hilt.compiler)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }

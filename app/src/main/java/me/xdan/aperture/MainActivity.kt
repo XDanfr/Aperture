@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                 is UpdateCheckState.Downloading -> state.update
                 else -> null
             }
-            val updateDialogVisible = launchFinished && !legacyCleanupRequired &&
+            val updateDialogVisible = BuildConfig.SIDELOAD_UPDATES_ENABLED && launchFinished && !legacyCleanupRequired &&
                 offeredUpdate != null &&
                 offeredUpdate.version != dismissedUpdateVersion
             val updateBlocksSponsorPrompt = when (updateState) {
@@ -209,7 +209,7 @@ class MainActivity : ComponentActivity() {
                             onInstall = mainViewModel::downloadAndInstallUpdate,
                             onDismiss = { dismissedUpdateVersion = offeredUpdate.version }
                         )
-                    } else if (showSponsorPrompt) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorPrompt) {
                         SponsorPromptDialog(
                             onSponsor = {
                                 showSponsorPrompt = false
@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = { showSponsorPrompt = false }
                         )
-                    } else if (showSponsorVerification) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorVerification) {
                         SponsorVerificationDialog(
                             state = sponsorVerificationState,
                             onRetry = { scope.launch { sponsorVerificationManager.verify() } },
@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
                                 sponsorVerificationManager.resetState()
                             }
                         )
-                    } else if (showSponsorQr) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorQr) {
                         LinkQrDialog(
                             title = "Sponsor XDanfr on GitHub",
                             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",

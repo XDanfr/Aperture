@@ -269,11 +269,11 @@ private fun PermissionPanel(
             androidx.compose.material3.Icon(
                 painter = painterResource(id = R.drawable.ic_banner_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(300.dp),
+                modifier = Modifier.size(160.dp),
                 tint = Color.Unspecified
             )
             Text(
-                text = "Allow access to videos on this device to build your Aperture library.",
+                text = "Aperture reads your videos to build a local library. It sends titles derived from filenames to TMDB for descriptions and artwork. Your video files are not uploaded. You can revoke video access in Android Settings.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)

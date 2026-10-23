@@ -19,6 +19,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    internal val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE media ADD COLUMN metadataAttemptedAt INTEGER DEFAULT NULL")
+        }
+    }
+
     private val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -76,6 +82,11 @@ object DatabaseModule {
         }
     }
 
+    internal val ALL_MIGRATIONS = arrayOf(
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+    )
+
     @Provides
     fun provideArtworkPaletteDao(db: AppDatabase): ArtworkPaletteDao = db.artworkPaletteDao()
 
@@ -87,15 +98,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
         )
-            .addMigrations(
-                MIGRATION_2_3,
-                MIGRATION_3_4,
-                MIGRATION_4_5,
-                MIGRATION_5_6,
-                MIGRATION_6_7,
-                MIGRATION_7_8
-            )
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            .addMigrations(*ALL_MIGRATIONS)
             .build()
     }
 

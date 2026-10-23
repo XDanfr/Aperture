@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.ViewModule
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -130,6 +131,7 @@ fun SettingsScreen(
     var showMediaFolders by remember { mutableStateOf(false) }
     var showAmbientSettings by remember { mutableStateOf(false) }
     var showTmdbQr by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
     var showSponsorsQr by remember { mutableStateOf(false) }
     var showSponsorVerification by remember { mutableStateOf(false) }
     val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
@@ -165,10 +167,10 @@ fun SettingsScreen(
             SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 14
             SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 16
             SETTINGS_SUBTITLES_FOCUS_KEY -> 17
-            SETTINGS_LICENCES_FOCUS_KEY -> 19
-            SETTINGS_UPDATE_FOCUS_KEY -> 20
-            SETTINGS_TMDB_FOCUS_KEY -> 21
-            SETTINGS_DONATE_FOCUS_KEY -> 22
+            SETTINGS_LICENCES_FOCUS_KEY -> 20
+            SETTINGS_UPDATE_FOCUS_KEY -> 21
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) 22 else 21
+            SETTINGS_DONATE_FOCUS_KEY -> 23
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -510,6 +512,16 @@ fun SettingsScreen(
 
             item {
                 SettingsItem(
+                    title = "Privacy",
+                    subtitle = "Media access, online services and stored data",
+                    icon = Icons.Rounded.Info,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = onContentFocused,
+                    onClick = { showPrivacy = true }
+                )
+            }
+            item {
+                SettingsItem(
                     title = "Open Source Licences",
                     subtitle = "Libraries and projects used by Aperture",
                     icon = Icons.Rounded.Info,
@@ -525,7 +537,7 @@ fun SettingsScreen(
                 )
             }
 
-            item {
+            if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) item {
                 SettingsItem(
                     title = "Check for Updates",
                     subtitle = when (val update = updateState) {
@@ -568,7 +580,7 @@ fun SettingsScreen(
                 )
             }
 
-            item {
+            if (me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -602,6 +614,7 @@ fun SettingsScreen(
         }
     }
 
+    if (showPrivacy) { PrivacyDialog(onDismiss = { showPrivacy = false }) }
     if (showLicenses) {
         LicencesDialog(onDismiss = { showLicenses = false })
     }
@@ -723,7 +736,7 @@ fun SettingsScreen(
             onDismiss = { showTmdbQr = false }
         )
     }
-    if (showSponsorsQr) {
+    if (showSponsorsQr && me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) {
         LinkQrDialog(
             title = "Sponsor XDanfr on GitHub",
             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
@@ -738,7 +751,7 @@ fun SettingsScreen(
             }
         )
     }
-    if (showSponsorVerification) {
+    if (showSponsorVerification && me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) {
         SponsorVerificationDialog(
             state = sponsorVerificationState,
             onRetry = viewModel::verifySponsor,
@@ -1572,6 +1585,40 @@ private fun SpotlightDaysDialog(
                         androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }
                         Button(onClick = { onSave(days) }) { Text("Save") }
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PrivacyDialog(onDismiss: () -> Unit) {
+    var page by remember { mutableIntStateOf(0) }
+    val first = remember { FocusRequester() }
+    val pages = remember { listOf(
+        "Your library" to "Aperture reads videos you permit it to access and folders you select. Library entries, favourites, hidden items, settings and watch progress stay in app storage. Your video files are not uploaded by Aperture. Removing a folder revokes its library access; Android Settings lets you revoke video permission or clear app data.",
+        "Online metadata" to "Library preparation sends titles derived from filenames and available year or episode information to The Movie Database (TMDB) to find descriptions and artwork. Artwork requests also reach TMDB. These services receive network information such as your IP address. Do not grant media access if you do not want this automatic metadata lookup.",
+        "Subtitles and accounts" to "OpenSubtitles is optional. Signing in sends your username and password to OpenSubtitles over HTTPS. Aperture stores a session token, username and expiry, not your password, and excludes that session from Android backup. Subtitle searches and downloads contact OpenSubtitles. Sign out in Subtitle Settings to remove the local session. Aperture does not create an Aperture account.",
+        "Backups and removal" to "Android may back up library data and preferences under your device backup settings. Clear app storage or uninstall Aperture to remove local data; manage cloud backups separately in Android or your Google Account. External services control their own retention and account deletion. Aperture has no advertising or analytics SDK configured." +
+            if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) " This sideload build contacts GitHub to check releases. Optional sponsorship verification contacts GitHub; APK updates are downloaded only when requested." else " Updates for this build are managed by Google Play. GitHub sponsorship and APK updates are disabled.",
+        "Contact" to "Developer: XDanfr. Updated 23 October 2026. For privacy questions, use github.com/XDanfr/Aperture/issues. Do not post passwords, tokens or private filenames publicly. Third-party services handle their own retention and account requests. Aperture does not sell user data."
+    ) }
+    LaunchedEffect(page) { first.requestFocus() }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(modifier = Modifier.width(620.dp), shape = ApertureTheme.shapes.dialog,
+            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(ApertureTheme.spacing.huge)) {
+                Text("Privacy · ${page + 1}/${pages.size}", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+                Text(pages[page].first, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                Text(pages[page].second, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(24.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = onDismiss, modifier = Modifier.focusRequester(first)) { Text("Close") }
+                    if (page > 0) Button(onClick = { page-- }) { Text("Previous") }
+                    if (page < pages.lastIndex) Button(onClick = { page++ }) { Text("Next") }
                 }
             }
         }
