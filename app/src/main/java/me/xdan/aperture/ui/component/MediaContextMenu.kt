@@ -3,6 +3,7 @@ package me.xdan.aperture.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,7 +82,7 @@ fun MediaContextMenu(
                     if (state.progress != null) ContextAction("Play from beginning", Icons.Rounded.Replay, onPlayFromBeginning)
                     ContextAction(
                         if (media.isFavorite) "Remove from My List" else "Add to My List",
-                        if (media.isFavorite) Icons.Rounded.PlaylistRemove else Icons.Rounded.PlaylistAdd,
+                        if (media.isFavorite) Icons.Rounded.PlaylistRemove else Icons.AutoMirrored.Rounded.PlaylistAdd,
                         onToggleList
                     )
                     ContextAction(

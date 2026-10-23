@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,7 +27,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -39,7 +39,6 @@ import me.xdan.aperture.ui.screen.details.MediaDetailsModal
 import me.xdan.aperture.ui.screen.onboarding.OnboardingScreen
 import me.xdan.aperture.ui.screen.settings.SettingsScreen
 import me.xdan.aperture.ui.screen.mylist.MyListScreen
-import me.xdan.aperture.ui.screen.library.LibraryViewModel
 import me.xdan.aperture.ui.screen.library.MoviesScreen
 import me.xdan.aperture.ui.screen.library.ShowsScreen
 import me.xdan.aperture.ui.component.ProvideFocusMemory
@@ -51,6 +50,7 @@ import me.xdan.aperture.ui.screen.actions.MediaActionsViewModel
 import me.xdan.aperture.ui.screen.onboarding.AppTutorial
 import me.xdan.aperture.ui.theme.ApertureBrandFontFamily
 import me.xdan.aperture.ui.theme.ApertureTheme
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -136,7 +136,7 @@ fun NavGraph(
         pendingFocusJob[0]?.cancel()
         if (requester == null && fallback == null) return
         pendingFocusJob[0] = focusScope.launch {
-            delay(150)
+            delay(150.milliseconds)
             repeat(10) {
                 val restored = requester?.let {
                     runCatching { it.requestFocus() }.getOrDefault(false)
@@ -147,7 +147,7 @@ fun NavGraph(
                     onFinished(true)
                     return@launch
                 }
-                delay(100)
+                delay(100.milliseconds)
             }
             onFinished(false)
         }
@@ -279,7 +279,7 @@ fun NavGraph(
     LaunchedEffect(contextMediaId) {
         if (contextMediaId != null) return@LaunchedEffect
         val requester = contextFocusRequester ?: return@LaunchedEffect
-        delay(140)
+        delay(140.milliseconds)
         val restored = runCatching { requester.requestFocus() }.getOrDefault(false)
         if (!restored) {
             val fallback = when (currentFocusKey) {
@@ -302,7 +302,7 @@ fun NavGraph(
             return@LaunchedEffect
         }
 
-        delay(160)
+        delay(160.milliseconds)
         val rememberedRequester = lastFocusedRequesters[focusKey]
         val fallbackRequester = when (focusKey) {
             "home" -> homeContentEntryRequester
@@ -563,7 +563,7 @@ fun NavGraph(
                                         },
                                     leadingContent = {
                                         DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
-                                            Icon(Icons.Rounded.PlaylistAdd, contentDescription = null)
+                                            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)
                                         }
                                     }
                                 ) {
@@ -874,13 +874,13 @@ private fun NavContent(
                 // A loading/empty target may be removed after a successful handoff.
                 // Wait for the replacement cards (including their enter animation)
                 // to attach, and retry only while this page owns navigation.
-                delay(150)
+                delay(150.milliseconds)
                 repeat(20) {
                     // Check live drawer intent after every suspension: focus can
                     // enter the drawer before recomposition cancels this effect.
                     if (pageHasFocus || !currentCanRecoverContentFocus(focusKey)) return@LaunchedEffect
                     runCatching { contentEntryFocusRequester.requestFocus() }
-                    delay(100)
+                    delay(100.milliseconds)
                 }
             }
             Box(
