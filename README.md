@@ -10,12 +10,12 @@
 
 <div align="center">
 
-[![Sponsor Aperture](https://emblem.xdan.cc/s/github/sponsors/XDanfr?palette=purple&logo=github&label=Sponsor)](https://github.com/sponsors/XDanfr)
-[![Aperture website](https://emblem.xdan.cc/e/Website/Aperture?palette=purple&logo=globe)](https://xdan.cc/aperture)
-[![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord)](https://discord.gg/fuxMAVBccK)
+[![Sponsor Aperture](https://emblem.xdan.cc/s/github/sponsors/XDanfr?palette=purple&logo=github&label=Sponsor&font=outfit)](https://github.com/sponsors/XDanfr)
+[![Aperture website](https://emblem.xdan.cc/e/Website/Aperture?palette=purple&logo=globe&font=outfit)](https://xdan.cc/aperture)
+[![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord&font=outfit)](https://discord.gg/fuxMAVBccK)
 <br>
-[![Download Aperture APK](https://emblem.xdan.cc/e/Download/APK?palette=purple&logo=android)](https://github.com/XDanfr/Aperture/releases/latest)
-[![Aperture downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=github&label=Downloads)](https://github.com/XDanfr/Aperture/releases)
+[![Download Aperture APK](https://emblem.xdan.cc/e/Download/APK?palette=purple&logo=android&font=outfit)](https://github.com/XDanfr/Aperture/releases/latest)
+[![Aperture downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=github&label=Downloads&font=outfit)](https://github.com/XDanfr/Aperture/releases)
 
 </div>
 
@@ -154,7 +154,7 @@ Aperture wouldn’t have active development without sponsors. Special thanks to 
 
 <div align="center">
 
-[![Current and past sponsors of XDanfr](https://emblem.xdan.cc/sponsors/XDanfr.svg?palette=purple&theme=auto&status=all&width=320&columns=1&avatarSize=72&shapes=6-sided-cookie,puffy,4-leaf-clover&radius=24&outline=true&borderWidth=1.5)](https://github.com/sponsors/XDanfr)
+[![Current and past sponsors of XDanfr](https://emblem.xdan.cc/sponsors/XDanfr.svg?palette=purple&theme=auto&status=all&width=320&columns=1&avatarSize=72&shapes=6-sided-cookie%2Cpuffy%2C4-leaf-clover&radius=24&outline=true&borderWidth=1.5&font=outfit)](https://github.com/sponsors/XDanfr)
 
 </div>
 
