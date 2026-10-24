@@ -11,11 +11,11 @@
 <div align="center">
 
 [![Sponsor Aperture](https://emblem.xdan.cc/s/github/sponsors/XDanfr?palette=purple&logo=github&label=Sponsor&font=outfit)](https://github.com/sponsors/XDanfr)
-[![Aperture website](https://emblem.xdan.cc/badge.svg?style=tonal&message=Website&icon=globe&palette=purple&theme=auto&font=outfit&weight=bold&height=40&radius=20)](https://xdan.cc/aperture)
 [![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord&font=outfit)](https://discord.gg/fuxMAVBccK)
-<br>
 [![Download Aperture APK — total downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=android&label=Download&font=outfit)](https://github.com/XDanfr/Aperture/releases/latest)
-[![Instagram: axis.eco](https://emblem.xdan.cc/e/Instagram/axis.eco?palette=purple&logo=si:instagram&font=outfit)](https://www.instagram.com/axis.eco/)
+<br>
+[![Aperture website](https://emblem.xdan.cc/badge.svg?style=tonal&message=Website&icon=globe&palette=purple&theme=auto&font=outfit&weight=bold&height=40&radius=20)](https://xdan.cc/aperture)
+[![Instagram: axis.eco](https://emblem.xdan.cc/badge.svg?style=tonal&message=Instagram&icon=si%3Ainstagram&palette=purple&theme=auto&font=outfit&weight=bold&height=40&radius=20)](https://www.instagram.com/axis.eco/)
 
 </div>
 
