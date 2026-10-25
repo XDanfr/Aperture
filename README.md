@@ -14,8 +14,8 @@
 [![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord&font=outfit)](https://discord.gg/fuxMAVBccK)
 [![Download Aperture APK — total downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=android&label=Download&font=outfit)](https://github.com/XDanfr/Aperture/releases/latest)
 <br>
-[![Aperture website](https://emblem.xdan.cc/badge.svg?style=tonal&message=Website&icon=globe&palette=purple&theme=auto&font=outfit&weight=bold&height=40&radius=20)](https://xdan.cc/aperture)
-[![Instagram: axis.eco](https://emblem.xdan.cc/badge.svg?style=tonal&message=Instagram&icon=si%3Ainstagram&palette=purple&theme=auto&font=outfit&weight=bold&height=40&radius=20)](https://www.instagram.com/axis.eco/)
+[![Aperture website](https://emblem.xdan.cc/badge.svg?font=outfit&theme=auto&message=Website&look=expressive&logo=globe&shape=6-sided-cookie&palette=purple)](https://xdan.cc/aperture)
+[![Instagram: axis.eco](https://emblem.xdan.cc/badge.svg?font=outfit&theme=auto&message=Instagram&look=expressive&logo=platform%3Ainstagram&shape=4-leaf-clover&palette=purple)](https://instagram.com/axis.eco)
 
 </div>
 
