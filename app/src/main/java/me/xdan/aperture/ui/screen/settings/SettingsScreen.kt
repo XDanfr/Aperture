@@ -733,7 +733,15 @@ fun SettingsScreen(
             description = "Scan to visit TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.",
             url = TMDB_URL,
             qrRows = TMDB_QR_ROWS,
-            onDismiss = { showTmdbQr = false }
+            onDismiss = { showTmdbQr = false },
+            header = {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(me.xdan.aperture.R.drawable.tmdb_logo),
+                    contentDescription = "TMDB logo",
+                    modifier = Modifier.width(200.dp).height(26.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            }
         )
     }
     if (showSponsorsQr && me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) {
