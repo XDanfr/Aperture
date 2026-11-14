@@ -1,26 +1,21 @@
 package me.xdan.aperture.data.subtitles
 
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import me.xdan.aperture.data.remote.api.OpenSubtitlesApi
 import me.xdan.aperture.data.remote.api.OpenSubtitlesLoginRequest
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class OpenSubtitlesSessionManager @Inject constructor(
+class OpenSubtitlesSessionManager constructor(
     private val api: OpenSubtitlesApi,
-    @ApplicationContext context: Context
+    stores: me.xdan.aperture.platform.KeyValueStores
 ) {
-    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val preferences = stores.open(PREFERENCES_NAME)
     private val _state = MutableStateFlow<OpenSubtitlesSessionState>(restoreSession())
     val state: StateFlow<OpenSubtitlesSessionState> = _state
 
     suspend fun login(username: String, password: String) {
-        if (BuildConfig.OPENSUBTITLES_API_KEY.isBlank()) {
+        if (AppBuild.OPENSUBTITLES_API_KEY.isBlank()) {
             _state.value = OpenSubtitlesSessionState.Error(
                 "This Aperture build does not include an OpenSubtitles API key."
             )
@@ -34,7 +29,7 @@ class OpenSubtitlesSessionManager @Inject constructor(
         runCatching {
             api.login(
                 OpenSubtitlesLoginRequest(username.trim(), password),
-                BuildConfig.OPENSUBTITLES_API_KEY
+                AppBuild.OPENSUBTITLES_API_KEY
             )
         }.onSuccess { response ->
             val expiry = System.currentTimeMillis() + TOKEN_LIFETIME_MS
@@ -94,8 +89,8 @@ class OpenSubtitlesSessionManager @Inject constructor(
         } else {
             "https://$baseUrl"
         }
-        val uri = android.net.Uri.parse(withScheme)
-        require(uri.scheme == "https" && !uri.host.isNullOrBlank()) { "OpenSubtitles requires HTTPS" }
+        val uri = runCatching { java.net.URI(withScheme) }.getOrNull()
+        require(uri?.scheme == "https" && !uri.host.isNullOrBlank()) { "OpenSubtitles requires HTTPS" }
         return withScheme.trimEnd('/')
     }
 

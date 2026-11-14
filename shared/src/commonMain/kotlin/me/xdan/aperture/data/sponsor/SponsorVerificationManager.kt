@@ -1,21 +1,17 @@
 package me.xdan.aperture.data.sponsor
 
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
 sealed interface SponsorVerificationState {
     data object Idle : SponsorVerificationState
@@ -27,19 +23,18 @@ sealed interface SponsorVerificationState {
     data class Error(val message: String) : SponsorVerificationState
 }
 
-@Singleton
-class SponsorVerificationManager @Inject constructor(
+class SponsorVerificationManager constructor(
     private val okHttpClient: OkHttpClient,
-    @ApplicationContext context: Context
+    stores: me.xdan.aperture.platform.KeyValueStores
 ) {
-    private val preferences = context.getSharedPreferences("sponsor_verification", Context.MODE_PRIVATE)
+    private val preferences = stores.open("sponsor_verification")
     private val _state = MutableStateFlow<SponsorVerificationState>(SponsorVerificationState.Idle)
     val state: StateFlow<SponsorVerificationState> = _state
     private val _isVerified = MutableStateFlow(preferences.getBoolean(KEY_VERIFIED, false))
     val isVerified: StateFlow<Boolean> = _isVerified
 
     suspend fun verify() {
-        if (!BuildConfig.GITHUB_SPONSORSHIP_ENABLED) return
+        if (!AppBuild.GITHUB_SPONSORSHIP_ENABLED) return
         if (_isVerified.value) return
         _state.value = SponsorVerificationState.RequestingCode
         runCatching { verifyInternal() }
@@ -87,7 +82,7 @@ class SponsorVerificationManager @Inject constructor(
         val request = Request.Builder()
             .url("https://github.com/login/device/code")
             .header("Accept", "application/json")
-            .header("User-Agent", "Aperture/${BuildConfig.VERSION_NAME}")
+            .header("User-Agent", "Aperture/${AppBuild.VERSION_NAME}")
             .post(FormBody.Builder().add("client_id", CLIENT_ID).add("scope", "read:user").build())
             .build()
         return executeJson(request)
@@ -97,7 +92,7 @@ class SponsorVerificationManager @Inject constructor(
         val request = Request.Builder()
             .url("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
-            .header("User-Agent", "Aperture/${BuildConfig.VERSION_NAME}")
+            .header("User-Agent", "Aperture/${AppBuild.VERSION_NAME}")
             .post(FormBody.Builder().add("client_id", CLIENT_ID).add("device_code", deviceCode)
                 .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code").build())
             .build()
@@ -113,7 +108,7 @@ class SponsorVerificationManager @Inject constructor(
             .url("https://api.github.com/graphql")
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "Aperture/${BuildConfig.VERSION_NAME}")
+            .header("User-Agent", "Aperture/${AppBuild.VERSION_NAME}")
             .post(body)
             .build()
         return executeJson(request).optJSONObject("data")?.optJSONObject("user")
