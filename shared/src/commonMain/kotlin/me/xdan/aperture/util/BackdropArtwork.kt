@@ -1,6 +1,5 @@
 package me.xdan.aperture.util
 
-import android.content.Context
 import me.xdan.aperture.data.remote.api.TmdbApi
 import kotlin.math.max
 
@@ -15,13 +14,18 @@ enum class BackdropImageUsage {
     AMBIENT
 }
 
+/** The device's full screen size in pixels; display metrics on Android, the main monitor on desktop. */
+fun interface ScreenMetrics {
+    fun screenSizePx(): Pair<Int, Int>
+}
+
 fun backdropImageSpec(
-    context: Context,
+    screen: ScreenMetrics,
     usage: BackdropImageUsage = BackdropImageUsage.HOME
 ): BackdropImageSpec {
-    val metrics = context.resources.displayMetrics
-    val width = metrics.widthPixels.coerceAtLeast(1)
-    val height = metrics.heightPixels.coerceAtLeast(1)
+    val (screenWidth, screenHeight) = screen.screenSizePx()
+    val width = screenWidth.coerceAtLeast(1)
+    val height = screenHeight.coerceAtLeast(1)
 
     val isFourK = width >= FOUR_K_WIDTH_THRESHOLD_PX
     val aspectRatio = height.toFloat() / width.toFloat()
