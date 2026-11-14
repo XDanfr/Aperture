@@ -1,6 +1,11 @@
 package me.xdan.aperture.ui.navigation
 
-import androidx.activity.compose.BackHandler
+import androidx.tv.material3.pointerFocusRegion
+import me.xdan.aperture.ui.platform.onMouseEnterExit
+import me.xdan.aperture.ui.platform.usesMouse
+import org.koin.compose.viewmodel.koinViewModel
+
+import me.xdan.aperture.ui.platform.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,7 +28,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
@@ -58,12 +62,12 @@ import kotlin.time.Duration.Companion.milliseconds
 fun NavGraph(
     backstack: NavBackStack<Destination>,
     onNavigate: (Destination) -> Unit,
-    mainViewModel: me.xdan.aperture.ui.MainViewModel = viewModel(),
+    mainViewModel: me.xdan.aperture.ui.MainViewModel = koinViewModel(),
     onPlayerStateChanged: (Boolean) -> Unit = {},
     onPreviewAmbientMode: () -> Unit = {}
 ) {
-    val homeViewModel: HomeViewModel = viewModel()
-    val mediaActionsViewModel: MediaActionsViewModel = viewModel()
+    val homeViewModel: HomeViewModel = koinViewModel()
+    val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
     val currentDestination = backstack.last()
     val showDrawer = currentDestination !is Destination.Player
@@ -232,6 +236,16 @@ fun NavGraph(
             }
         }
     }
+    // Desktop: the sidebar opens while the mouse is over it and closes when it leaves. The short
+    // delays keep a mouse that only crosses the edge from flicking it open.
+    val drawerHoverJob = remember { arrayOfNulls<Job>(1) }
+    val onDrawerMouseEnter: () -> Unit = {
+        drawerHoverJob[0]?.cancel()
+        drawerHoverJob[0] = focusScope.launch {
+            delay(120.milliseconds)
+            if (drawerCanReceiveFocus && drawerState.currentValue == DrawerValue.Closed) openDrawer()
+        }
+    }
     val closeDrawerAndRestoreFocus: () -> Unit = {
         drawerFocusHandoff = true
         drawerOpeningRequested = false
@@ -382,6 +396,17 @@ fun NavGraph(
                                     }
                                 }
                                 .onFocusChanged { drawerHasFocus = it.hasFocus }
+                                .then(if (usesMouse) Modifier.pointerFocusRegion() else Modifier)
+                                .onMouseEnterExit(
+                                    onEnter = onDrawerMouseEnter,
+                                    onExit = {
+                                        drawerHoverJob[0]?.cancel()
+                                        drawerHoverJob[0] = focusScope.launch {
+                                            delay(80.milliseconds)
+                                            if (drawerState.currentValue == DrawerValue.Open) closeDrawerAndRestoreFocus()
+                                        }
+                                    }
+                                )
                                 .focusGroup(),
                             colors = SurfaceDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.surface,
@@ -756,7 +781,7 @@ fun NavGraph(
                 mediaId = selectedMediaId,
                 episodeOnly = selectedEpisodeOnly,
                 isPlaybackActive = !showDrawer,
-                viewModel = viewModel(),
+                viewModel = koinViewModel(),
                 onPlay = { mediaId, startFromBeginning ->
                     playerOriginFocusKey = currentFocusKey
                     onNavigate(Destination.Player(mediaId, startFromBeginning))
@@ -869,7 +894,9 @@ private fun NavContent(
                 focusKey?.let { onContentFocused(it, requester) }
             }
             var pageHasFocus by remember { mutableStateOf(false) }
-            val recoveryEnabled = focusKey != null && currentCanRecoverContentFocus(focusKey)
+            // Parked focus (desktop: the mouse left what it hovered) comes back on the next key.
+            val recoveryEnabled = focusKey != null && currentCanRecoverContentFocus(focusKey) &&
+                !androidx.tv.material3.PointerFocus.isParked
             LaunchedEffect(recoveryEnabled, pageHasFocus) {
                 if (!recoveryEnabled || pageHasFocus) return@LaunchedEffect
                 // A loading/empty target may be removed after a successful handoff.
@@ -879,7 +906,9 @@ private fun NavContent(
                 repeat(20) {
                     // Check live drawer intent after every suspension: focus can
                     // enter the drawer before recomposition cancels this effect.
-                    if (pageHasFocus || !currentCanRecoverContentFocus(focusKey)) return@LaunchedEffect
+                    if (pageHasFocus || androidx.tv.material3.PointerFocus.isParked ||
+                        !currentCanRecoverContentFocus(focusKey)
+                    ) return@LaunchedEffect
                     runCatching { contentEntryFocusRequester.requestFocus() }
                     delay(100.milliseconds)
                 }
@@ -904,7 +933,7 @@ private fun NavContent(
                         onOpenLibrary = onOpenLibrary
                     )
                     is Destination.Search -> SearchScreen(
-                        viewModel = viewModel(),
+                        viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
                         onMediaLongClick = mediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
@@ -912,7 +941,7 @@ private fun NavContent(
                         onContentFocused = contentFocused
                     )
                     is Destination.MyList -> MyListScreen(
-                        viewModel = viewModel(),
+                        viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
                         onMediaLongClick = mediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
@@ -920,7 +949,7 @@ private fun NavContent(
                         onContentFocused = contentFocused
                     )
                     is Destination.Movies -> MoviesScreen(
-                        viewModel = viewModel(),
+                        viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
                         onMediaLongClick = mediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
@@ -929,7 +958,7 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged
                     )
                     is Destination.Shows -> ShowsScreen(
-                        viewModel = viewModel(),
+                        viewModel = koinViewModel(),
                         onMediaClick = episodeAwareMediaClick,
                         onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
                             focusKey?.let {
@@ -953,7 +982,7 @@ private fun NavContent(
                     is Destination.Player -> PlayerScreen(
                         mediaId = destination.mediaId,
                         startFromBeginning = destination.startFromBeginning,
-                        viewModel = viewModel(),
+                        viewModel = koinViewModel(),
                         onBack = onPlayerBack,
                         onFinished = onPlayerBack,
                         onPlaybackMediaChanged = onPlaybackMediaChanged,

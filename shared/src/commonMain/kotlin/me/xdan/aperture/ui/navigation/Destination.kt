@@ -29,3 +29,7 @@ sealed interface Destination : NavKey {
         val startFromBeginning: Boolean = false
     ) : Destination
 }
+
+/** The app's back stack, saved across configuration changes (and, on desktop, by serializer). */
+@androidx.compose.runtime.Composable
+expect fun rememberDestinationBackStack(): androidx.navigation3.runtime.NavBackStack<Destination>
