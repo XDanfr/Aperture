@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -134,6 +135,9 @@ fun SettingsScreen(
     var showPrivacy by remember { mutableStateOf(false) }
     var showSponsorsQr by remember { mutableStateOf(false) }
     var showSponsorVerification by remember { mutableStateOf(false) }
+    var showCompanionPairing by remember { mutableStateOf(false) }
+    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
     val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
     var folderPickerAvailable by remember(context) {
         mutableStateOf(
@@ -155,22 +159,23 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 1
-            SETTINGS_AMBIENT_FOCUS_KEY -> 2
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 3
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 4
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 5
-            SETTINGS_LANGUAGE_FOCUS_KEY -> 9
-            SETTINGS_HIDDEN_FOCUS_KEY -> 11
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 12
-            SETTINGS_RESCAN_FOCUS_KEY -> 13
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 14
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 16
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 17
-            SETTINGS_LICENCES_FOCUS_KEY -> 20
-            SETTINGS_UPDATE_FOCUS_KEY -> 21
-            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) 22 else 21
-            SETTINGS_DONATE_FOCUS_KEY -> 23
+            SETTINGS_THEME_FOCUS_KEY -> 3
+            SETTINGS_AMBIENT_FOCUS_KEY -> 4
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 5
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 6
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 7
+            SETTINGS_LANGUAGE_FOCUS_KEY -> 11
+            SETTINGS_HIDDEN_FOCUS_KEY -> 13
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 14
+            SETTINGS_RESCAN_FOCUS_KEY -> 15
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 16
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 18
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 19
+            SETTINGS_LICENCES_FOCUS_KEY -> 22
+            SETTINGS_UPDATE_FOCUS_KEY -> 23
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) 24 else 23
+            SETTINGS_DONATE_FOCUS_KEY -> 25
+            SETTINGS_COMPANION_FOCUS_KEY -> 1
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -204,6 +209,34 @@ fun SettingsScreen(
 
             item {
                 SettingsCategoryHeader(
+                    title = "Phone companion",
+                    description = "Browse, play and control Aperture from your phone"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Paired phones",
+                    subtitle = when (pairedPhones.size) {
+                        0 -> "Pair a phone with a QR code or a pairing code"
+                        1 -> "${pairedPhones.first().name} · Pair another or remove"
+                        else -> "${pairedPhones.size} phones · Pair another or remove"
+                    },
+                    icon = Icons.Rounded.PhoneAndroid,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_COMPANION_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_COMPANION_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showCompanionPairing = true }
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
                     title = "Customisation",
                     description = "Theme, presentation and ambient mode"
                 )
@@ -212,8 +245,7 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     title = "Theme",
-                    subtitle = ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.label
-                        ?: "Aperture Purple",
+                    subtitle = me.xdan.aperture.ui.theme.apertureThemeLabel(selectedThemeId),
                     icon = Icons.Rounded.Palette,
                     drawerFocusRequester = drawerFocusRequester,
                     focusRequester = contentEntryFocusRequester.takeIf {
@@ -614,6 +646,9 @@ fun SettingsScreen(
         }
     }
 
+    if (showCompanionPairing) {
+        me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(onDismiss = { showCompanionPairing = false })
+    }
     if (showPrivacy) { PrivacyDialog(onDismiss = { showPrivacy = false }) }
     if (showLicenses) {
         LicencesDialog(onDismiss = { showLicenses = false })
@@ -772,6 +807,7 @@ fun SettingsScreen(
 }
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
+private const val SETTINGS_COMPANION_FOCUS_KEY = "companion"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
