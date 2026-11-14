@@ -3,10 +3,6 @@ package me.xdan.aperture.ui.artwork
 import android.graphics.Bitmap
 import androidx.palette.graphics.Palette
 
-internal const val ArtworkSampleSize = 96
-internal const val ArtworkExtractionVersion = 2
-internal const val FallbackArtworkSeed = 0xFF6750A4.toInt()
-
 fun extractArtworkAccent(source: Bitmap): Int {
     val scaled = Bitmap.createScaledBitmap(source, ArtworkSampleSize, ArtworkSampleSize, true)
     val bitmap = if (scaled.config == Bitmap.Config.HARDWARE) {
