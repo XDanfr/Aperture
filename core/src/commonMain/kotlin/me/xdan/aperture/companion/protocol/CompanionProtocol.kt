@@ -1,6 +1,5 @@
 package me.xdan.aperture.companion.protocol
 
-import android.net.Uri
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -29,6 +28,7 @@ object CompanionProtocol {
 
     const val TXT_TV_ID = "id"
     const val TXT_VERSION = "v"
+    const val TXT_DEVICE_KIND = "k"
 
     const val TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
 
@@ -38,50 +38,70 @@ object CompanionProtocol {
         explicitNulls = false
     }
 
-    /** `aperture://pair?h=<host>&p=<port>&c=<code>&id=<tvId>&n=<name>` */
-    fun pairingUri(host: String, port: Int, code: String, tvId: String, tvName: String): String =
-        Uri.Builder()
-            .scheme("aperture")
-            .authority("pair")
-            .appendQueryParameter("h", host)
-            .appendQueryParameter("p", port.toString())
-            .appendQueryParameter("c", code)
-            .appendQueryParameter("id", tvId)
-            .appendQueryParameter("n", tvName)
-            .build()
-            .toString()
+    /** `aperture://pair?h=<host>&p=<port>&c=<code>&id=<tvId>&n=<name>&k=<deviceKind>` */
+    fun pairingUri(
+        host: String,
+        port: Int,
+        code: String,
+        tvId: String,
+        tvName: String,
+        deviceKind: String = DeviceKind.TV
+    ): String =
+        buildPairingUri(
+            linkedMapOf(
+                "h" to host, "p" to port.toString(), "c" to code, "id" to tvId, "n" to tvName, "k" to deviceKind
+            )
+        )
 
     fun parsePairingUri(raw: String): PairingInvite? {
-        val uri = runCatching { Uri.parse(raw.trim()) }.getOrNull() ?: return null
-        if (uri.scheme != "aperture" || uri.authority != "pair") return null
-        val host = uri.getQueryParameter("h")?.takeIf { it.isNotBlank() } ?: return null
-        val port = uri.getQueryParameter("p")?.toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
-        val code = uri.getQueryParameter("c")?.takeIf { it.length == CODE_LENGTH && it.all(Char::isDigit) }
+        val query = parsePairingQuery(raw.trim()) ?: return null
+        val host = query["h"]?.takeIf { it.isNotBlank() } ?: return null
+        val port = query["p"]?.toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
+        val code = query["c"]?.takeIf { it.length == CODE_LENGTH && it.all(Char::isDigit) }
             ?: return null
         return PairingInvite(
             host = host,
             port = port,
             code = code,
-            tvId = uri.getQueryParameter("id").orEmpty(),
-            tvName = uri.getQueryParameter("n").orEmpty().ifBlank { "Aperture TV" }
+            tvId = query["id"].orEmpty(),
+            tvName = query["n"].orEmpty().ifBlank { "Aperture TV" },
+            deviceKind = query["k"].orEmpty().ifBlank { DeviceKind.TV }
         )
     }
 }
+
+/** Builds `aperture://pair?…` with each parameter encoded the platform's usual way. */
+internal expect fun buildPairingUri(parameters: Map<String, String>): String
+
+/** Query parameters of an `aperture://pair` URI, or null when [raw] is anything else. */
+internal expect fun parsePairingQuery(raw: String): Map<String, String>?
 
 data class PairingInvite(
     val host: String,
     val port: Int,
     val code: String,
     val tvId: String,
-    val tvName: String
+    val tvName: String,
+    val deviceKind: String = DeviceKind.TV
 )
+
+/**
+ * What kind of device runs the Aperture server, so the phone can show a fitting icon. Sent as a
+ * plain string: an older phone ignores it, and a newer kind falls back to [TV] on older phones.
+ */
+object DeviceKind {
+    const val TV = "tv"
+    const val DESKTOP = "desktop"
+    const val LAPTOP = "laptop"
+}
 
 @Serializable
 data class TvInfo(
     val tvId: String,
     val tvName: String,
     val protocol: Int = CompanionProtocol.VERSION,
-    val appVersion: String = ""
+    val appVersion: String = "",
+    val deviceKind: String = DeviceKind.TV
 )
 
 @Serializable
@@ -101,7 +121,8 @@ data class PairBody(
 data class PairResponse(
     val token: String,
     val tvId: String,
-    val tvName: String
+    val tvName: String,
+    val deviceKind: String = DeviceKind.TV
 )
 
 @Serializable
@@ -174,7 +195,8 @@ data class TvState(
     val libraryRevision: Long = 0,
     /** when [themeId] is the phone theme: whose colours the TV is using, and the colours. */
     val themeDeviceId: String? = null,
-    val themeColors: PhoneColors? = null
+    val themeColors: PhoneColors? = null,
+    val deviceKind: String = DeviceKind.TV
 )
 
 @Serializable
