@@ -2,6 +2,17 @@
 
 `play`, `standard` and `creator` share application ID `cc.xdan.aperture`. They are alternative distributions, not side-by-side installations. Switching requires compatible signing certificates and a non-decreasing version code. Play App Signing may use a different certificate from the GitHub APK: do not promise seamless switching without checking this.
 
+## Phone companion on the same listing
+
+The phone companion (`:mobile`) shares application ID `cc.xdan.aperture` and the Play listing with the TV app. The two builds can never land on the same device: the TV build requires `android.software.leanback`, and the companion requires a touchscreen and has no leanback launcher. `scripts/check_play_manifest.py` enforces both.
+
+- **Version codes** must be unique across every bundle in the listing. The TV app counts up from its current code; the companion uses 2,000,000 and up (`mobile/build.gradle.kts`). Never give both the same code.
+- **One-time Console setup:** Test and release → Advanced settings → Form factors → add Android TV → Manage → "Use a dedicated release track for Android TV", then opt in. Android TV screenshots must be on every store listing first. Google states this opt-in cannot be undone.
+- **Each release:** upload `app-play-release.aab` (artifact Aperture-Play) to the Android TV track, and `mobile-release.aab` (artifact Aperture-Companion-Play) to the regular phone tracks (internal → closed → production). They roll out independently.
+- **Signing:** both bundles use the same Play upload key, and Play App Signing signs both with the app signing key.
+- **Listing:** add phone screenshots alongside the TV ones. The store description, privacy policy and Data safety form must cover the companion: local-network pairing with the TV, a pairing token stored on each device, and TMDB artwork loaded by the phone. The QR scanner is Google Play services' code scanner, so the companion needs no camera permission.
+- **Switching sources:** a companion sideloaded from GitHub is signed with the GitHub key, like the TV APK. Moving between it and Play needs a reinstall unless the certificates match.
+
 ## Implemented boundaries
 
 Play disables GitHub update checks, APK downloads/installation, sponsorship prompts, sponsorship links and verification. Its manifest removes install/delete permissions, the legacy-package query and update FileProvider. All distributions remove all-files access. GitHub sponsorship verification can be designed later alongside Play billing; no hidden unlock or purchase path is included now.
@@ -12,7 +23,7 @@ Existing filesystem identities are retained for current library/history compatib
 
 ## Build and signing
 
-Run `./gradlew :app:testPlayDebugUnitTest :app:bundlePlayRelease :app:assemblePlayRelease`, with ANDROID_HOME set to the installed SDK. Run `python3 scripts/check_play_manifest.py` after manifest generation.
+Run `./gradlew :app:testPlayDebugUnitTest :app:bundlePlayRelease :app:assemblePlayRelease :mobile:bundleRelease`, with ANDROID_HOME set to the installed SDK. Run `python3 scripts/check_play_manifest.py` after manifest generation.
 
 The Build Play bundle workflow validates PRs with an unsigned release bundle. Manual dispatch requires repository secrets TMDB_API_KEY, OPENSUBTITLES_API_KEY, PLAY_UPLOAD_KEYSTORE_BASE64, PLAY_UPLOAD_STORE_PASSWORD, PLAY_UPLOAD_KEY_ALIAS and PLAY_UPLOAD_KEY_PASSWORD. Use the Play upload key, not an arbitrary replacement certificate. Configure Play App Signing in Console. Local builds without signing environment variables are unsigned and cannot be submitted.
 

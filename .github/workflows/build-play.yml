@@ -48,7 +48,7 @@ jobs:
           PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_STORE_PASSWORD }}
           PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
           PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
-        run: bash ./gradlew --max-workers=1 --no-parallel :app:testPlayDebugUnitTest :app:bundlePlayRelease :app:assemblePlayRelease :app:processStandardReleaseMainManifest :app:processCreatorReleaseMainManifest
+        run: bash ./gradlew --max-workers=1 --no-parallel :app:testPlayDebugUnitTest :app:bundlePlayRelease :app:assemblePlayRelease :app:processStandardReleaseMainManifest :app:processCreatorReleaseMainManifest :mobile:bundleRelease :mobile:processReleaseMainManifest
       - name: Check merged permissions
         run: |
           python3 scripts/check_play_manifest.py
@@ -60,12 +60,21 @@ jobs:
           jarsigner -verify app/build/outputs/bundle/playRelease/app-play-release.aab > "$RUNNER_TEMP/play-signature.txt"
           cat "$RUNNER_TEMP/play-signature.txt"
           grep -q 'jar verified' "$RUNNER_TEMP/play-signature.txt"
+          jarsigner -verify mobile/build/outputs/bundle/release/mobile-release.aab > "$RUNNER_TEMP/companion-signature.txt"
+          cat "$RUNNER_TEMP/companion-signature.txt"
+          grep -q 'jar verified' "$RUNNER_TEMP/companion-signature.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: Aperture-Play
           path: |
             app/build/outputs/bundle/playRelease/*.aab
             app/build/outputs/mapping/playRelease/mapping.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-Companion-Play
+          path: |
+            mobile/build/outputs/bundle/release/*.aab
+            mobile/build/outputs/mapping/release/mapping.txt
       - name: Remove upload key
         if: always()
         run: rm -f "$RUNNER_TEMP/play-upload.jks"
