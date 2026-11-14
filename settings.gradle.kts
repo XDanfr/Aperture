@@ -26,3 +26,6 @@ rootProject.name = "Aperture"
 include(":app")
 include(":core")
 include(":mobile")
+include(":tv-material")
+include(":shared")
+include(":desktop")
