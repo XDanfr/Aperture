@@ -48,7 +48,7 @@ jobs:
           PY
 
       - name: Build release variants
-        run: bash ./gradlew --no-daemon :app:assembleStandardRelease :app:assembleCreatorRelease
+        run: bash ./gradlew --no-daemon :app:assembleStandardRelease :app:assembleCreatorRelease :mobile:assembleRelease
 
       - name: Sign and verify APKs
         env:
@@ -70,8 +70,13 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
           mkdir -p signed-apks
           tools="$ANDROID_HOME/build-tools/37.0.0"
-          for variant in standard creator; do
-            source="app/build/outputs/apk/$variant/release/app-$variant-release-unsigned.apk"
+          # name|unsigned source: the TV variants plus the phone companion.
+          for entry in \
+            "standard|app/build/outputs/apk/standard/release/app-standard-release-unsigned.apk" \
+            "creator|app/build/outputs/apk/creator/release/app-creator-release-unsigned.apk" \
+            "companion|mobile/build/outputs/apk/release/mobile-release-unsigned.apk"; do
+            variant="${entry%%|*}"
+            source="${entry#*|}"
             aligned="$RUNNER_TEMP/aperture-$variant-aligned.apk"
             output="signed-apks/Aperture-$variant-release.apk"
             test -f "$source"

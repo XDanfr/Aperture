@@ -1,7 +1,8 @@
 # Signed APK builds
 
 Merge the workflow into master, then open Actions → Build signed APKs → Run workflow.
-Both standard and creator release APKs are built, signed, verified, and uploaded together
+The standard and creator TV APKs and the phone companion APK (`Aperture-companion-release.apk`,
+same application ID `cc.xdan.aperture`, phone-only) are built, signed with the same key, verified, and uploaded together
 as a downloadable artifact (retained for 30 days). This does not publish a GitHub release.
 
 ## Repository secrets
