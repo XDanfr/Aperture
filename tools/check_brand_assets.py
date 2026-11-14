@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check TV banner sizes and Android's enlarged adaptive foreground viewport."""
+"""check TV banner sizes, opacity and the banner artwork layers."""
 from pathlib import Path
 import unittest
 
@@ -60,13 +60,14 @@ class BannerAssetsTest(unittest.TestCase):
                     reconstructed, expected_banner)).mean) / 3
                 self.assertLess(mean_error, 4.0)
 
-    def test_launcher_uses_the_padded_foreground(self):
-        import xml.etree.ElementTree as ET
-        root = ET.parse(RES / 'mipmap-anydpi-v26/ic_banner.xml').getroot()
-        self.assertEqual('@mipmap/ic_banner_foreground', root.find('foreground').get(
-            '{http://schemas.android.com/apk/res/android}drawable'))
-        self.assertEqual('@mipmap/ic_banner_background_art', root.find('background').get(
-            '{http://schemas.android.com/apk/res/android}drawable'))
+    def test_banner_is_a_flat_opaque_image(self):
+        # play wants an opaque rectangular banner, so there's no adaptive banner xml
+        self.assertFalse((RES / 'mipmap-anydpi-v26/ic_banner.xml').exists())
+        for density, size in SIZES.items():
+            with self.subTest(density=density):
+                banner = Image.open(RES / f'mipmap-{density}/ic_banner.png').convert('RGBA')
+                self.assertEqual(size, banner.size)
+                self.assertEqual((255, 255), banner.getchannel('A').getextrema())
 
 
 class MonochromeIconTest(unittest.TestCase):
