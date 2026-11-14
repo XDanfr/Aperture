@@ -31,12 +31,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.*
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -278,9 +279,9 @@ private fun FeaturedCarousel(
     var focusActiveSpotlight by remember { mutableStateOf(false) }
     val spotlightShape = RoundedCornerShape(if (roundedSpotlight) 32.dp else 0.dp)
     val spotlightGlow = rememberFocusGlow(focusActiveSpotlight)
-    val context = LocalContext.current
-    val backdropSpec = remember(context) {
-        backdropImageSpec(context, BackdropImageUsage.HOME)
+    val screenMetrics = org.koin.compose.koinInject<me.xdan.aperture.util.ScreenMetrics>()
+    val backdropSpec = remember(screenMetrics) {
+        backdropImageSpec(screenMetrics, BackdropImageUsage.HOME)
     }
 
     LaunchedEffect(
@@ -365,7 +366,7 @@ private fun FeaturedCarousel(
                     )
                 } else {
                     AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
+                        model = ImageRequest.Builder(LocalPlatformContext.current)
                             .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
                             .size(backdropSpec.widthPx, backdropSpec.heightPx)
                             .crossfade(false)

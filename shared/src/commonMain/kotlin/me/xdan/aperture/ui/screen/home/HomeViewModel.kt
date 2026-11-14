@@ -2,7 +2,6 @@ package me.xdan.aperture.ui.screen.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,10 +16,8 @@ import me.xdan.aperture.domain.playback.nextEpisodeForContinueWatching
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import kotlin.random.Random
-import javax.inject.Inject
 
-@HiltViewModel
-class HomeViewModel @Inject constructor(
+class HomeViewModel constructor(
     private val repository: MediaRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val artworkPrefetcher: ArtworkPrefetcher
