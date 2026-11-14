@@ -1,12 +1,5 @@
 package me.xdan.aperture.data.repository
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
-import androidx.documentfile.provider.DocumentFile
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -17,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import me.xdan.aperture.data.artwork.ArtworkPrefetcher
 import me.xdan.aperture.data.local.dao.MediaDao
 import me.xdan.aperture.data.local.dao.PlaybackProgressDao
@@ -29,30 +22,28 @@ import me.xdan.aperture.domain.repository.MediaFolder
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.util.FilenameParser
-import me.xdan.aperture.util.MediaScanner
+import me.xdan.aperture.data.library.MediaLibrarySource
+import me.xdan.aperture.data.library.VideoFiles
+import me.xdan.aperture.platform.KeyValueStores
 import me.xdan.aperture.data.remote.dto.TmdbResult
 import retrofit2.HttpException
-import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
 
-class MediaRepositoryImpl @Inject constructor(
+class MediaRepositoryImpl constructor(
     private val mediaDao: MediaDao,
     private val progressDao: PlaybackProgressDao,
     private val tmdbApi: TmdbApi,
     private val artworkPrefetcher: ArtworkPrefetcher,
-    @ApplicationContext private val context: Context
+    private val source: MediaLibrarySource,
+    stores: KeyValueStores
 ) : MediaRepository {
 
     private val scanMutex = Mutex()
     private val showMatchCache = ConcurrentHashMap<String, TmdbResult>()
     private val _preparationProgress = MutableStateFlow(LibraryPreparationProgress())
     override val preparationProgress: StateFlow<LibraryPreparationProgress> = _preparationProgress
-    private val folderPreferences = context.getSharedPreferences(
-        MEDIA_FOLDER_PREFERENCES,
-        Context.MODE_PRIVATE
-    )
+    private val folderPreferences = stores.open(MEDIA_FOLDER_PREFERENCES)
     private val _mediaFolders = MutableStateFlow(loadMediaFolders())
     override val mediaFolders: StateFlow<List<MediaFolder>> = _mediaFolders
 
@@ -120,15 +111,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun addMediaFolder(uri: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val treeUri = Uri.parse(uri)
-            context.contentResolver.takePersistableUriPermission(
-                treeUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            val folder = DocumentFile.fromTreeUri(context, treeUri)
-            require(folder != null && folder.isDirectory && folder.canRead()) {
-                "Aperture could not read that folder"
-            }
+            source.grantFolder(uri)
             val updated = selectedFolderUris() + uri
             saveFolderUris(updated)
             refreshMediaFolders()
@@ -141,12 +124,7 @@ class MediaRepositoryImpl @Inject constructor(
         }
         mediaDao.deleteMediaFromSource(uri)
         saveFolderUris(selectedFolderUris() - uri)
-        runCatching {
-            context.contentResolver.releasePersistableUriPermission(
-                Uri.parse(uri),
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
+        runCatching { source.releaseFolder(uri) }
         refreshMediaFolders()
     }
 
@@ -162,53 +140,9 @@ class MediaRepositoryImpl @Inject constructor(
                         stage = LibraryPreparationStage.DISCOVERING
                     )
 
-                    // Android TV devices can expose removable USB storage as separate
-                    // MediaStore volumes. Scan each volume rather than only the primary
-                    // external volume so indexed USB media is included as well.
                     runCatching {
-                        val projection = arrayOf(
-                            MediaStore.Video.Media._ID,
-                            MediaStore.Video.Media.DISPLAY_NAME,
-                            MediaStore.Video.Media.DATA,
-                            MediaStore.Video.Media.DURATION
-                        )
-
-                        val videoUris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            MediaStore.getExternalVolumeNames(context).map { volumeName ->
-                                MediaStore.Video.Media.getContentUri(volumeName)
-                            }
-                        } else {
-                            listOf(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-                        }
-
-                        videoUris.forEach { videoUri ->
-                            context.contentResolver.query(
-                                videoUri,
-                                projection,
-                                null,
-                                null,
-                                null
-                            )?.use {
-                                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                                val dataColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                                val idColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                                val durationColumn = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-
-                                while (it.moveToNext()) {
-                                    processFile(
-                                        name = it.getString(nameColumn),
-                                        path = it.getString(dataColumn)?.takeIf { path -> path.isNotBlank() }
-                                            ?: android.content.ContentUris.withAppendedId(videoUri, it.getLong(idColumn)).toString(),
-                                        duration = it.getLong(durationColumn)
-                                    )
-                                }
-                            }
-                        }
-                    }.onFailure { it.printStackTrace() }
-
-                    runCatching {
-                        MediaScanner.scanDirectories().forEach { file ->
-                            processFile(file.name, file.absolutePath, 0L)
+                        source.discoverSystemMedia { file ->
+                            processFile(file.name, file.location, file.durationMs)
                         }
                     }.onFailure { it.printStackTrace() }
 
@@ -284,37 +218,20 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     private suspend fun scanSelectedFolder(folderUri: String) {
-        val rootUri = Uri.parse(folderUri)
-        val root = DocumentFile.fromTreeUri(context, rootUri) ?: return
-        if (!root.isDirectory || !root.canRead()) return
-
         val seenUris = mutableSetOf<String>()
-        val rootName = root.name?.takeIf { it.isNotBlank() } ?: "Selected media"
-
-        suspend fun scanDirectory(directory: DocumentFile, relativeParts: List<String>) {
-            directory.listFiles().forEach { document ->
-                val name = document.name ?: return@forEach
-                if (name.startsWith('.')) return@forEach
-                if (document.isDirectory) {
-                    scanDirectory(document, relativeParts + name)
-                } else if (document.isFile && MediaScanner.isVideoFile(name)) {
-                    val documentUri = document.uri.toString()
-                    seenUris += documentUri
-                    val parserPath = (listOf(rootName) + relativeParts + name)
-                        .joinToString(separator = "/", prefix = "/")
-                    processFile(
-                        name = name,
-                        path = documentUri,
-                        duration = 0L,
-                        parserPath = parserPath,
-                        sourceRootUri = folderUri,
-                        parentDocumentUri = directory.uri.toString()
-                    )
-                }
-            }
+        val readable = source.walkFolder(folderUri) { file ->
+            if (!VideoFiles.isVideoFile(file.name)) return@walkFolder
+            seenUris += file.location
+            processFile(
+                name = file.name,
+                path = file.location,
+                duration = file.durationMs,
+                parserPath = file.parserPath,
+                sourceRootUri = folderUri,
+                parentDocumentUri = file.parentLocation
+            )
         }
-
-        scanDirectory(root, emptyList())
+        if (!readable) return
         mediaDao.getMediaFromSource(folderUri)
             .filterNot { it.filePath in seenUris }
             .forEach { staleMedia ->
@@ -335,19 +252,7 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     private fun loadMediaFolders(): List<MediaFolder> = selectedFolderUris()
-        .map { uriString ->
-            val document = runCatching {
-                DocumentFile.fromTreeUri(context, Uri.parse(uriString))
-            }.getOrNull()
-            MediaFolder(
-                uri = uriString,
-                name = document?.name?.takeIf { it.isNotBlank() }
-                    ?: Uri.decode(Uri.parse(uriString).lastPathSegment.orEmpty())
-                        .substringAfterLast(':')
-                        .ifBlank { "Media folder" },
-                isAvailable = document?.let { it.isDirectory && it.canRead() } == true
-            )
-        }
+        .map(source::describeFolder)
         .sortedBy { it.name.lowercase() }
 
     private suspend fun prepareMetadata(mediaItems: List<MediaEntity>) {
@@ -475,7 +380,7 @@ class MediaRepositoryImpl @Inject constructor(
         media: MediaEntity,
         onProgress: (Float) -> Unit = {}
     ): MediaEntity {
-        check(BuildConfig.TMDB_API_KEY.isNotBlank()) { "TMDB API key is not configured" }
+        check(AppBuild.TMDB_API_KEY.isNotBlank()) { "TMDB API key is not configured" }
 
         if (media.type == "EPISODE" && media.tmdbId != null) {
             onProgress(0.45f)
@@ -522,13 +427,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     private fun mediaForMetadataLookup(media: MediaEntity): MediaEntity {
         val parsed = runCatching {
-            val fileName = if (media.filePath.startsWith("content://")) {
-                Uri.decode(Uri.parse(media.filePath).lastPathSegment.orEmpty())
-                    .substringAfterLast('/')
-            } else {
-                File(media.filePath).name
-            }
-            FilenameParser.parse(fileName, media.filePath.takeUnless { it.startsWith("content://") })
+            FilenameParser.parse(source.fileName(media.filePath), source.parserPath(media.filePath))
         }.getOrNull() ?: return media
         return media.copy(
             title = parsed.title.ifBlank { media.title },
@@ -560,9 +459,9 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     private suspend fun searchTmdb(media: MediaEntity) = if (media.type == "MOVIE") {
-        tmdbApi.searchMovie(media.title, media.year, BuildConfig.TMDB_API_KEY)
+        tmdbApi.searchMovie(media.title, media.year, AppBuild.TMDB_API_KEY)
     } else {
-        tmdbApi.searchTvShow(media.title, media.year, BuildConfig.TMDB_API_KEY)
+        tmdbApi.searchTvShow(media.title, media.year, AppBuild.TMDB_API_KEY)
     }
 
     private suspend fun attachEpisodeMetadata(media: MediaEntity): MediaEntity {
@@ -570,7 +469,7 @@ class MediaRepositoryImpl @Inject constructor(
         val season = media.seasonNumber ?: return media
         val episode = media.episodeNumber ?: return media
         val result = runCatching {
-            tmdbApi.getTvEpisode(seriesId, season, episode, BuildConfig.TMDB_API_KEY)
+            tmdbApi.getTvEpisode(seriesId, season, episode, AppBuild.TMDB_API_KEY)
         }.getOrNull() ?: return media
         return media.copy(
             episodeTitle = result.name,
