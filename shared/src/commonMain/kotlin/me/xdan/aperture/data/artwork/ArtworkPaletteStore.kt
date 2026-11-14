@@ -1,15 +1,12 @@
 package me.xdan.aperture.data.artwork
 
-import android.content.Context
-import android.graphics.drawable.BitmapDrawable
-import androidx.core.graphics.drawable.toBitmap
-import coil.ImageLoader
-import coil.imageLoader
-import coil.request.CachePolicy
-import coil.request.ImageRequest
-import coil.request.SuccessResult
-import coil.size.Precision
-import dagger.hilt.android.qualifiers.ApplicationContext
+import coil3.Extras
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -27,20 +24,19 @@ import me.xdan.aperture.util.backdropImageSpec
 import me.xdan.aperture.util.backdropImageUrl
 import me.xdan.aperture.ui.artwork.ArtworkExtractionVersion
 import me.xdan.aperture.ui.artwork.ArtworkSampleSize
-import me.xdan.aperture.ui.artwork.extractArtworkAccent
-import javax.inject.Inject
-import javax.inject.Singleton
+import me.xdan.aperture.util.ScreenMetrics
 
-internal const val PaletteOnlyRequest = "aperture.paletteOnly"
+internal val PaletteOnlyRequest = Extras.Key(default = false)
 
 private val TmdbArtworkUrl = Regex("^https://image\\.tmdb\\.org/t/p/(?:w[0-9]+|original)(/[^?#]+)(?:[?#].*)?$")
 
 internal fun artworkPathFromUrl(url: String): String? = TmdbArtworkUrl.matchEntire(url)?.groupValues?.get(1)
 
-@Singleton
-class ArtworkPaletteStore @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val dao: ArtworkPaletteDao
+class ArtworkPaletteStore(
+    private val context: PlatformContext,
+    private val dao: ArtworkPaletteDao,
+    private val screen: ScreenMetrics,
+    private val imageLoader: () -> ImageLoader
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val extractionSlots = Semaphore(2)
@@ -55,8 +51,8 @@ class ArtworkPaletteStore @Inject constructor(
         dao.get(path)?.takeIf { it.extractionVersion == ArtworkExtractionVersion }?.let { return it.seedArgb }
         val pending = synchronized(inFlight) { inFlight[path] }
         pending?.await()?.let { return it }
-        val url = backdropImageUrl(path, backdropImageSpec(context, BackdropImageUsage.AMBIENT))
-        return compute(path, url, context.imageLoader, null, true)
+        val url = backdropImageUrl(path, backdropImageSpec(screen, BackdropImageUsage.AMBIENT))
+        return compute(path, url, imageLoader(), null, true)
     }
 
     fun artworkLoaded(url: String, result: SuccessResult, loader: ImageLoader) {
@@ -80,25 +76,24 @@ class ArtworkPaletteStore @Inject constructor(
                         try {
                             dao.get(path)?.takeIf { it.extractionVersion == ArtworkExtractionVersion }
                                 ?.let { return@withPermit it.seedArgb }
-                            val bitmap = (loaded?.drawable as? BitmapDrawable)?.bitmap
-                            val seed = if (bitmap != null) {
-                                extractArtworkAccent(bitmap)
+                            val decodedSeed = loaded?.image?.decodedArtworkAccent()
+                            val seed = if (decodedSeed != null) {
+                                decodedSeed
                             } else {
                                 val result = loader.execute(
                                     ImageRequest.Builder(context)
                                         .data(url)
                                         .size(ArtworkSampleSize, ArtworkSampleSize)
                                         .precision(Precision.EXACT)
-                                        .allowHardware(false)
-                                        .setParameter(PaletteOnlyRequest, true, null)
+                                        .readablePixels()
+                                        .apply { extras[PaletteOnlyRequest] = true }
                                         .memoryCachePolicy(CachePolicy.DISABLED)
                                         // Non-bitmap drawables can only use a cached decode in the
                                         // background. Cinematic prefetch may fetch a missing image.
                                         .networkCachePolicy(if (allowNetwork) CachePolicy.ENABLED else CachePolicy.DISABLED)
                                         .build()
                                 )
-                                result.drawable?.toBitmap(ArtworkSampleSize, ArtworkSampleSize)
-                                    ?.let(::extractArtworkAccent)
+                                result.image?.sampledArtworkAccent()
                             }
                             seed?.also { dao.put(ArtworkPaletteEntity(path, it, ArtworkExtractionVersion)) }
                         } catch (cancelled: CancellationException) {
