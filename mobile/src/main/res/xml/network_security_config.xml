@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the paired TV serves its companion API over plain HTTP on the local network, addressed by
+     IP, which domain-config cannot express. Everything else this app reaches (TMDB artwork) is HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
