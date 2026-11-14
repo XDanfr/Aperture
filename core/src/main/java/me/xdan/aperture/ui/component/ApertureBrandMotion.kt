@@ -7,12 +7,12 @@ import androidx.compose.animation.core.tween
 import me.xdan.aperture.ui.theme.tokens.ApertureMotion
 
 /** The original logo's quick, even turn. */
-internal const val BrandSpinDurationMillis = 650
-internal const val BrandSpinBounceDegrees = 4f
-internal val BrandSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+const val BrandSpinDurationMillis = 650
+const val BrandSpinBounceDegrees = 4f
+val BrandSpinEasing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 
 /** Original 650 ms spin, followed by a restrained Expressive spring settle. */
-internal suspend fun Animatable<Float, AnimationVector1D>.animateBrandTurn(motion: ApertureMotion) {
+suspend fun Animatable<Float, AnimationVector1D>.animateBrandTurn(motion: ApertureMotion) {
     val start = value % 360f
     snapTo(start)
     animateTo(

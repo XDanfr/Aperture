@@ -31,9 +31,9 @@ data class ApertureBrandPose(
  * Reading animation state in the draw phase avoids recomposing the surrounding UI.
  */
 @Composable
-internal fun ApertureBrandArtwork(
+fun ApertureBrandArtwork(
     modifier: Modifier = Modifier,
-    palette: ApertureBrandPalette = currentApertureBrandPalette(),
+    palette: ApertureBrandPalette,
     pose: () -> ApertureBrandPose = { ApertureBrandPose() }
 ) {
     val settledBlades = remember { brandBlades(1f, 0f) }

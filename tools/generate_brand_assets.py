@@ -122,7 +122,7 @@ save(tile(logo, 512, 'square'), MAIN / 'ic_launcher-playstore.png')
 save(tile(logo, 1024), ROOT / 'Aperture.png')
 
 # The banner's wordmark is vector outlines from the app's own Outfit SemiBold font.
-font = TTFont(MAIN / 'res/font/outfit_semibold.ttf')
+font = TTFont(ROOT / 'core/src/main/res/font/outfit_semibold.ttf')
 glyphs = font.getGlyphSet()
 cmap = font.getBestCmap()
 advance = 0

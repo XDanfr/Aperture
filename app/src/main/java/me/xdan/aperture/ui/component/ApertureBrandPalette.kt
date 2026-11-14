@@ -11,12 +11,6 @@ import me.xdan.aperture.ui.theme.InversePrimary
 import me.xdan.aperture.ui.theme.OnPrimary
 import me.xdan.aperture.ui.theme.Primary
 
-internal data class ApertureBrandPalette(
-    val blade: Color,
-    val overlap: Color,
-    val play: Color,
-    val background: Color
-)
 
 private val AperturePurpleBrandPalette = ApertureBrandPalette(
     blade = InversePrimary,
