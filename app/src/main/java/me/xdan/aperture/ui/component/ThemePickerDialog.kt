@@ -21,6 +21,11 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.ui.platform.LocalWindowInfo
 import me.xdan.aperture.ui.theme.ApertureTheme
 import me.xdan.aperture.ui.theme.ApertureThemeOptions
+import me.xdan.aperture.ui.theme.PhoneThemeId
+import me.xdan.aperture.ui.theme.toThemeOption
+import me.xdan.aperture.companion.PairedPhone
+import me.xdan.aperture.ui.screen.companion.CompanionViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -30,11 +35,50 @@ fun ThemePickerDialog(
     onDismiss: () -> Unit
 ) {
     val firstRequester = remember { FocusRequester() }
-    val themeRows = remember { ApertureThemeOptions.chunked(3) }
-    val initialThemeId = remember { ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.id ?: ApertureThemeOptions.first().id }
+    val companion: CompanionViewModel = hiltViewModel()
+    val pairedPhones by companion.hub.pairedPhones.collectAsState()
+    val themePhone by companion.hub.themePhone.collectAsState()
+    // phones that reported Material You colours (Android 12+ companions).
+    val colourPhones = remember(pairedPhones) { pairedPhones.filter { it.colors != null } }
+    val phoneOption = remember(colourPhones, themePhone) {
+        val phone = themePhone ?: colourPhones.singleOrNull()
+        when {
+            phone != null -> phone.colors!!.toThemeOption("Match ${phone.name}")
+            colourPhones.isNotEmpty() -> colourPhones.first().colors!!.toThemeOption("Match a phone")
+            else -> null
+        }
+    }
+    val options = remember(phoneOption) { ApertureThemeOptions + listOfNotNull(phoneOption) }
+    var choosingPhone by remember { mutableStateOf(false) }
+    val select: (String) -> Unit = { id ->
+        if (id != PhoneThemeId) {
+            onSelect(id)
+        } else if (colourPhones.size == 1) {
+            // only one phone to match: no need to ask.
+            companion.hub.setThemePhone(colourPhones.single().deviceId)
+            onSelect(id)
+        } else {
+            choosingPhone = true
+        }
+    }
+    val themeRows = remember(options) { options.chunked(3) }
+    val initialThemeId = remember { options.firstOrNull { it.id == selectedThemeId }?.id ?: options.first().id }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
-        initialFirstVisibleItemIndex = ApertureThemeOptions.indexOfFirst { it.id == initialThemeId }.coerceAtLeast(0) / 3
+        initialFirstVisibleItemIndex = options.indexOfFirst { it.id == initialThemeId }.coerceAtLeast(0) / 3
     )
+
+    if (choosingPhone) {
+        PhoneThemeChooser(
+            phones = colourPhones,
+            selectedDeviceId = themePhone?.deviceId.takeIf { selectedThemeId == PhoneThemeId },
+            onChoose = { phone ->
+                companion.hub.setThemePhone(phone.deviceId)
+                onSelect(PhoneThemeId)
+                choosingPhone = false
+            },
+            onDismiss = { choosingPhone = false }
+        )
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val windowInfo = LocalWindowInfo.current
@@ -57,7 +101,8 @@ fun ThemePickerDialog(
                 Column(Modifier.padding(ApertureTheme.spacing.huge)) {
                     Text("Choose a theme", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Choose a palette for Aperture.",
+                        if (phoneOption != null) "Choose a palette for Aperture, or match a paired phone's Material You colours."
+                        else "Choose a palette for Aperture.",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     )
                     Spacer(Modifier.height(ApertureTheme.spacing.large))
@@ -92,7 +137,7 @@ fun ThemePickerDialog(
                                             firstRequester = if (
                                                 option.id == initialThemeId
                                             ) firstRequester else null,
-                                            onSelect = onSelect,
+                                            onSelect = select,
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .height(152.dp)
@@ -110,6 +155,63 @@ fun ThemePickerDialog(
                     }
                     Spacer(Modifier.height(ApertureTheme.spacing.medium))
                     Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+                }
+            }
+        }
+    }
+}
+
+/** picks which paired phone the "Match phone" theme follows, previewing each one's colours. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PhoneThemeChooser(
+    phones: List<PairedPhone>,
+    selectedDeviceId: String?,
+    onChoose: (PairedPhone) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val requester = remember { FocusRequester() }
+    val initial = phones.firstOrNull { it.deviceId == selectedDeviceId } ?: phones.firstOrNull()
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val windowInfo = LocalWindowInfo.current
+        LaunchedEffect(windowInfo.isWindowFocused) {
+            if (!windowInfo.isWindowFocused) return@LaunchedEffect
+            withFrameNanos { }
+            withFrameNanos { }
+            runCatching { requester.requestFocus() }
+        }
+        Box(
+            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(820.dp),
+                shape = ApertureTheme.shapes.dialog,
+                colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(ApertureTheme.spacing.huge)) {
+                    Text("Match which phone?", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "Aperture will use that phone's Material You colours.",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                    )
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        items(phones, key = { it.deviceId }) { phone ->
+                            ThemeOptionCard(
+                                option = phone.colors!!.toThemeOption(phone.name),
+                                selected = phone.deviceId == selectedDeviceId,
+                                firstRequester = if (phone == initial) requester else null,
+                                onSelect = { onChoose(phone) },
+                                modifier = Modifier.width(236.dp).height(152.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
                 }
             }
         }
@@ -203,41 +305,10 @@ private fun ThemeColourSwatch(
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     }
 
-    Canvas(
+    ApertureThemeSwatch(
+        option = option,
+        outlineColor = outlineColor,
+        outlineWidth = if (selected) 3.dp else 1.dp,
         modifier = Modifier.size(88.dp)
-    ) {
-        val strokeWidth = if (selected) 3.dp.toPx() else 1.dp.toPx()
-
-        if (option.id == "dynamic") {
-            drawCircle(
-                brush = Brush.sweepGradient(
-                    listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
-                )
-            )
-        } else {
-            drawArc(
-                color = option.primary,
-                startAngle = 180f,
-                sweepAngle = 180f,
-                useCenter = true
-            )
-            drawArc(
-                color = option.secondary,
-                startAngle = 90f,
-                sweepAngle = 90f,
-                useCenter = true
-            )
-            drawArc(
-                color = option.tertiary,
-                startAngle = 0f,
-                sweepAngle = 90f,
-                useCenter = true
-            )
-        }
-        drawCircle(
-            color = outlineColor,
-            radius = size.minDimension / 2f - strokeWidth / 2f,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-        )
-    }
+    )
 }
