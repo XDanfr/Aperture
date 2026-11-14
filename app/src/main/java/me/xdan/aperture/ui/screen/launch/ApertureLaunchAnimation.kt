@@ -66,7 +66,7 @@ fun ApertureLaunchAnimation(onFinished: () -> Unit, modifier: Modifier = Modifie
         modifier.fillMaxSize().background(colors.background),
         contentAlignment = Alignment.Center
     ) {
-        ApertureBrandArtwork(Modifier.size(224.dp)) {
+        ApertureBrandArtwork(Modifier.size(224.dp), palette = currentApertureBrandPalette()) {
             ApertureBrandPose(
                 seedShape = seedShape.value,
                 assembly = assembly.value,

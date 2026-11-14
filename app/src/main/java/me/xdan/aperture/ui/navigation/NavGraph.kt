@@ -28,6 +28,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.tv.material3.*
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -359,7 +360,7 @@ fun NavGraph(
         )
     } else {
         ProvideFocusMemory {
-            // Keep the browsing page and its scroll/focus state beneath Player.
+            // keep the browsing page and its scroll/focus state beneath Player
             Box(Modifier.fillMaxSize()) {
                 NavigationDrawer(
                     drawerState = drawerState,

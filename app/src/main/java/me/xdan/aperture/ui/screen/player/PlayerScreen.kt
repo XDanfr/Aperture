@@ -180,11 +180,21 @@ fun PlayerScreen(
         onDispose { player.removeListener(listener) }
     }
 
-    DisposableEffect(Unit) {
-        val wasKeepingScreenOn = hostView.keepScreenOn
-        hostView.keepScreenOn = true
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(hostView, isPlaying) {
+        hostView.keepScreenOn = isPlaying
+        onDispose { hostView.keepScreenOn = false }
+    }
+    DisposableEffect(player, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                player.pause()
+                viewModel.saveProgressNow()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            hostView.keepScreenOn = wasKeepingScreenOn
+            lifecycleOwner.lifecycle.removeObserver(observer)
             player.stop()
         }
     }
@@ -280,6 +290,15 @@ fun PlayerScreen(
                         viewModel.showOsdBriefly()
                     }
                     when (keyEvent.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                            if (nativeEvent.repeatCount == 0) {
+                                if (isPlaying) player.pause() else player.play()
+                            }
+                            true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> { player.play(); true }
+                        KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_STOP -> { player.pause(); true }
+
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                             if (!isOsdVisible && !isQuickMenuVisible) {
                                 if (isPlaying) player.pause() else player.play()

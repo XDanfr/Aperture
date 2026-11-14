@@ -48,6 +48,7 @@ class PlayerViewModel @Inject constructor(
     private val openSubtitlesApi: OpenSubtitlesApi,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val okHttpClient: OkHttpClient,
+    private val companionHub: me.xdan.aperture.companion.CompanionHub,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -162,6 +163,33 @@ class PlayerViewModel @Inject constructor(
             player.audioDecoderName.collect { _audioDecoderName.value = it }
         }
         checkDisplayCapabilities()
+        viewModelScope.launch { _media.collect(companionHub::onPlaybackMedia) }
+        viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
+        viewModelScope.launch {
+            companionHub.playerCommands.collect { command ->
+                when (command) {
+                    me.xdan.aperture.companion.CompanionPlayerCommand.Toggle -> {
+                        if (player.isPlaying.value) player.pause() else player.play()
+                        showOsdBriefly()
+                    }
+                    is me.xdan.aperture.companion.CompanionPlayerCommand.SeekTo -> {
+                        val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                        player.seekTo(command.positionMs.coerceIn(0, duration))
+                        showOsdBriefly()
+                    }
+                    is me.xdan.aperture.companion.CompanionPlayerCommand.SeekBy -> {
+                        val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                        player.seekTo((player.currentPosition + command.deltaMs).coerceIn(0, duration))
+                        showOsdBriefly()
+                    }
+                    me.xdan.aperture.companion.CompanionPlayerCommand.NextEpisode -> playNextEpisode()
+                    is me.xdan.aperture.companion.CompanionPlayerCommand.Load -> {
+                        saveProgressNow()
+                        loadMedia(command.mediaId, command.fromStart)
+                    }
+                }
+            }
+        }
     }
 
     private fun checkDisplayCapabilities() {
@@ -706,6 +734,7 @@ class PlayerViewModel @Inject constructor(
     fun seekBackward() { player.seekTo((player.currentPosition - 10000).coerceAtLeast(0)); showOsdBriefly() }
 
     override fun onCleared() {
+        companionHub.onPlaybackMedia(null)
         player.removeListener(playerListener)
         player.stop()
         player.release()

@@ -41,7 +41,8 @@ internal fun LinkQrDialog(
     qrRows: List<String>,
     onDismiss: () -> Unit,
     nextLabel: String? = null,
-    onNext: (() -> Unit)? = null
+    onNext: (() -> Unit)? = null,
+    header: (@Composable () -> Unit)? = null
 ) {
     val closeRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -68,6 +69,7 @@ internal fun LinkQrDialog(
                     modifier = Modifier.width(400.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    header?.invoke()
                     Text(title, style = MaterialTheme.typography.headlineSmall)
                     Text(
                         description,

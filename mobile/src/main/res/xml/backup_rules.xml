@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- the pairing token belongs to this device and TV; a restored copy would be stale. -->
+    <exclude domain="sharedpref" path="companion_pairing.xml"/>
+</full-backup-content>

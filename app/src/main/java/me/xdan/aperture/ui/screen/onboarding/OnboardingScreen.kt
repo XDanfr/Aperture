@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,6 +90,10 @@ fun OnboardingScreen(
 ) {
     var showThemePicker by remember { mutableStateOf(false) }
     var showAmbientSettings by remember { mutableStateOf(false) }
+    var showCompanionPairing by remember { mutableStateOf(false) }
+    val companionRequester = remember { FocusRequester() }
+    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
     val themeRequester = remember { FocusRequester() }
     val ambientRequester = remember { FocusRequester() }
     var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
@@ -170,7 +175,7 @@ fun OnboardingScreen(
                         onSkip = onSkip,
                         onComplete = onComplete,
                         onLearn = onLearn,
-                        focusEnabled = !showThemePicker && !showAmbientSettings,
+                        focusEnabled = !showThemePicker && !showAmbientSettings && !showCompanionPairing,
                         modifier = Modifier.weight(1.5f).heightIn(max = 480.dp)
                     )
                     Surface(
@@ -184,7 +189,7 @@ fun OnboardingScreen(
                         ) {
                             Text("Customise Aperture", style = MaterialTheme.typography.headlineSmall)
                             Text(
-                                "Choose your theme and what to show while Aperture is idle. You can change these later in Settings.",
+                                "Choose your theme, what to show while Aperture is idle, and optionally pair your phone. You can change these later in Settings.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -195,7 +200,7 @@ fun OnboardingScreen(
                                 Column {
                                     Text("Theme")
                                     Text(
-                                        ApertureThemeOptions.firstOrNull { it.id == selectedThemeId }?.label ?: "Aperture Purple",
+                                        me.xdan.aperture.ui.theme.apertureThemeLabel(selectedThemeId),
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
@@ -209,6 +214,22 @@ fun OnboardingScreen(
                                     Text(
                                         (if (ambientSettings.mode == AmbientModeType.CINEMATIC) "Cinematic" else "Poster wall") +
                                             if (ambientSettings.showClock) " · Clock on" else " · Clock off",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showCompanionPairing = true },
+                                modifier = Modifier.fillMaxWidth().focusRequester(companionRequester)
+                            ) {
+                                Column {
+                                    Text("Pair a phone")
+                                    Text(
+                                        when (pairedPhones.size) {
+                                            0 -> "Optional · Browse and control from Aperture Companion"
+                                            1 -> "${pairedPhones.first().name} paired"
+                                            else -> "${pairedPhones.size} phones paired"
+                                        },
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
@@ -231,6 +252,14 @@ fun OnboardingScreen(
             onDismiss = {
                 showThemePicker = false
                 pendingFocus = themeRequester
+            }
+        )
+    }
+    if (showCompanionPairing) {
+        me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(
+            onDismiss = {
+                showCompanionPairing = false
+                pendingFocus = companionRequester
             }
         )
     }
@@ -269,11 +298,11 @@ private fun PermissionPanel(
             androidx.compose.material3.Icon(
                 painter = painterResource(id = R.drawable.ic_banner_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(300.dp),
+                modifier = Modifier.size(160.dp),
                 tint = Color.Unspecified
             )
             Text(
-                text = "Allow access to videos on this device to build your Aperture library.",
+                text = "Aperture reads your videos to build a local library. It sends titles derived from filenames to TMDB for descriptions and artwork. Your video files are not uploaded. You can revoke video access in Android Settings.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)

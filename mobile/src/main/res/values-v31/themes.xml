@@ -1,0 +1,9 @@
+<resources>
+    <!-- Android 12+ splash: the launcher mark on Aperture's background. LaunchOverlay then
+         takes over at the same position and plays the brand animation in reverse. -->
+    <style name="Theme.ApertureCompanion" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#111014</item>
+        <item name="android:windowSplashScreenBackground">#111014</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_mark_purple</item>
+    </style>
+</resources>

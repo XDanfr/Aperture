@@ -17,6 +17,7 @@
 /app/debug/
 /app/release/
 /.gradle/
+/.kotlin/
 
 # Android Studio / IntelliJ project state
 /.idea/

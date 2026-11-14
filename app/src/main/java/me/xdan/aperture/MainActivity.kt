@@ -39,6 +39,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var sponsorVerificationManager: SponsorVerificationManager
+    @Inject lateinit var companionHub: me.xdan.aperture.companion.CompanionHub
     private var sponsorPromptLaunchNumber: Int = 0
     
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
@@ -85,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 is UpdateCheckState.Downloading -> state.update
                 else -> null
             }
-            val updateDialogVisible = launchFinished && !legacyCleanupRequired &&
+            val updateDialogVisible = BuildConfig.SIDELOAD_UPDATES_ENABLED && launchFinished && !legacyCleanupRequired &&
                 offeredUpdate != null &&
                 offeredUpdate.version != dismissedUpdateVersion
             val updateBlocksSponsorPrompt = when (updateState) {
@@ -136,9 +137,11 @@ class MainActivity : ComponentActivity() {
                 if (sponsorVerified) showSponsorPrompt = false
             }
 
+            val themePhone by companionHub.themePhone.collectAsState()
             ApertureTheme(
                 themeId = themeId,
-                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
+                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) },
+                phoneColors = themePhone?.colors
             ) {
                 val brandMotion = ApertureTheme.motion
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -154,6 +157,27 @@ class MainActivity : ComponentActivity() {
                         ) {
                             @Suppress("UNCHECKED_CAST")
                             val backstack = rememberNavBackStack(Destination.Home) as NavBackStack<Destination>
+
+                            // paired phones can start playback and leave the player.
+                            LaunchedEffect(backstack) {
+                                companionHub.navigation.collect { request ->
+                                    lastInteractionTime = System.currentTimeMillis()
+                                    when (request) {
+                                        is me.xdan.aperture.companion.CompanionNavigation.Play -> {
+                                            if (onboardingCompleted != true || legacyCleanupRequired) return@collect
+                                            isAmbientActive = false
+                                            if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
+                                            isPlayerActive = true
+                                            backstack.add(Destination.Player(request.mediaId, request.fromStart))
+                                        }
+                                        me.xdan.aperture.companion.CompanionNavigation.ExitPlayer -> {
+                                            if (backstack.size > 1 && backstack.lastOrNull() is Destination.Player) {
+                                                backstack.removeAt(backstack.lastIndex)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
                             LaunchedEffect(legacyCleanupRequired, onboardingCompleted) {
                                 while (true) {
@@ -186,7 +210,10 @@ class MainActivity : ComponentActivity() {
                                 NavGraph(
                                     backstack = backstack,
                                     mainViewModel = mainViewModel,
-                                    onPlayerStateChanged = { isPlayerActive = it },
+                                    onPlayerStateChanged = {
+                                        isPlayerActive = it
+                                        companionHub.onPlayerVisible(it)
+                                    },
                                     onPreviewAmbientMode = {
                                         lastInteractionTime = System.currentTimeMillis()
                                         isAmbientActive = true
@@ -209,7 +236,7 @@ class MainActivity : ComponentActivity() {
                             onInstall = mainViewModel::downloadAndInstallUpdate,
                             onDismiss = { dismissedUpdateVersion = offeredUpdate.version }
                         )
-                    } else if (showSponsorPrompt) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorPrompt) {
                         SponsorPromptDialog(
                             onSponsor = {
                                 showSponsorPrompt = false
@@ -222,7 +249,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = { showSponsorPrompt = false }
                         )
-                    } else if (showSponsorVerification) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorVerification) {
                         SponsorVerificationDialog(
                             state = sponsorVerificationState,
                             onRetry = { scope.launch { sponsorVerificationManager.verify() } },
@@ -231,7 +258,7 @@ class MainActivity : ComponentActivity() {
                                 sponsorVerificationManager.resetState()
                             }
                         )
-                    } else if (showSponsorQr) {
+                    } else if (BuildConfig.GITHUB_SPONSORSHIP_ENABLED && showSponsorQr) {
                         LinkQrDialog(
                             title = "Sponsor XDanfr on GitHub",
                             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
@@ -247,6 +274,10 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    if (launchFinished) {
+                        me.xdan.aperture.ui.screen.companion.CompanionPairingRequestHost()
+                    }
+
                     AnimatedVisibility(
                         visible = !launchFinished,
                         exit = fadeOut(brandMotion.brandFastEffects())
@@ -258,6 +289,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        companionHub.start()
+    }
+
+    override fun onStop() {
+        companionHub.stop()
+        super.onStop()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

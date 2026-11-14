@@ -12,7 +12,7 @@ import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 @Database(
     entities = [MediaEntity::class, PlaybackProgressEntity::class, ArtworkPaletteEntity::class],
     version = 8,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun artworkPaletteDao(): ArtworkPaletteDao
