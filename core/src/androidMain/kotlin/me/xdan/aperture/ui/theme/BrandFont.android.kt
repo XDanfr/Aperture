@@ -15,7 +15,7 @@ private fun outfitFont(weight: FontWeight, axisWeight: Int) = Font(
 )
 
 @OptIn(ExperimentalTextApi::class)
-val ApertureBrandFontFamily = FontFamily(
+actual val ApertureBrandFontFamily = FontFamily(
     outfitFont(FontWeight.W100, 100),
     outfitFont(FontWeight.W200, 200),
     outfitFont(FontWeight.W300, 300),
