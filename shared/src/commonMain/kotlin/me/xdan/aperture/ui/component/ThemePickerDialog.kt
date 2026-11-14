@@ -1,5 +1,7 @@
 package me.xdan.aperture.ui.component
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,7 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.platform.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import kotlinx.coroutines.flow.first
@@ -25,7 +27,6 @@ import me.xdan.aperture.ui.theme.PhoneThemeId
 import me.xdan.aperture.ui.theme.toThemeOption
 import me.xdan.aperture.companion.PairedPhone
 import me.xdan.aperture.ui.screen.companion.CompanionViewModel
-import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -35,7 +36,7 @@ fun ThemePickerDialog(
     onDismiss: () -> Unit
 ) {
     val firstRequester = remember { FocusRequester() }
-    val companion: CompanionViewModel = hiltViewModel()
+    val companion: CompanionViewModel = koinViewModel()
     val pairedPhones by companion.hub.pairedPhones.collectAsState()
     val themePhone by companion.hub.themePhone.collectAsState()
     // phones that reported Material You colours (Android 12+ companions).
