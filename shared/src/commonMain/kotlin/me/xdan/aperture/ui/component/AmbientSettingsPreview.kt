@@ -9,13 +9,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
+import me.xdan.aperture.ui.platform.rememberScreenWidthDp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.model.AmbientModeType
@@ -29,10 +28,10 @@ internal fun AmbientSettingsPreview(
     modifier: Modifier = Modifier,
     media: List<MediaEntity>? = null
 ) {
-    val ambientViewModel = if (media == null) viewModel<AmbientViewModel>() else null
+    val ambientViewModel = if (media == null) org.koin.compose.viewmodel.koinViewModel<AmbientViewModel>() else null
     val library = ambientViewModel?.media?.collectAsState()?.value ?: media.orEmpty()
     val density = LocalDensity.current
-    val screenWidth = LocalConfiguration.current.screenWidthDp.coerceAtLeast(1)
+    val screenWidth = rememberScreenWidthDp().coerceAtLeast(1)
     val caption = (if (settings.mode == AmbientModeType.CINEMATIC) "Cinematic" else "Poster wall") +
         if (settings.showClock) ", clock shown" else ", clock hidden"
     BoxWithConstraints(
