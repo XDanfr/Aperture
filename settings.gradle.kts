@@ -24,3 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Aperture"
 include(":app")
+include(":core")
+include(":mobile")
