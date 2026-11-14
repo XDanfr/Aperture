@@ -2,7 +2,7 @@ package me.xdan.aperture.data.remote.api
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -46,7 +46,7 @@ interface OpenSubtitlesApi {
 
     companion object {
         const val BASE_URL = "https://api.opensubtitles.com/api/v1/"
-        val USER_AGENT = "Aperture ${BuildConfig.VERSION_NAME}"
+        val USER_AGENT: String get() = "Aperture ${AppBuild.VERSION_NAME}"
     }
 }
 
