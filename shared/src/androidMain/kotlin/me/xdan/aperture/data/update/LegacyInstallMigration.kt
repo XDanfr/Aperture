@@ -2,25 +2,22 @@ package me.xdan.aperture.data.update
 
 import android.content.Context
 import android.content.pm.PackageManager
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class LegacyInstallMigration @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
+/** The pre-Play package (me.xdan.aperture) must be removed before this one is used. */
+class AndroidLegacyInstallMigration(
+    private val context: Context
+) : LegacyInstallMigration {
     private val _cleanupRequired = MutableStateFlow(false)
-    val cleanupRequired = _cleanupRequired.asStateFlow()
+    override val cleanupRequired = _cleanupRequired.asStateFlow()
 
     init {
         refresh()
     }
 
-    fun refresh() {
-        val installed = if (!me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) false else try {
+    override fun refresh() {
+        val installed = if (!me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) false else try {
             context.packageManager.getApplicationInfo(LEGACY_PACKAGE, 0)
             true
         } catch (_: PackageManager.NameNotFoundException) {

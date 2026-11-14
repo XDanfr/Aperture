@@ -7,30 +7,27 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class UpdateManager @Inject constructor(
+/** Sideload builds: checks GitHub releases and installs the APK through Android's installer. */
+class GitHubApkUpdateManager(
     private val okHttpClient: OkHttpClient,
-    @ApplicationContext private val context: Context
-) {
+    private val context: Context
+) : UpdateManager {
     private val _state = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
-    val state: StateFlow<UpdateCheckState> = _state
+    override val state: StateFlow<UpdateCheckState> = _state
 
-    suspend fun checkForUpdates(silent: Boolean = false) {
-        if (!BuildConfig.SIDELOAD_UPDATES_ENABLED) return
+    override suspend fun checkForUpdates(silent: Boolean) {
+        if (!AppBuild.SIDELOAD_UPDATES_ENABLED) return
         if (_state.value is UpdateCheckState.Checking) return
         _state.value = UpdateCheckState.Checking
         val result = withContext(Dispatchers.IO) {
@@ -38,7 +35,7 @@ class UpdateManager @Inject constructor(
                 val request = Request.Builder()
                     .url("https://api.github.com/repos/XDanfr/Aperture/releases?per_page=20")
                     .header("Accept", "application/vnd.github+json")
-                    .header("User-Agent", "Aperture/${BuildConfig.VERSION_NAME}")
+                    .header("User-Agent", "Aperture/${AppBuild.VERSION_NAME}")
                     .build()
                 okHttpClient.newCall(request).execute().use { response ->
                     check(response.isSuccessful) { "GitHub returned ${response.code}" }
@@ -59,8 +56,8 @@ class UpdateManager @Inject constructor(
         }
     }
 
-    suspend fun downloadAndInstall(update: UpdateCheckState.Available) {
-        if (!BuildConfig.SIDELOAD_UPDATES_ENABLED) return
+    override suspend fun downloadAndInstall(update: UpdateCheckState.Available) {
+        if (!AppBuild.SIDELOAD_UPDATES_ENABLED) return
         val apkUrl = update.apkUrl
         if (apkUrl == null) {
             openUri(update.releaseUrl)
@@ -145,7 +142,7 @@ class UpdateManager @Inject constructor(
         }
     }
 
-    fun reset() {
+    override fun reset() {
         _state.value = UpdateCheckState.Idle
     }
 
@@ -172,7 +169,7 @@ class UpdateManager @Inject constructor(
         val apkUrl = preferredAsset
             ?.optString("browser_download_url")
             ?.takeIf(String::isNotBlank)
-        return if (isNewer(latest, BuildConfig.VERSION_NAME)) {
+        return if (isNewer(latest, AppBuild.VERSION_NAME)) {
             UpdateCheckState.Available(latest, releaseUrl, apkUrl)
         } else {
             UpdateCheckState.Current(latest)
@@ -241,19 +238,4 @@ private data class ParsedVersion(
             RegexOption.IGNORE_CASE
         )
     }
-}
-
-sealed interface UpdateCheckState {
-    data object Idle : UpdateCheckState
-    data object Checking : UpdateCheckState
-    data class Current(val version: String) : UpdateCheckState
-    data class Available(
-        val version: String,
-        val releaseUrl: String,
-        val apkUrl: String?
-    ) : UpdateCheckState
-    data class PermissionRequired(val update: Available) : UpdateCheckState
-    data class Downloading(val update: Available, val progress: Float) : UpdateCheckState
-    data class Installing(val version: String) : UpdateCheckState
-    data class Error(val message: String) : UpdateCheckState
 }
