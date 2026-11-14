@@ -161,6 +161,8 @@ class UpdateManager @Inject constructor(
         val assetObjects = (0 until (assets?.length() ?: 0))
             .mapNotNull { assets?.optJSONObject(it) }
             .filter { it.optString("name").endsWith(".apk", ignoreCase = true) }
+            // releases also carry the phone companion APK, which must never install on a TV.
+            .filterNot { it.optString("name").contains("companion", ignoreCase = true) }
         val preferredAsset = assetObjects.firstOrNull {
             it.optString("name").startsWith("Aperture-", ignoreCase = true) &&
                 !it.optString("name").contains("debug", ignoreCase = true)
