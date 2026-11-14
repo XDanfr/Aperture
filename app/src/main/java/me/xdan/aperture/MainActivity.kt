@@ -39,6 +39,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var sponsorVerificationManager: SponsorVerificationManager
+    @Inject lateinit var companionHub: me.xdan.aperture.companion.CompanionHub
     private var sponsorPromptLaunchNumber: Int = 0
     
     private var lastInteractionTime by mutableLongStateOf(System.currentTimeMillis())
@@ -136,9 +137,11 @@ class MainActivity : ComponentActivity() {
                 if (sponsorVerified) showSponsorPrompt = false
             }
 
+            val themePhone by companionHub.themePhone.collectAsState()
             ApertureTheme(
                 themeId = themeId,
-                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) }
+                dynamicAccent = dynamicAccentArgb?.let { androidx.compose.ui.graphics.Color(it) },
+                phoneColors = themePhone?.colors
             ) {
                 val brandMotion = ApertureTheme.motion
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -154,6 +157,27 @@ class MainActivity : ComponentActivity() {
                         ) {
                             @Suppress("UNCHECKED_CAST")
                             val backstack = rememberNavBackStack(Destination.Home) as NavBackStack<Destination>
+
+                            // paired phones can start playback and leave the player.
+                            LaunchedEffect(backstack) {
+                                companionHub.navigation.collect { request ->
+                                    lastInteractionTime = System.currentTimeMillis()
+                                    when (request) {
+                                        is me.xdan.aperture.companion.CompanionNavigation.Play -> {
+                                            if (onboardingCompleted != true || legacyCleanupRequired) return@collect
+                                            isAmbientActive = false
+                                            if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
+                                            isPlayerActive = true
+                                            backstack.add(Destination.Player(request.mediaId, request.fromStart))
+                                        }
+                                        me.xdan.aperture.companion.CompanionNavigation.ExitPlayer -> {
+                                            if (backstack.size > 1 && backstack.lastOrNull() is Destination.Player) {
+                                                backstack.removeAt(backstack.lastIndex)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
                             LaunchedEffect(legacyCleanupRequired, onboardingCompleted) {
                                 while (true) {
@@ -186,7 +210,10 @@ class MainActivity : ComponentActivity() {
                                 NavGraph(
                                     backstack = backstack,
                                     mainViewModel = mainViewModel,
-                                    onPlayerStateChanged = { isPlayerActive = it },
+                                    onPlayerStateChanged = {
+                                        isPlayerActive = it
+                                        companionHub.onPlayerVisible(it)
+                                    },
                                     onPreviewAmbientMode = {
                                         lastInteractionTime = System.currentTimeMillis()
                                         isAmbientActive = true
@@ -247,6 +274,10 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    if (launchFinished) {
+                        me.xdan.aperture.ui.screen.companion.CompanionPairingRequestHost()
+                    }
+
                     AnimatedVisibility(
                         visible = !launchFinished,
                         exit = fadeOut(brandMotion.brandFastEffects())
@@ -258,6 +289,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        companionHub.start()
+    }
+
+    override fun onStop() {
+        companionHub.stop()
+        super.onStop()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

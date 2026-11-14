@@ -28,6 +28,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.*
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -136,7 +137,7 @@ fun NavGraph(
         pendingFocusJob[0]?.cancel()
         if (requester == null && fallback == null) return
         pendingFocusJob[0] = focusScope.launch {
-            delay(150)
+            delay(150.milliseconds)
             repeat(10) {
                 val restored = requester?.let {
                     runCatching { it.requestFocus() }.getOrDefault(false)
@@ -147,7 +148,7 @@ fun NavGraph(
                     onFinished(true)
                     return@launch
                 }
-                delay(100)
+                delay(100.milliseconds)
             }
             onFinished(false)
         }
@@ -279,7 +280,7 @@ fun NavGraph(
     LaunchedEffect(contextMediaId) {
         if (contextMediaId != null) return@LaunchedEffect
         val requester = contextFocusRequester ?: return@LaunchedEffect
-        delay(140)
+        delay(140.milliseconds)
         val restored = runCatching { requester.requestFocus() }.getOrDefault(false)
         if (!restored) {
             val fallback = when (currentFocusKey) {
@@ -302,7 +303,7 @@ fun NavGraph(
             return@LaunchedEffect
         }
 
-        delay(160)
+        delay(160.milliseconds)
         val rememberedRequester = lastFocusedRequesters[focusKey]
         val fallbackRequester = when (focusKey) {
             "home" -> homeContentEntryRequester
@@ -359,7 +360,7 @@ fun NavGraph(
         )
     } else {
         ProvideFocusMemory {
-            // Keep the browsing page and its scroll/focus state beneath Player.
+            // keep the browsing page and its scroll/focus state beneath Player
             Box(Modifier.fillMaxSize()) {
                 NavigationDrawer(
                     drawerState = drawerState,
@@ -874,13 +875,13 @@ private fun NavContent(
                 // A loading/empty target may be removed after a successful handoff.
                 // Wait for the replacement cards (including their enter animation)
                 // to attach, and retry only while this page owns navigation.
-                delay(150)
+                delay(150.milliseconds)
                 repeat(20) {
                     // Check live drawer intent after every suspension: focus can
                     // enter the drawer before recomposition cancels this effect.
                     if (pageHasFocus || !currentCanRecoverContentFocus(focusKey)) return@LaunchedEffect
                     runCatching { contentEntryFocusRequester.requestFocus() }
-                    delay(100)
+                    delay(100.milliseconds)
                 }
             }
             Box(
