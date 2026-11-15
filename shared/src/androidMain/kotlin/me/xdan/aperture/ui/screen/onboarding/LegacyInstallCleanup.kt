@@ -24,7 +24,7 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun LegacyInstallCleanup(onRecheck: () -> Unit, onCancel: () -> Unit) {
+actual fun LegacyInstallCleanup(onRecheck: () -> Unit, onCancel: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentRecheck by rememberUpdatedState(onRecheck)
     var launchFailed by remember { mutableStateOf(false) }
@@ -86,7 +86,7 @@ fun LegacyInstallCleanup(onRecheck: () -> Unit, onCancel: () -> Unit) {
                                 launchFailed = false
                                 waitingForUninstall = true
                                 try {
-                                    launcher.launch(Intent(Intent.ACTION_DELETE, Uri.parse("package:${LegacyInstallMigration.LEGACY_PACKAGE}")))
+                                    launcher.launch(Intent(Intent.ACTION_DELETE, Uri.parse("package:${me.xdan.aperture.data.update.AndroidLegacyInstallMigration.LEGACY_PACKAGE}")))
                                 } catch (_: ActivityNotFoundException) {
                                     waitingForUninstall = false
                                     launchFailed = true

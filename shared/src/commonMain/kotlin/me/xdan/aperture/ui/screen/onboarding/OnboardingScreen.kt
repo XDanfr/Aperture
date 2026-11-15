@@ -1,7 +1,7 @@
 package me.xdan.aperture.ui.screen.onboarding
 
-import android.Manifest
-import android.os.Build
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -43,8 +43,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import org.jetbrains.compose.resources.painterResource
+import me.xdan.aperture.resources.Res
+import me.xdan.aperture.resources.ic_banner_foreground
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,13 +56,11 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.delay
-import me.xdan.aperture.R
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.LibraryPreparationProgress
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
@@ -73,7 +72,7 @@ import me.xdan.aperture.ui.component.ThemePickerDialog
 import me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator
 import me.xdan.aperture.ui.theme.ApertureTheme
 
-@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun OnboardingScreen(
     progress: LibraryPreparationProgress,
@@ -92,7 +91,7 @@ fun OnboardingScreen(
     var showAmbientSettings by remember { mutableStateOf(false) }
     var showCompanionPairing by remember { mutableStateOf(false) }
     val companionRequester = remember { FocusRequester() }
-    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
     val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
     val themeRequester = remember { FocusRequester() }
     val ambientRequester = remember { FocusRequester() }
@@ -106,14 +105,8 @@ fun OnboardingScreen(
         requester.requestFocus()
         pendingFocus = null
     }
-    val permissionState = rememberPermissionState(
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_VIDEO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-    )
-    val hasLibraryAccess = permissionState.status.isGranted
+    val libraryAccess = me.xdan.aperture.ui.platform.rememberLibraryAccess()
+    val hasLibraryAccess = libraryAccess.isGranted
     var rescanHasStarted by remember(rescanMode) { mutableStateOf(!rescanMode) }
 
     LaunchedEffect(hasLibraryAccess) {
@@ -240,7 +233,9 @@ fun OnboardingScreen(
             }
         } else {
             PermissionPanel(
-                onGrantPermission = permissionState::launchPermissionRequest,
+                explanation = libraryAccess.explanation,
+                actionLabel = libraryAccess.actionLabel,
+                onGrantPermission = libraryAccess.request,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -283,6 +278,8 @@ fun OnboardingScreen(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun PermissionPanel(
+    explanation: String,
+    actionLabel: String,
     onGrantPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -296,13 +293,13 @@ private fun PermissionPanel(
             modifier = Modifier.padding(ApertureTheme.spacing.huge)
         ) {
             androidx.compose.material3.Icon(
-                painter = painterResource(id = R.drawable.ic_banner_foreground),
+                painter = painterResource(Res.drawable.ic_banner_foreground),
                 contentDescription = null,
                 modifier = Modifier.size(160.dp),
                 tint = Color.Unspecified
             )
             Text(
-                text = "Aperture reads your videos to build a local library. It sends titles derived from filenames to TMDB for descriptions and artwork. Your video files are not uploaded. You can revoke video access in Android Settings.",
+                text = explanation,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
@@ -312,7 +309,7 @@ private fun PermissionPanel(
                 onClick = onGrantPermission,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Allow device videos")
+                Text(actionLabel)
             }
         }
     }
@@ -471,9 +468,9 @@ private fun PosterBackground(posterPaths: List<String>) {
                 enter = fadeIn(tween(durationMillis = 650))
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                    model = ImageRequest.Builder(LocalPlatformContext.current)
                         .data(TmdbApi.IMAGE_BASE_URL + "w342" + posterPath)
-                        .crossfade(true)
+                        .crossfade(100) // Coil 2's crossfade(true) duration
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
