@@ -90,7 +90,14 @@ compose.desktop {
                 val arch = if (System.getProperty("os.arch") == "aarch64") "arm64" else "x64"
                 project.file("mpv-bundle/min-macos-$arch.txt").takeIf { it.exists() }
                     ?.let { minimumSystemVersion = it.readText().trim() }
+                // The icon is made with Icon Composer (icons/Aperture.icon). macOS 26 draws the
+                // layered Liquid Glass version from Assets.car (CFBundleIconName); earlier
+                // versions use the flat renders in the .icns. tools/desktop/compile_mac_icon.sh
+                // makes both.
                 iconFile.set(project.file("icons/Aperture.icns"))
+                infoPlist {
+                    extraKeysRawXml = "  <key>CFBundleIconName</key>\n  <string>Aperture</string>\n"
+                }
             }
             windows {
                 menuGroup = "Aperture"
@@ -120,6 +127,12 @@ compose.desktop {
 // Compose writes these into jpackage's argument file unquoted, hence the explicit quotes.
 tasks.withType<AbstractJPackageTask>().configureEach {
     when (targetFormat) {
+        // Puts Assets.car into Aperture.app/Contents/Resources, beside the .icns. Only the app image
+        // takes it; the DMG and PKG are made from that image.
+        TargetFormat.AppImage ->
+            if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
+                freeArgs.addAll("--app-content", "\"${project.file("icons/macos/Resources").absolutePath}\"")
+            }
         TargetFormat.Deb -> freeArgs.addAll("--linux-package-deps", "\"libmpv2 | libmpv1, libxtst6, libxi6, libxrender1\"")
         TargetFormat.Rpm -> freeArgs.addAll("--linux-package-deps", "\"mpv-libs, libXtst, libXi, libXrender\"")
         else -> Unit
