@@ -5,7 +5,9 @@ import unittest
 
 from PIL import Image, ImageChops, ImageStat
 
-RES = Path(__file__).resolve().parents[1] / 'app/src/main/res'
+ROOT = Path(__file__).resolve().parents[1]
+RES = ROOT / 'app/src/main/res'
+SHARED_DRAWABLES = ROOT / 'shared/src/commonMain/composeResources/drawable'
 SIZES = {'mdpi': (160, 90), 'hdpi': (240, 135), 'xhdpi': (320, 180),
          'xxhdpi': (480, 270), 'xxxhdpi': (640, 360)}
 
@@ -24,7 +26,7 @@ def adaptive_viewport(image):
 
 class BannerAssetsTest(unittest.TestCase):
     def test_each_density_preserves_the_complete_visible_banner(self):
-        full_artwork = Image.open(RES / 'drawable/ic_banner_foreground.png').convert('RGBA')
+        full_artwork = Image.open(SHARED_DRAWABLES / 'ic_banner_foreground.png').convert('RGBA')
         for density, size in SIZES.items():
             with self.subTest(density=density):
                 folder = RES / f'mipmap-{density}'

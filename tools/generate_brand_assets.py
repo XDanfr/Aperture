@@ -176,7 +176,8 @@ adaptive_background_svg = (adaptive_header
 adaptive_background_banner = render(adaptive_background_svg, 1280)
 for p in [MAIN / 'assets/ic_banner.png', MAIN / 'res/drawable/ic_banner.png']:
     save(full_banner, p)
-save(foreground_banner, MAIN / 'res/drawable/ic_banner_foreground.png')
+# Shown in onboarding, so it lives in the shared app's Compose resources (Android and desktop).
+save(foreground_banner, ROOT / 'shared/src/commonMain/composeResources/drawable/ic_banner_foreground.png')
 for density, size in [('mdpi', (160, 90)), ('hdpi', (240, 135)), ('xhdpi', (320, 180)),
                       ('xxhdpi', (480, 270)), ('xxxhdpi', (640, 360))]:
     resource = MAIN / 'res' / f'mipmap-{density}'
