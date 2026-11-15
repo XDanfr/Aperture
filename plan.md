@@ -7,7 +7,11 @@ Remove it before `feat/jellyfin` is merged into `master`.
 - Integration branch: `feat/jellyfin` (from `master`).
 - Each step gets its own branch from `feat/jellyfin` (e.g. `feat/jellyfin-profiles`) and a PR into `feat/jellyfin`.
 - Finish and test each step before starting the next. Tick the step off here in the same PR.
-- Testing: native on the Mac (`./gradlew :shared:jvmTest`, desktop app), plus the Android TV emulator, CI and other platforms where needed.
+- Testing: native on the Mac (`./gradlew :shared:jvmTest :desktop:test`), the Android TV emulator (`Television_1080p`), CI and other platforms where needed.
+  - Jellyfin steps are tested against the test server (address and logins are in Claude's memory, never in git) as **both an admin and a non-admin user**.
+  - Always target a device by serial (`ANDROID_SERIAL=emulator-5554`). The user's phone may be plugged in, and the TV app shares the companion's app ID, so it would replace the companion. Swapping them is fine when needed.
+  - The emulator sometimes drops the first D-pad key after a screen transition, so step through flows with a screenshot after each move.
+  - The desktop app writes to the real per-user folders; run test builds with `JAVA_TOOL_OPTIONS=-Duser.home=<scratch>`. Screen capture and clicking on the Mac aren't available, so desktop UI is checked through `DesktopRenderTest`.
 - Commits: XDan is the sole author, so no Co-Authored-By trailers. PR bodies have no Claude footer.
 
 ## Decisions
@@ -25,10 +29,12 @@ Remove it before `feat/jellyfin` is merged into `master`.
 - Non-admin users can't list plugins. Detect a plugin by calling its endpoint and treating a 404 as "not installed".
 - Jellyfin Enhanced and Streamyfin plugins are mostly for the web or Streamyfin. Their server-side features (hidden content, spoiler guard) work without client code.
 - Playback Reporting, Trakt and similar plugins work for free once playback is reported properly.
+- What the test server has (12.1.0): libraries Movies, TV Series, Collections (boxsets), Audiobooks, Home Media, Live TV, and a "Discover" library from the **JellyBridge** plugin, which exposes Seerr Discover as a virtual library. Plugins installed: TMDb, TMDb Box Sets, OMDb, Studio Images, AudioDB, MusicBrainz, ListenBrainz. No Intro Skipper and no Home Screen Sections, so `/HomeScreen/Sections` returns 404 and segments will be empty unless a provider is added. About 7,100 movies, series and episodes.
+- JellyBridge matters for step 7: a Discover library may already exist on the server, so the sidebar should offer it like any other library, and native Seerr support remains for servers without it.
 
 ## Steps
 
-### 0. Profiles (base Aperture) — [ ]
+### 0. Profiles (base Aperture) — [x] (PR into feat/jellyfin)
 - `profile` table: id, name, avatar colour/initial, created/last-used, optional PIN later. Profile 1 is created by migration from existing data.
 - Per profile: favourites (My List), hidden items, playback progress, Continue Watching, theme, subtitle appearance, and later the sidebar/home layout and Jellyfin link. The local library itself (files, metadata, artwork) is shared.
 - Database 8→9: move `isFavorite`/`favoriteAddedAt`/`isHidden` from `media` to `profile_media_state(profileId, mediaId)`, and key `playback_progress` by `(profileId, mediaId)`. Add a migration test.
