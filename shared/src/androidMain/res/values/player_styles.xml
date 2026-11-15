@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="PlayerViewGL">
+        <item name="surface_type">video_decoder_gl_surface_view</item>
+    </style>
+</resources>

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'app/src/main/**'
+      - 'shared/src/commonMain/composeResources/**'
       - 'artwork/**'
       - 'tools/generate_brand_assets.py'
       - 'tools/check_brand_assets.py'
@@ -32,7 +33,7 @@ jobs:
             ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
           fi
       - name: Build debug and run unit tests
-        run: bash ./gradlew --no-daemon :app:assembleStandardDebug :app:testStandardDebugUnitTest
+        run: bash ./gradlew --no-daemon :app:assembleStandardDebug :app:testStandardDebugUnitTest :shared:jvmTest
       - name: Check TV banner viewport
         run: |
           python -m pip install --disable-pip-version-check Pillow

@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.content.Context
 import me.xdan.aperture.data.local.AppDatabase
-import me.xdan.aperture.di.DatabaseModule
+import me.xdan.aperture.data.local.DatabaseMigrations
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +27,7 @@ class DatabaseUpgradeTest {
             }
             // Use the production migration chain; Room validates the final schema on open.
             val db = Room.databaseBuilder(context, AppDatabase::class.java, name)
-                .addMigrations(*DatabaseModule.ALL_MIGRATIONS).build()
+                .addMigrations(*DatabaseMigrations.ALL_MIGRATIONS).build()
             try {
                 val sql = db.openHelper.writableDatabase
                 sql.query("SELECT id,isFavorite,favoriteAddedAt FROM media").use { row ->

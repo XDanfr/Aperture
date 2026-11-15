@@ -1,0 +1,16 @@
+package me.xdan.aperture.ui.screen.mylist
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.domain.repository.MediaRepository
+
+class MyListViewModel constructor(
+    repository: MediaRepository
+) : ViewModel() {
+    val media: StateFlow<List<MediaEntity>> = repository.getFavoriteMedia()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+}

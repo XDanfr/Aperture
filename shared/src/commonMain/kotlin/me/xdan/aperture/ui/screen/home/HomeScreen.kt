@@ -1,0 +1,608 @@
+package me.xdan.aperture.ui.screen.home
+
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import androidx.tv.material3.*
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.ui.component.MediaCard
+import me.xdan.aperture.ui.component.ArtworkFallback
+import me.xdan.aperture.ui.component.rememberFocusGlow
+import me.xdan.aperture.ui.theme.ApertureTheme
+import me.xdan.aperture.ui.theme.HeroGradientEnd
+import me.xdan.aperture.ui.theme.HeroGradientStart
+import me.xdan.aperture.ui.navigation.Destination
+import me.xdan.aperture.util.BackdropImageUsage
+import me.xdan.aperture.util.backdropImageSpec
+import me.xdan.aperture.util.backdropImageUrl
+
+@Composable
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit = {},
+    onOpenLibrary: (Destination) -> Unit = {},
+    browsingPaused: Boolean = false
+) {
+    val state by viewModel.homeState.collectAsState()
+    val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
+    var displayedState by remember { mutableStateOf(state) }
+    LaunchedEffect(state, browsingPaused) {
+        if (!browsingPaused) displayedState = state
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (val s = displayedState) {
+            HomeState.Loading -> {
+                Text("Scanning library...", modifier = Modifier.align(Alignment.Center))
+            }
+            HomeState.Empty -> {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("No media found on device.")
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.softRefresh() },
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
+                    ) {
+                        Text("Rescan")
+                    }
+                }
+            }
+            is HomeState.Success -> {
+                HomeContent(
+                    state = s,
+                    onMediaClick = onMediaClick,
+                    onMediaLongClick = onMediaLongClick,
+                    drawerFocusRequester = drawerFocusRequester,
+                    contentEntryFocusRequester = contentEntryFocusRequester,
+                    restoreFocusKey = restoreFocusKey,
+                    onFocusKeyChanged = onFocusKeyChanged,
+                    onContentFocused = onContentFocused,
+                    onActiveMediaChanged = onActiveMediaChanged,
+                    onOpenLibrary = onOpenLibrary,
+                    roundedSpotlight = roundedSpotlight,
+                    browsingPaused = browsingPaused
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun HomeContent(
+    state: HomeState.Success,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
+    onOpenLibrary: (Destination) -> Unit,
+    roundedSpotlight: Boolean,
+    browsingPaused: Boolean
+) {
+    val currentlyBrowsingPaused by rememberUpdatedState(browsingPaused)
+    val listState = rememberLazyListState()
+    val refreshAlpha = remember { Animatable(1f) }
+    val resolvedRestoreFocusKey = restoreFocusKey.takeIf { key ->
+        key == HOME_SPOTLIGHT_FOCUS_KEY || state.rows.any { row ->
+            row.items.any { media -> key == "row:${row.title}:${media.id}" }
+        }
+    }
+    // The entry requester must stay attached to the item Home was entered on.
+    // Moving it to every newly focused card mutates the focus tree mid-scroll and
+    // makes the containing LazyColumn perform small vertical corrections.
+    val entryFocusKey = remember(state.suggestionGeneration) { resolvedRestoreFocusKey }
+
+    LaunchedEffect(Unit) {
+        val restoredRowTitle = entryFocusKey
+            ?.takeIf { it.startsWith("row:") }
+            ?.removePrefix("row:")
+            ?.substringBeforeLast(":")
+        val restoredRowIndex = state.rows.indexOfFirst { it.title == restoredRowTitle }
+        if (restoredRowIndex >= 0) {
+            listState.scrollToItem(restoredRowIndex + 1)
+        } else {
+            listState.scrollToItem(0, 0)
+            delay(100)
+            repeat(3) {
+                if (currentlyBrowsingPaused) return@LaunchedEffect
+                if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+                delay(80)
+            }
+        }
+    }
+
+    val isAtSpotlight by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
+        }
+    }
+    val allowUnfocusedSpotlightUpdates = isAtSpotlight &&
+        (restoreFocusKey == null || restoreFocusKey == HOME_SPOTLIGHT_FOCUS_KEY)
+
+    LaunchedEffect(restoreFocusKey) {
+        if (restoreFocusKey != null && restoreFocusKey != HOME_SPOTLIGHT_FOCUS_KEY) {
+            // If we've restored focus to a row, ensure the theme color matches it immediately
+            val mediaId = restoreFocusKey.substringAfterLast(":").toLongOrNull()
+            mediaId?.let { onActiveMediaChanged(it) }
+        }
+    }
+
+    LaunchedEffect(state.suggestionGeneration) {
+        if (state.suggestionGeneration > 0) {
+            try {
+                refreshAlpha.snapTo(0.42f)
+                listState.animateScrollToItem(0)
+                onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+                delay(80)
+                if (!currentlyBrowsingPaused) runCatching { contentEntryFocusRequester.requestFocus() }
+                refreshAlpha.animateTo(1f, tween(320))
+            } finally {
+                // Focus-driven scrolling can cancel the refresh scroll. Never
+                // leave Home dimmed when that interrupts the fade back in.
+                withContext(NonCancellable) { refreshAlpha.snapTo(1f) }
+            }
+        }
+    }
+    
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            alpha = refreshAlpha.value
+            clip = false
+        },
+        state = listState,
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        item {
+            FeaturedCarousel(
+                featured = state.featured,
+                progressMap = state.progressMap,
+                completedMediaIds = state.completedMediaIds,
+                continueMediaIds = state.continueMediaIds,
+                onMediaClick = onMediaClick,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                isContentEntry = entryFocusKey == null || entryFocusKey == HOME_SPOTLIGHT_FOCUS_KEY,
+                onFocusKeyChanged = onFocusKeyChanged,
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged,
+                allowUnfocusedArtworkUpdates = allowUnfocusedSpotlightUpdates,
+                roundedSpotlight = roundedSpotlight,
+                browsingPaused = browsingPaused
+            )
+        }
+        items(state.rows, key = { it.title }) { row ->
+            HomeMediaRow(
+                row = row,
+                onMediaClick = onMediaClick,
+                onMediaLongClick = onMediaLongClick,
+                progressMap = state.progressMap,
+                drawerFocusRequester = drawerFocusRequester,
+                contentEntryFocusRequester = contentEntryFocusRequester,
+                restoreFocusKey = entryFocusKey,
+                onFocusKeyChanged = onFocusKeyChanged,
+                onContentFocused = onContentFocused,
+                onActiveMediaChanged = onActiveMediaChanged,
+                onOpenLibrary = onOpenLibrary
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun FeaturedCarousel(
+    featured: List<MediaEntity>,
+    progressMap: Map<Long, Float>,
+    completedMediaIds: Set<Long>,
+    continueMediaIds: Set<Long>,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    isContentEntry: Boolean,
+    onFocusKeyChanged: (String) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
+    allowUnfocusedArtworkUpdates: Boolean,
+    roundedSpotlight: Boolean,
+    browsingPaused: Boolean
+) {
+    if (featured.isEmpty()) return
+
+    val carouselState = rememberCarouselState()
+    val spotlightRequesters = remember(featured.map { it.id }) {
+        List(featured.size) { FocusRequester() }
+    }
+    var focusActiveSpotlight by remember { mutableStateOf(false) }
+    val spotlightShape = RoundedCornerShape(if (roundedSpotlight) 32.dp else 0.dp)
+    val spotlightGlow = rememberFocusGlow(focusActiveSpotlight)
+    val screenMetrics = org.koin.compose.koinInject<me.xdan.aperture.util.ScreenMetrics>()
+    val backdropSpec = remember(screenMetrics) {
+        backdropImageSpec(screenMetrics, BackdropImageUsage.HOME)
+    }
+
+    LaunchedEffect(
+        carouselState.activeItemIndex,
+        featured,
+        focusActiveSpotlight,
+        allowUnfocusedArtworkUpdates
+    ) {
+        if (focusActiveSpotlight) {
+            featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+        } else if (allowUnfocusedArtworkUpdates) {
+            // Debounce unfocused updates to allow card focus transitions to "win" the color lock first.
+            delay(180)
+            if (allowUnfocusedArtworkUpdates) {
+                featured.getOrNull(carouselState.activeItemIndex)?.let { onActiveMediaChanged(it.id) }
+            }
+        }
+    }
+
+    LaunchedEffect(focusActiveSpotlight, carouselState.activeItemIndex, browsingPaused) {
+        if (focusActiveSpotlight && !browsingPaused) {
+            delay(16)
+            runCatching {
+                if (isContentEntry) {
+                    contentEntryFocusRequester.requestFocus()
+                } else {
+                    spotlightRequesters[carouselState.activeItemIndex].requestFocus()
+                }
+            }
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(400.dp)
+            .padding(16.dp),
+        shape = spotlightShape,
+        colors = SurfaceDefaults.colors(containerColor = Color.Transparent),
+        border = if (roundedSpotlight) {
+            Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (focusActiveSpotlight) 3.dp else 1.dp,
+                    color = if (focusActiveSpotlight) {
+                        ApertureTheme.colorScheme.primary
+                    } else {
+                        ApertureTheme.colorScheme.primary.copy(alpha = 0.28f)
+                    }
+                ),
+                shape = spotlightShape
+            )
+        } else {
+            Border.None
+        },
+        glow = spotlightGlow
+    ) {
+        Carousel(
+            itemCount = featured.size,
+            carouselState = carouselState,
+            autoScrollDurationMillis = if (browsingPaused) Long.MAX_VALUE else CarouselDefaults.TimeToDisplayItemMillis,
+            modifier = Modifier
+                .fillMaxSize()
+                .onFocusChanged { focusState ->
+                    focusActiveSpotlight = focusState.hasFocus
+                }
+        ) { index ->
+            val media = featured[index]
+            var isWatchNowFocused by remember(media.id) { mutableStateOf(false) }
+            val watchNowFocusRequester = if (
+                isContentEntry && index == carouselState.activeItemIndex
+            ) {
+                contentEntryFocusRequester
+            } else {
+                spotlightRequesters[index]
+            }
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (media.backdropPath.isNullOrBlank()) {
+                    ArtworkFallback(
+                        title = media.title,
+                        isFocused = isWatchNowFocused,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalPlatformContext.current)
+                            .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
+                            .size(backdropSpec.widthPx, backdropSpec.heightPx)
+                            .crossfade(false)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (roundedSpotlight) {
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.22f),
+                                        Color.Black.copy(alpha = 0.22f)
+                                    )
+                                )
+                            } else {
+                                Brush.verticalGradient(
+                                    colors = listOf(HeroGradientStart, HeroGradientEnd),
+                                    startY = 0f,
+                                    endY = Float.POSITIVE_INFINITY
+                                )
+                            }
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(32.dp)
+                        .align(Alignment.BottomStart)
+                ) {
+                    Text(
+                        text = media.title,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            onMediaClick(
+                                media.id,
+                                watchNowFocusRequester,
+                                false
+                            )
+                        },
+                        modifier = Modifier
+                            .then(
+                                if (drawerFocusRequester != null) {
+                                    Modifier.focusProperties { left = drawerFocusRequester }
+                                } else Modifier
+                            )
+                            .focusRequester(watchNowFocusRequester)
+                            .onFocusChanged {
+                                isWatchNowFocused = it.isFocused
+                                if (it.isFocused) {
+                                    onFocusKeyChanged(HOME_SPOTLIGHT_FOCUS_KEY)
+                                    onContentFocused(watchNowFocusRequester)
+                                }
+                            },
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            ButtonDefaults.colors()
+                        } else {
+                            ButtonDefaults.colors(
+                                containerColor = ApertureTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = ApertureTheme.colorScheme.primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = ApertureTheme.colorScheme.primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
+                    ) {
+                        val progress = progressMap[media.id] ?: 0f
+                        Text(
+                            when {
+                                media.id in continueMediaIds -> "Continue"
+                                progress >= 0.05f && progress < 0.95f -> "Continue"
+                                media.id in completedMediaIds -> "Rewatch"
+                                else -> "Watch Now"
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeMediaRow(
+    row: HomeRow,
+    onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
+    onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    progressMap: Map<Long, Float> = emptyMap(),
+    drawerFocusRequester: FocusRequester?,
+    contentEntryFocusRequester: FocusRequester,
+    restoreFocusKey: String?,
+    onFocusKeyChanged: (String) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit,
+    onActiveMediaChanged: (Long) -> Unit,
+    onOpenLibrary: (Destination) -> Unit
+) {
+    if (row.items.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Text(
+            text = row.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = ApertureTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+        )
+        LazyRow(
+            modifier = Modifier.height(270.dp).graphicsLayer { clip = false },
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            itemsIndexed(row.items, key = { _, media ->
+                if (row.title == "Continue Watching" && media.type == "EPISODE") "show:${media.title}" else "media:${media.id}"
+            }) { index, media ->
+                val focusKey = "row:${row.title}:${media.id}"
+                MediaCard(
+                    media = media,
+                    onClick = { requester ->
+                        onMediaClick(
+                            media.id,
+                            requester,
+                            false
+                        )
+                    },
+                    modifier = Modifier.width(150.dp),
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == focusKey
+                    },
+                    progress = progressMap[media.id] ?: 0f,
+                    drawerFocusRequester = drawerFocusRequester.takeIf { index == 0 },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(focusKey)
+                        onContentFocused(requester)
+                        onActiveMediaChanged(media.id)
+                    },
+                    onLongClick = { requester, opensToRight ->
+                        onMediaLongClick(media, requester, row.title == "Continue Watching", opensToRight)
+                    }
+                )
+            }
+
+            if (row.hasMore) {
+                val destination = when (row.title) {
+                    "Movies" -> Destination.Movies
+                    "TV Shows" -> Destination.Shows
+                    else -> null
+                }
+                if (destination != null) {
+                    item(key = "more:${row.title}") {
+                        MoreCard(
+                            destination = destination,
+                            onOpenLibrary = onOpenLibrary,
+                            onContentFocused = onContentFocused
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MoreCard(
+    destination: Destination,
+    onOpenLibrary: (Destination) -> Unit,
+    onContentFocused: (FocusRequester) -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .width(150.dp)
+            .aspectRatio(2f / 3f)
+            .zIndex(if (isFocused) 1f else 0f)
+            .graphicsLayer { clip = false }
+    ) {
+        Surface(
+            onClick = { onOpenLibrary(destination) },
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    isFocused = it.isFocused
+                    if (it.isFocused) onContentFocused(focusRequester)
+                },
+            shape = ClickableSurfaceDefaults.shape(ApertureTheme.shapes.poster),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = ApertureTheme.colorScheme.mediaCardBackground,
+                focusedContainerColor = ApertureTheme.colorScheme.focusedMediaCardBackground
+            ),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        ApertureTheme.colorScheme.border
+                    ),
+                    shape = ApertureTheme.shapes.poster
+                )
+            )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(42.dp),
+                    tint = ApertureTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "More",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ApertureTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+private const val HOME_SPOTLIGHT_FOCUS_KEY = "spotlight"

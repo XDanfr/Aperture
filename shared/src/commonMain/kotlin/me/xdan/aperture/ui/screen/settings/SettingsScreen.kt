@@ -1,0 +1,1661 @@
+package me.xdan.aperture.ui.screen.settings
+
+import androidx.tv.material3.textInputFocusTracking
+import me.xdan.aperture.platform.AppBuild
+import org.koin.compose.viewmodel.koinViewModel
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.ViewModule
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import me.xdan.aperture.resources.Res
+import me.xdan.aperture.resources.tmdb_logo
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import me.xdan.aperture.ui.platform.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.tv.material3.Border
+import androidx.tv.material3.Button
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.OutlinedButton
+import androidx.tv.material3.Surface
+import androidx.tv.material3.SurfaceDefaults
+import androidx.tv.material3.Text
+import kotlinx.coroutines.delay
+import me.xdan.aperture.data.update.UpdateCheckState
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionState
+import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveProgressIndicator
+import me.xdan.aperture.ui.component.expressive.ExpressiveSlider
+import me.xdan.aperture.ui.component.expressive.ExpressiveToggle
+import me.xdan.aperture.ui.theme.ApertureTheme
+import me.xdan.aperture.ui.theme.ApertureThemeOptions
+import me.xdan.aperture.ui.component.ThemePickerDialog
+import me.xdan.aperture.domain.repository.MediaFolder
+import me.xdan.aperture.domain.model.AmbientBrandPlacement
+import me.xdan.aperture.domain.model.AmbientModeType
+import me.xdan.aperture.ui.component.SponsorVerificationDialog
+import kotlin.math.roundToInt
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel = org.koin.compose.viewmodel.koinViewModel(),
+    drawerFocusRequester: FocusRequester? = null,
+    contentEntryFocusRequester: FocusRequester = FocusRequester.Default,
+    restoreFocusKey: String? = null,
+    onFocusKeyChanged: (String) -> Unit = {},
+    onContentFocused: (FocusRequester) -> Unit = {},
+    onForceRescan: () -> Unit = viewModel::forceRescan,
+    onPreviewAmbientMode: () -> Unit = {}
+) {
+    val spotlightSettings by viewModel.spotlightSettings.collectAsState()
+    val selectedThemeId by viewModel.themeId.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+    val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
+    val hiddenMedia by viewModel.hiddenMedia.collectAsState()
+    val mediaFolders by viewModel.mediaFolders.collectAsState()
+    val mediaFolderMessage by viewModel.mediaFolderMessage.collectAsState()
+    val showPresentationMode by viewModel.showPresentationMode.collectAsState()
+    val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
+    val ambientSettings by viewModel.ambientSettings.collectAsState()
+    val tunnelingEnabled by viewModel.tunnelingEnabled.collectAsState()
+    val softwareVideoDecoding by viewModel.softwareVideoDecoding.collectAsState()
+    val playbackEngine by viewModel.playbackEngine.collectAsState()
+    var showLicenses by remember { mutableStateOf(false) }
+    var showThemes by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var showOpenSubtitlesDialog by remember { mutableStateOf(false) }
+    var showHiddenMedia by remember { mutableStateOf(false) }
+    var showSpotlightDaysPicker by remember { mutableStateOf(false) }
+    var showShowLayoutPicker by remember { mutableStateOf(false) }
+    var showEnginePicker by remember { mutableStateOf(false) }
+    var showSubtitleAppearance by remember { mutableStateOf(false) }
+    var showMediaFolders by remember { mutableStateOf(false) }
+    var showAmbientSettings by remember { mutableStateOf(false) }
+    var showTmdbQr by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
+    var showSponsorsQr by remember { mutableStateOf(false) }
+    var showSponsorVerification by remember { mutableStateOf(false) }
+    var showCompanionPairing by remember { mutableStateOf(false) }
+    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
+    val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
+    val folderPicker = me.xdan.aperture.ui.platform.rememberFolderPicker(viewModel::addMediaFolder)
+    var folderPickerAvailable by remember(folderPicker.isAvailable) {
+        mutableStateOf(folderPicker.isAvailable)
+    }
+    val listState = rememberLazyListState()
+    val internalDonateFocusRequester = remember { FocusRequester() }
+    val donateFocusRequester = if (restoreFocusKey == SETTINGS_DONATE_FOCUS_KEY) {
+        contentEntryFocusRequester
+    } else {
+        internalDonateFocusRequester
+    }
+
+    LaunchedEffect(Unit) {
+        val restoreIndex = when (restoreFocusKey) {
+            SETTINGS_THEME_FOCUS_KEY -> 3
+            SETTINGS_AMBIENT_FOCUS_KEY -> 4
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 5
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 6
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 7
+            SETTINGS_LANGUAGE_FOCUS_KEY -> 11
+            SETTINGS_HIDDEN_FOCUS_KEY -> 13
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 14
+            SETTINGS_RESCAN_FOCUS_KEY -> 15
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 16
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 18
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 19
+            SETTINGS_LICENCES_FOCUS_KEY -> 22
+            SETTINGS_UPDATE_FOCUS_KEY -> 23
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 24 else 23
+            SETTINGS_DONATE_FOCUS_KEY -> 25
+            SETTINGS_COMPANION_FOCUS_KEY -> 1
+            else -> 0
+        }
+        if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
+    }
+    LaunchedEffect(restoreFocusKey) {
+        if (restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY) {
+            delay(120)
+            showOpenSubtitlesDialog = true
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 1_000.dp)
+        ) {
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(start = 72.dp, end = 72.dp, top = 48.dp, bottom = 26.dp)
+            )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(start = 72.dp, end = 72.dp, bottom = 48.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Phone companion",
+                    description = "Browse, play and control Aperture from your phone"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Paired phones",
+                    subtitle = when (pairedPhones.size) {
+                        0 -> "Pair a phone with a QR code or a pairing code"
+                        1 -> "${pairedPhones.first().name} · Pair another or remove"
+                        else -> "${pairedPhones.size} phones · Pair another or remove"
+                    },
+                    icon = Icons.Rounded.PhoneAndroid,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_COMPANION_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_COMPANION_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showCompanionPairing = true }
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Customisation",
+                    description = "Theme, presentation and ambient mode"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Theme",
+                    subtitle = me.xdan.aperture.ui.theme.apertureThemeLabel(selectedThemeId),
+                    icon = Icons.Rounded.Palette,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == null || restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_THEME_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showThemes = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Ambient mode",
+                    subtitle = buildString {
+                        append(
+                            when (ambientSettings.mode) {
+                                AmbientModeType.CINEMATIC -> "Cinematic backdrops"
+                                AmbientModeType.POSTER_WALL -> when (ambientSettings.wallBrandPlacement) {
+                                    AmbientBrandPlacement.TOP_LEFT -> "Poster wall · Top left logo"
+                                    AmbientBrandPlacement.CENTRE -> "Poster wall · Centre icon"
+                                }
+                            }
+                        )
+                        append(if (ambientSettings.showClock) " · Clock on" else " · Clock off")
+                    },
+                    icon = Icons.Rounded.NightsStay,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_AMBIENT_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_AMBIENT_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showAmbientSettings = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "TV show layout",
+                    subtitle = if (showPresentationMode == "grouped") {
+                        "One card per show with a season and episode selector"
+                    } else {
+                        "Show every episode in season rows"
+                    },
+                    icon = Icons.Rounded.ViewModule,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SHOW_LAYOUT_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showShowLayoutPicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Hide finished media from Spotlight",
+                    subtitle = if (spotlightSettings.hideFinishedFromSpotlight) {
+                        "On · Completed titles return after ${spotlightSettings.exclusionDays} days"
+                    } else {
+                        "Off · Completed titles can appear immediately"
+                    },
+                    icon = Icons.Rounded.VisibilityOff,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = {
+                        viewModel.setHideFinishedFromSpotlight(
+                            !spotlightSettings.hideFinishedFromSpotlight
+                        )
+                    },
+                    trailingContent = {
+                        ExpressiveToggle(
+                            checked = spotlightSettings.hideFinishedFromSpotlight,
+                            onCheckedChange = null,
+                            isFocused = false
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Finished Spotlight exclusion period",
+                    subtitle = "${spotlightSettings.exclusionDays} days",
+                    icon = Icons.Rounded.DateRange,
+                    enabled = spotlightSettings.hideFinishedFromSpotlight,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showSpotlightDaysPicker = true }
+                )
+            }
+
+            // Tunnelling and the FFmpeg fallback are Media3 options; mpv picks its decoder itself.
+            if (!AppBuild.PLATFORM.isDesktop) {
+                item {
+                    SettingsItem(
+                        title = "Experimental Tunneling",
+                        subtitle = if (tunnelingEnabled) "Enabled · May improve 4K sync but can cause green flicker on some hardware" else "Disabled · More compatible with standard Android TV hardware",
+                        icon = Icons.Rounded.Refresh,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setTunnelingEnabled(!tunnelingEnabled) },
+                        trailingContent = {
+                            ExpressiveToggle(
+                                checked = tunnelingEnabled,
+                                onCheckedChange = null,
+                                isFocused = false
+                            )
+                        }
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        title = "Software Video Decoding",
+                        subtitle = if (softwareVideoDecoding) "Enabled · Fallback to software (FFmpeg) if hardware fails (may be green/laggy)" else "Disabled · Only use hardware decoders (will fail if unsupported)",
+                        icon = Icons.Rounded.Movie,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setSoftwareVideoDecoding(!softwareVideoDecoding) },
+                        trailingContent = {
+                            ExpressiveToggle(
+                                checked = softwareVideoDecoding,
+                                onCheckedChange = null,
+                                isFocused = false
+                            )
+                        }
+                    )
+                }
+            }
+
+            item {
+                SettingsItem(
+                    title = "Playback Engine",
+                    subtitle = when (playbackEngine) {
+                        "auto" -> "Auto · Choose the best engine for the file"
+                        "exoplayer" -> "Stable · Media3 ExoPlayer (Default)"
+                        "compatibility" -> "Compatibility · Software-based decoding (Experimental)"
+                        else -> "Auto"
+                    },
+                    icon = Icons.Rounded.Movie,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester -> onContentFocused(requester) },
+                    onClick = { showEnginePicker = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Language",
+                    subtitle = "English (system default) · More options coming soon",
+                    icon = Icons.Rounded.Language,
+                    enabled = false,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_LANGUAGE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = {}
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Library & storage",
+                    description = "Folders, hidden titles and library maintenance"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Hidden Media",
+                    subtitle = if (hiddenMedia.isEmpty()) "No hidden titles" else "${hiddenMedia.size} hidden titles",
+                    icon = Icons.Rounded.Visibility,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_HIDDEN_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showHiddenMedia = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Media folders",
+                    subtitle = when {
+                        mediaFolderMessage != null -> mediaFolderMessage!!
+                        !folderPickerAvailable -> "Folder picker unavailable on this device"
+                        mediaFolders.isEmpty() -> "Add a USB drive or another media location"
+                        mediaFolders.size == 1 -> mediaFolders.first().name
+                        else -> "${mediaFolders.size} selected folders"
+                    },
+                    icon = Icons.Rounded.FolderOpen,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_MEDIA_FOLDERS_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showMediaFolders = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Force Rescan Local Files",
+                    subtitle = mediaFolderMessage
+                        ?: "Update the library from device storage and selected folders",
+                    icon = Icons.Rounded.Refresh,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_RESCAN_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = onForceRescan
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Clear Artwork Cache",
+                    subtitle = "Remove downloaded posters and backdrops",
+                    icon = Icons.Rounded.DeleteSweep,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_CLEAR_CACHE_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_CLEAR_CACHE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = viewModel::clearCache
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Playback & subtitles",
+                    description = "Subtitle account and on-screen appearance"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "OpenSubtitles.com",
+                    subtitle = when (val session = openSubtitlesSession) {
+                        is OpenSubtitlesSessionState.SignedIn -> "Signed in as ${session.username}"
+                        OpenSubtitlesSessionState.SigningIn -> "Signing in…"
+                        is OpenSubtitlesSessionState.Error -> session.message
+                        OpenSubtitlesSessionState.SignedOut -> "Sign in to download subtitles"
+                    },
+                    icon = Icons.Rounded.Person,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_OPEN_SUBTITLES_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_OPEN_SUBTITLES_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showOpenSubtitlesDialog = true }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Subtitle Appearance",
+                    subtitle = "${(subtitleAppearance.textScale * 100).toInt()}% size · ${subtitleAppearance.colour.replaceFirstChar { it.uppercase() }} · ${(subtitleAppearance.backgroundOpacity * 100).toInt()}% background",
+                    icon = Icons.Rounded.Subtitles,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_SUBTITLES_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showSubtitleAppearance = true }
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "About Aperture",
+                    description = "Updates, licences and project information"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Privacy",
+                    subtitle = "Media access, online services and stored data",
+                    icon = Icons.Rounded.Info,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = onContentFocused,
+                    onClick = { showPrivacy = true }
+                )
+            }
+            item {
+                SettingsItem(
+                    title = "Open Source Licences",
+                    subtitle = "Libraries and projects used by Aperture",
+                    icon = Icons.Rounded.Info,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_LICENCES_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_LICENCES_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showLicenses = true }
+                )
+            }
+
+            if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) item {
+                SettingsItem(
+                    title = "Check for Updates",
+                    subtitle = when (val update = updateState) {
+                        UpdateCheckState.Checking -> "Checking GitHub…"
+                        is UpdateCheckState.Available -> "${update.version} is available"
+                        is UpdateCheckState.PermissionRequired -> "Allow APK installation to continue"
+                        is UpdateCheckState.Downloading -> "Downloading ${update.update.version} · ${(update.progress * 100).toInt()}%"
+                        is UpdateCheckState.Installing -> "Opening the ${update.version} installer…"
+                        is UpdateCheckState.Current -> "Up to date (${update.version})"
+                        is UpdateCheckState.Error -> update.message
+                        UpdateCheckState.Idle -> "Compare this build with the latest GitHub release"
+                    },
+                    icon = Icons.Rounded.SystemUpdate,
+                    drawerFocusRequester = drawerFocusRequester,
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_UPDATE_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = {
+                        showUpdateDialog = true
+                        viewModel.checkForUpdates()
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "The Movie Database (TMDB)",
+                    subtitle = "This product uses the TMDB API but is not endorsed or certified by TMDB.",
+                    icon = Icons.Rounded.Movie,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_TMDB_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_TMDB_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showTmdbQr = true }
+                )
+            }
+
+            if (me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp, bottom = 24.dp)
+                ) {
+                    Button(
+                        onClick = { showSponsorsQr = true },
+                        modifier = Modifier
+                            .padding(horizontal = 56.dp)
+                            .fillMaxWidth()
+                            .then(
+                                if (drawerFocusRequester != null) {
+                                    Modifier.focusProperties { left = drawerFocusRequester }
+                                } else Modifier
+                            )
+                            .focusRequester(donateFocusRequester)
+                            .onFocusChanged {
+                                if (it.isFocused) {
+                                    onFocusKeyChanged(SETTINGS_DONATE_FOCUS_KEY)
+                                    onContentFocused(donateFocusRequester)
+                                }
+                            }
+                    ) {
+                        Icon(Icons.Rounded.Favorite, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Sponsor XDanfr on GitHub")
+                    }
+                }
+            }
+            }
+        }
+    }
+
+    if (showCompanionPairing) {
+        me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(onDismiss = { showCompanionPairing = false })
+    }
+    if (showPrivacy) { PrivacyDialog(onDismiss = { showPrivacy = false }) }
+    if (showLicenses) {
+        LicencesDialog(onDismiss = { showLicenses = false })
+    }
+    if (showThemes) {
+        ThemePickerDialog(
+            selectedThemeId = selectedThemeId,
+            onSelect = viewModel::setTheme,
+            onDismiss = { showThemes = false }
+        )
+    }
+    if (showUpdateDialog) {
+        UpdateDialog(
+            state = updateState,
+            onInstall = viewModel::downloadAndInstall,
+            onDismiss = { showUpdateDialog = false }
+        )
+    }
+    if (showOpenSubtitlesDialog) {
+        OpenSubtitlesAccountDialog(
+            state = openSubtitlesSession,
+            onLogin = viewModel::loginToOpenSubtitles,
+            onLogout = viewModel::logoutOfOpenSubtitles,
+            onDismiss = { showOpenSubtitlesDialog = false }
+        )
+    }
+    if (showHiddenMedia) {
+        HiddenMediaDialog(
+            media = hiddenMedia,
+            onUnhide = viewModel::unhide,
+            onDismiss = { showHiddenMedia = false }
+        )
+    }
+    if (showSpotlightDaysPicker) {
+        SpotlightDaysDialog(
+            initialDays = spotlightSettings.exclusionDays,
+            onSave = {
+                viewModel.setFinishedSpotlightExclusionDays(it)
+                showSpotlightDaysPicker = false
+            },
+            onDismiss = { showSpotlightDaysPicker = false }
+        )
+    }
+    if (showShowLayoutPicker) {
+        ShowLayoutDialog(
+            selectedMode = showPresentationMode,
+            onSelect = {
+                viewModel.setShowPresentationMode(it)
+                showShowLayoutPicker = false
+            },
+            onDismiss = { showShowLayoutPicker = false }
+        )
+    }
+    if (showEnginePicker) {
+        EnginePickerDialog(
+            selectedEngine = playbackEngine,
+            onSelect = {
+                viewModel.setPlaybackEngine(it)
+                showEnginePicker = false
+            },
+            onDismiss = { showEnginePicker = false }
+        )
+    }
+    if (showEnginePicker) {
+        EnginePickerDialog(
+            selectedEngine = playbackEngine,
+            onSelect = {
+                viewModel.setPlaybackEngine(it)
+                showEnginePicker = false
+            },
+            onDismiss = { showEnginePicker = false }
+        )
+    }
+    if (showSubtitleAppearance) {
+        SubtitleAppearanceDialog(
+            initial = subtitleAppearance,
+            onSave = {
+                viewModel.setSubtitleAppearance(it)
+                showSubtitleAppearance = false
+            },
+            onDismiss = { showSubtitleAppearance = false }
+        )
+    }
+    if (showMediaFolders) {
+        MediaFoldersDialog(
+            folders = mediaFolders,
+            message = mediaFolderMessage,
+            pickerAvailable = folderPickerAvailable,
+            onAdd = {
+                runCatching { folderPicker.launch() }
+                    .onFailure { folderPickerAvailable = false }
+            },
+            onRemove = viewModel::removeMediaFolder,
+            onDismiss = { showMediaFolders = false }
+        )
+    }
+    if (showAmbientSettings) {
+        AmbientSettingsDialog(
+            initial = ambientSettings,
+            onSave = { settings ->
+                viewModel.setAmbientSettings(settings) {
+                    showAmbientSettings = false
+                }
+            },
+            onPreview = { settings ->
+                viewModel.setAmbientSettings(settings) {
+                    showAmbientSettings = false
+                    onPreviewAmbientMode()
+                }
+            },
+            onDismiss = { showAmbientSettings = false }
+        )
+    }
+    if (showTmdbQr) {
+        LinkQrDialog(
+            title = "The Movie Database",
+            description = "Scan to visit TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.",
+            url = TMDB_URL,
+            qrRows = TMDB_QR_ROWS,
+            onDismiss = { showTmdbQr = false },
+            header = {
+                androidx.compose.foundation.Image(
+                    painter = org.jetbrains.compose.resources.painterResource(Res.drawable.tmdb_logo),
+                    contentDescription = "TMDB logo",
+                    modifier = Modifier.width(200.dp).height(26.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            }
+        )
+    }
+    if (showSponsorsQr && me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) {
+        LinkQrDialog(
+            title = "Sponsor XDanfr on GitHub",
+            description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
+            url = GITHUB_SPONSORS_URL,
+            qrRows = GITHUB_SPONSORS_QR_ROWS,
+            onDismiss = { showSponsorsQr = false },
+            nextLabel = "Next",
+            onNext = {
+                showSponsorsQr = false
+                showSponsorVerification = true
+                viewModel.verifySponsor()
+            }
+        )
+    }
+    if (showSponsorVerification && me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) {
+        SponsorVerificationDialog(
+            state = sponsorVerificationState,
+            onRetry = viewModel::verifySponsor,
+            onDismiss = {
+                showSponsorVerification = false
+                viewModel.resetSponsorVerificationState()
+            }
+        )
+    }
+}
+
+private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
+private const val SETTINGS_COMPANION_FOCUS_KEY = "companion"
+private const val SETTINGS_THEME_FOCUS_KEY = "theme"
+private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
+private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
+private const val SETTINGS_UPDATE_FOCUS_KEY = "update"
+private const val SETTINGS_HIDDEN_FOCUS_KEY = "hidden"
+private const val SETTINGS_MEDIA_FOLDERS_FOCUS_KEY = "media_folders"
+private const val SETTINGS_RESCAN_FOCUS_KEY = "rescan"
+private const val SETTINGS_SUBTITLES_FOCUS_KEY = "subtitles"
+private const val SETTINGS_OPEN_SUBTITLES_FOCUS_KEY = "open_subtitles"
+private const val SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY = "spotlight_toggle"
+private const val SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY = "spotlight_days"
+private const val SETTINGS_LICENCES_FOCUS_KEY = "licences"
+private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
+private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
+private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
+
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MediaFoldersDialog(
+    folders: List<MediaFolder>,
+    message: String?,
+    pickerAvailable: Boolean,
+    onAdd: () -> Unit,
+    onRemove: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val addFocusRequester = remember { FocusRequester() }
+    val doneFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(pickerAvailable) {
+        delay(80)
+        runCatching {
+            if (pickerAvailable) addFocusRequester.requestFocus() else doneFocusRequester.requestFocus()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.78f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(760.dp),
+                shape = ApertureTheme.shapes.dialog,
+                colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
+                    Text("Media folders", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(ApertureTheme.spacing.small))
+                    Text(
+                        "Choose folders on USB drives or other storage. Aperture keeps read access after a restart.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                    )
+                    if (!pickerAvailable) {
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                        Text(
+                            "This device does not include Android's system folder picker. Aperture will still scan any USB media that Android adds to its media library.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (message != null) {
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                        Text(message, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+
+                    if (folders.isEmpty()) {
+                        Text(
+                            "No extra folders selected. Internal media scanning still works as before.",
+                            modifier = Modifier.padding(vertical = ApertureTheme.spacing.large),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
+                            verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)
+                        ) {
+                            items(folders, key = { it.uri }) { folder ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = SurfaceDefaults.colors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(18.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.width(500.dp)) {
+                                            Text(folder.name, style = MaterialTheme.typography.titleMedium)
+                                            Text(
+                                                if (folder.isAvailable) "Available" else "Drive unavailable",
+                                                color = if (folder.isAvailable) {
+                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.error
+                                                }
+                                            )
+                                        }
+                                        OutlinedButton(onClick = { onRemove(folder.uri) }) {
+                                            Text("Remove")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                    ) {
+                        Button(
+                            onClick = onAdd,
+                            enabled = pickerAvailable,
+                            modifier = Modifier.focusRequester(addFocusRequester)
+                        ) {
+                            Icon(Icons.Rounded.FolderOpen, contentDescription = null)
+                            Spacer(Modifier.width(ApertureTheme.spacing.small))
+                            Text("Add folder")
+                        }
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.focusRequester(doneFocusRequester)
+                        ) { Text("Done") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnginePickerDialog(
+    selectedEngine: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                Text("Playback Engine", style = MaterialTheme.typography.headlineSmall)
+                Text("Choose how videos are decoded. 'Auto' will use hardware when possible.")
+                listOf(
+                    "auto" to ("Auto (Recommended)" to "Automatically switch to software if hardware fails."),
+                    "exoplayer" to ("Stable (ExoPlayer)" to "Force the standard Media3 player engine."),
+                    "compatibility" to ("Compatibility (Experimental)" to "Force software-based decoding for problematic files.")
+                ).forEachIndexed { index, (mode, copy) ->
+                    Surface(
+                        onClick = { onSelect(mode) },
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (index == 0) Modifier.focusRequester(firstRequester) else Modifier
+                        ),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (mode == selectedEngine) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(copy.first, style = MaterialTheme.typography.titleMedium)
+                            Text(copy.second, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+            }
+        }
+    }
+}
+@Composable
+private fun ShowLayoutDialog(
+    selectedMode: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                Text("TV show layout", style = MaterialTheme.typography.headlineSmall)
+                Text("You can switch layouts without rescanning your library.")
+                listOf(
+                    "grouped" to ("Grouped shows" to "One poster per show; choose a season and episode in its popup."),
+                    "episodes" to ("Episode rows" to "The current layout, with every season and episode shown on the page.")
+                ).forEachIndexed { index, (mode, copy) ->
+                    Surface(
+                        onClick = { onSelect(mode) },
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (index == 0) Modifier.focusRequester(firstRequester) else Modifier
+                        ),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (mode == selectedMode) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(copy.first, style = MaterialTheme.typography.titleMedium)
+                            Text(copy.second, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Cancel") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleAppearanceDialog(
+    initial: SubtitleAppearanceSettings,
+    onSave: (SubtitleAppearanceSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var settings by remember(initial) { mutableStateOf(initial) }
+    val firstRequester = remember { FocusRequester() }
+    val colours = listOf("white", "yellow", "cyan")
+    val previewTextColour = subtitlePreviewColour(settings.colour)
+    LaunchedEffect(Unit) { delay(80); runCatching { firstRequester.requestFocus() } }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.width(840.dp).heightIn(max = 820.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(Modifier.padding(ApertureTheme.spacing.large), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)) {
+                Text("Subtitle Appearance", style = MaterialTheme.typography.headlineSmall)
+                PreferenceSlider(
+                    title = "Text size",
+                    value = settings.textScale,
+                    onValueChange = { settings = settings.copy(textScale = it) },
+                    valueRange = 0.7f..1.6f,
+                    valueText = "${(settings.textScale * 100).toInt()}%",
+                    focusRequester = firstRequester
+                )
+                PreferenceSlider(
+                    title = "Background opacity",
+                    value = settings.backgroundOpacity,
+                    onValueChange = { settings = settings.copy(backgroundOpacity = it) },
+                    valueRange = 0f..0.9f,
+                    valueText = "${(settings.backgroundOpacity * 100).toInt()}%"
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Text colour", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        colours.forEach { colourName ->
+                            val selected = settings.colour == colourName
+                            Surface(
+                                onClick = { settings = settings.copy(colour = colourName) },
+                                modifier = Modifier.size(56.dp),
+                                shape = ClickableSurfaceDefaults.shape(CircleShape),
+                                colors = ClickableSurfaceDefaults.colors(
+                                    containerColor = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ),
+                                scale = ClickableSurfaceDefaults.scale(
+                                    focusedScale = 1.1f,
+                                    pressedScale = 0.94f
+                                ),
+                                border = ClickableSurfaceDefaults.border(
+                                    focusedBorder = Border(
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.primary
+                                        ),
+                                        shape = CircleShape
+                                    )
+                                )
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Box(
+                                        Modifier
+                                            .size(32.dp)
+                                            .background(subtitlePreviewColour(colourName), CircleShape)
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.24f),
+                                                CircleShape
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF17171B))
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(ApertureTheme.spacing.small),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "This is a subtitle.",
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF0C0C0E).copy(
+                                        alpha = settings.backgroundOpacity.coerceIn(0f, 0.9f)
+                                    ),
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                            color = previewTextColour,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = (36f * settings.textScale).sp,
+                                lineHeight = (44f * settings.textScale).sp
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.align(Alignment.End).padding(top = ApertureTheme.spacing.small),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                ) {
+                    OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { onSave(settings) }) { Text("Save") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreferenceSlider(
+    title: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    valueText: String,
+    focusRequester: FocusRequester? = null
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ExpressiveSlider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                isFocused = isFocused,
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { isFocused = it.isFocused }
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            )
+            Text(
+                valueText,
+                modifier = Modifier.width(64.dp),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+private fun subtitlePreviewColour(colour: String): Color = when (colour) {
+    "yellow" -> Color.Yellow
+    "cyan" -> Color.Cyan
+    else -> Color.White
+}
+
+@Composable
+private fun HiddenMediaDialog(
+    media: List<me.xdan.aperture.data.local.entity.MediaEntity>,
+    onUnhide: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.width(660.dp).height(560.dp),
+            shape = ApertureTheme.shapes.dialog
+        ) {
+            Column(Modifier.padding(ApertureTheme.spacing.huge)) {
+                Text("Hidden Media", style = MaterialTheme.typography.headlineSmall)
+                Text("Hidden titles stay out of Home, Search, Movies, Shows and My List.")
+                Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                if (media.isEmpty()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Nothing is hidden.")
+                    }
+                } else {
+                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
+                        items(media, key = { it.id }) { item ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = ApertureTheme.spacing.small),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(item.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                Button(onClick = { onUnhide(item.id) }) { Text("Unhide") }
+                            }
+                        }
+                    }
+                }
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSubtitlesAccountDialog(
+    state: OpenSubtitlesSessionState,
+    onLogin: (String, String) -> Unit,
+    onLogout: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val usernameFocusRequester = remember { FocusRequester() }
+    val closeFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(state) {
+        delay(80)
+        runCatching {
+            if (state is OpenSubtitlesSessionState.SignedIn) {
+                closeFocusRequester.requestFocus()
+            } else {
+                usernameFocusRequester.requestFocus()
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(560.dp).padding(ApertureTheme.spacing.huge)) {
+                Text("OpenSubtitles.com", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(ApertureTheme.spacing.small))
+                Text(
+                    "Sign in with your OpenSubtitles.com account to search and download subtitles. Aperture stores the 24-hour session token, never your password.",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                )
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
+
+                when (state) {
+                    is OpenSubtitlesSessionState.SignedIn -> {
+                        Text("Signed in as ${state.username}")
+                    }
+                    else -> {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { androidx.compose.material3.Text("Username") },
+                            singleLine = true,
+                            enabled = state != OpenSubtitlesSessionState.SigningIn,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f),
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(usernameFocusRequester)
+                                .textInputFocusTracking()
+                        )
+                        Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                        androidx.compose.material3.OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { androidx.compose.material3.Text("Password") },
+                            singleLine = true,
+                            enabled = state != OpenSubtitlesSessionState.SigningIn,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().textInputFocusTracking(),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f),
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                        )
+                        if (state is OpenSubtitlesSessionState.Error) {
+                            Spacer(Modifier.height(ApertureTheme.spacing.small))
+                            Text(state.message, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
+                Row(
+                    Modifier.align(Alignment.End),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeFocusRequester)
+                    ) { Text("Close") }
+                    if (state is OpenSubtitlesSessionState.SignedIn) {
+                        Button(onClick = onLogout) { Text("Sign out") }
+                    } else {
+                        Button(
+                            onClick = { onLogin(username, password) },
+                            enabled = state != OpenSubtitlesSessionState.SigningIn
+                        ) {
+                            Text(if (state == OpenSubtitlesSessionState.SigningIn) "Signing in…" else "Sign in")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UpdateDialog(
+    state: UpdateCheckState,
+    onInstall: (UpdateCheckState.Available) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val closeFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(80)
+        runCatching { closeFocusRequester.requestFocus() }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = ApertureTheme.shapes.dialog) {
+            Column(Modifier.width(500.dp).padding(ApertureTheme.spacing.large)) {
+                Text("Aperture updates", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                Text(
+                    when (state) {
+                        UpdateCheckState.Idle, UpdateCheckState.Checking -> "Checking the latest GitHub release…"
+                        is UpdateCheckState.Current -> "You're up to date on ${state.version}."
+                        is UpdateCheckState.Available -> if (state.apkUrl != null) {
+                            "${state.version} is available and can be installed directly."
+                        } else {
+                            "${state.version} is available, but this release has no APK asset."
+                        }
+                        is UpdateCheckState.PermissionRequired -> "Allow Aperture to install unknown apps, return here, then continue."
+                        is UpdateCheckState.Downloading -> "Downloading ${state.update.version}… ${(state.progress * 100).toInt()}%"
+                        is UpdateCheckState.Installing -> "Opening Android's installer for ${state.version}…"
+                        is UpdateCheckState.Error -> state.message
+                    }
+                )
+                if (state is UpdateCheckState.Checking || state == UpdateCheckState.Idle) {
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator()
+                }
+                if (state is UpdateCheckState.Downloading) {
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    me.xdan.aperture.ui.component.expressive.ExpressiveWavyProgressIndicator(
+                        progress = state.progress.coerceIn(0f, 1f)
+                    )
+                }
+                Spacer(Modifier.height(ApertureTheme.spacing.large))
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
+                    androidx.tv.material3.OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeFocusRequester)
+                    ) { Text("Close") }
+                    if (state is UpdateCheckState.Available) {
+                        Button(onClick = { onInstall(state) }) {
+                            Text(if (state.apkUrl != null) "Download & install" else "Open release")
+                        }
+                    }
+                    if (state is UpdateCheckState.PermissionRequired) {
+                        Button(onClick = { onInstall(state.update) }) { Text("Continue") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryHeader(
+    title: String,
+    description: String
+) {
+    Column(
+        modifier = Modifier.padding(start = 4.dp, top = 18.dp, bottom = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f)
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsItem(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    drawerFocusRequester: FocusRequester? = null,
+    focusRequester: FocusRequester? = null,
+    onFocused: (FocusRequester) -> Unit = {},
+    trailingContent: @Composable (() -> Unit)? = null
+) {
+    val internalFocusRequester = remember { FocusRequester() }
+    val itemFocusRequester = focusRequester
+        ?.takeUnless { it == FocusRequester.Default }
+        ?: internalFocusRequester
+
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (drawerFocusRequester != null) {
+                    Modifier.focusProperties { left = drawerFocusRequester }
+                } else Modifier
+            )
+            .focusRequester(itemFocusRequester)
+            .onFocusChanged {
+                if (it.isFocused) onFocused(itemFocusRequester)
+            },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        scale = ClickableSurfaceDefaults.scale(
+            focusedScale = 1.015f,
+            pressedScale = 0.99f
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    2.dp,
+                    MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(14.dp)
+            )
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null)
+            Spacer(Modifier.width(18.dp))
+            Column {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.alpha(if (enabled) 0.72f else 0.48f)
+                )
+            }
+            if (trailingContent != null) {
+                Spacer(Modifier.weight(1f))
+                trailingContent()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun LicencesDialog(onDismiss: () -> Unit) {
+    val closeFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(80)
+        closeFocusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.78f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(560.dp),
+                shape = ApertureTheme.shapes.dialog,
+                colors = SurfaceDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(modifier = Modifier.padding(ApertureTheme.spacing.huge)) {
+                    Text("Open Source Licences", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                    Text("• Nova Video Player (Archos)")
+                    Text("• laposa/media-player")
+                    Text("• AndroidX Media3")
+                    Text("• NextLib Media3 FFmpeg extensions (GPLv3)")
+                    Text("• FFmpeg")
+                    Text("• Jetpack Compose")
+                    Text("• Coil")
+                    Text("• Retrofit, OkHttp and Moshi")
+                    Text("• Outfit typeface (SIL Open Font License 1.1)")
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .focusRequester(closeFocusRequester)
+                    ) {
+                        Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SpotlightDaysDialog(
+    initialDays: Int,
+    onSave: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var days by remember(initialDays) { mutableStateOf(initialDays.coerceIn(1, 365)) }
+    val decreaseFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        delay(80)
+        decreaseFocusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.78f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.width(520.dp),
+                shape = ApertureTheme.shapes.dialog,
+                colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(ApertureTheme.spacing.huge),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Finished Spotlight exclusion", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(ApertureTheme.spacing.small))
+                    Text(
+                        "Choose how long completed titles stay out of Spotlight.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                    )
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    
+                    var isSliderFocused by remember { mutableStateOf(false) }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveSlider(
+                            value = days.toFloat(),
+                            onValueChange = { days = it.roundToInt() },
+                            valueRange = 1f..365f,
+                            isFocused = isSliderFocused,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isSliderFocused = it.isFocused }
+                                .focusRequester(decreaseFocusRequester)
+                        )
+                        Text(
+                            text = "$days days",
+                            style = MaterialTheme.typography.displaySmall,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    
+                    Spacer(Modifier.height(ApertureTheme.spacing.large))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small),
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        androidx.tv.material3.OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+                        Button(onClick = { onSave(days) }) { Text("Save") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun PrivacyDialog(onDismiss: () -> Unit) {
+    var page by remember { mutableIntStateOf(0) }
+    val first = remember { FocusRequester() }
+    val pages = remember { listOf(
+        "Your library" to "Aperture reads videos you permit it to access and folders you select. Library entries, favourites, hidden items, settings and watch progress stay in app storage. Your video files are not uploaded by Aperture. Removing a folder revokes its library access; Android Settings lets you revoke video permission or clear app data.",
+        "Online metadata" to "Library preparation sends titles derived from filenames and available year or episode information to The Movie Database (TMDB) to find descriptions and artwork. Artwork requests also reach TMDB. These services receive network information such as your IP address. Do not grant media access if you do not want this automatic metadata lookup.",
+        "Subtitles and accounts" to "OpenSubtitles is optional. Signing in sends your username and password to OpenSubtitles over HTTPS. Aperture stores a session token, username and expiry, not your password, and excludes that session from Android backup. Subtitle searches and downloads contact OpenSubtitles. Sign out in Subtitle Settings to remove the local session. Aperture does not create an Aperture account.",
+        "Backups and removal" to "Android may back up library data and preferences under your device backup settings. Clear app storage or uninstall Aperture to remove local data; manage cloud backups separately in Android or your Google Account. External services control their own retention and account deletion. Aperture has no advertising or analytics SDK configured." +
+            if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) " This sideload build contacts GitHub to check releases. Optional sponsorship verification contacts GitHub; APK updates are downloaded only when requested." else " Updates for this build are managed by Google Play. GitHub sponsorship and APK updates are disabled.",
+        "Contact" to "Developer: XDanfr. Updated 23 October 2026. For privacy questions, use github.com/XDanfr/Aperture/issues. Do not post passwords, tokens or private filenames publicly. Third-party services handle their own retention and account requests. Aperture does not sell user data."
+    ) }
+    LaunchedEffect(page) { first.requestFocus() }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(modifier = Modifier.width(620.dp), shape = ApertureTheme.shapes.dialog,
+            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(ApertureTheme.spacing.huge)) {
+                Text("Privacy · ${page + 1}/${pages.size}", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+                Text(pages[page].first, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                Text(pages[page].second, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(24.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = onDismiss, modifier = Modifier.focusRequester(first)) { Text("Close") }
+                    if (page > 0) Button(onClick = { page-- }) { Text("Previous") }
+                    if (page < pages.lastIndex) Button(onClick = { page++ }) { Text("Next") }
+                }
+            }
+        }
+    }
+}

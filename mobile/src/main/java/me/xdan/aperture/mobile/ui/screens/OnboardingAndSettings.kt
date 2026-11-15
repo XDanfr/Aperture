@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import me.xdan.aperture.mobile.ui.components.deviceIcon
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.LinkOff
@@ -190,7 +191,7 @@ fun SettingsScreen(
             } else {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    leadingContent = { Icon(Icons.Rounded.Tv, null) },
+                    leadingContent = { Icon(deviceIcon(tvState?.deviceKind ?: current.deviceKind), null) },
                     headlineContent = { Text(tvState?.tvName ?: current.name) },
                     supportingContent = {
                         Text(

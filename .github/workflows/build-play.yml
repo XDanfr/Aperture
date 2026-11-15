@@ -48,7 +48,7 @@ jobs:
           PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_STORE_PASSWORD }}
           PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
           PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
-        run: bash ./gradlew --max-workers=1 --no-parallel :app:testPlayDebugUnitTest :app:bundlePlayRelease :app:assemblePlayRelease :app:processStandardReleaseMainManifest :app:processCreatorReleaseMainManifest :mobile:bundleRelease :mobile:processReleaseMainManifest
+        run: bash ./gradlew --max-workers=1 --no-parallel :app:testPlayDebugUnitTest :shared:jvmTest :app:bundlePlayRelease :app:assemblePlayRelease :app:processStandardReleaseMainManifest :app:processCreatorReleaseMainManifest :mobile:bundleRelease :mobile:processReleaseMainManifest
       - name: Check merged permissions
         run: |
           python3 scripts/check_play_manifest.py

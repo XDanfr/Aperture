@@ -1,31 +1,38 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
 }
 
-android {
-    namespace = "me.xdan.aperture.core"
-    compileSdk = 37
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "me.xdan.aperture.core"
+        compileSdk = 37
         minSdk = 27
-        consumerProguardFiles("consumer-rules.pro")
+        androidResources { enable = true }
+        optimization {
+            consumerKeepRules.publish = true
+            consumerKeepRules.file("consumer-rules.pro")
+        }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    buildFeatures {
-        compose = true
-    }
-}
+    jvm()
+    jvmToolchain(21)
 
-dependencies {
-    api(platform(libs.androidx.compose.bom))
-    api(libs.androidx.compose.ui)
-    api(libs.androidx.compose.ui.graphics)
-    api(libs.androidx.compose.material3)
-    api(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.compose.foundation)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(libs.compose.mp.runtime)
+            api(libs.compose.mp.ui)
+            api(libs.compose.mp.material3)
+            api(libs.kotlinx.serialization.json)
+            implementation(libs.compose.mp.foundation)
+        }
+        // desktop loads the Outfit font from the same file the Android build packages.
+        jvmMain.get().resources.srcDir("src/androidMain/res")
+    }
 }

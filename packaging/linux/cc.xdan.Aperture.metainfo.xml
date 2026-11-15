@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>cc.xdan.Aperture</id>
+  <name>Aperture</name>
+  <summary>A local media player for your own video library</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <developer id="cc.xdan">
+    <name>XDanfr</name>
+  </developer>
+  <description>
+    <p>
+      Aperture builds a library from the video folders you choose, fetches artwork and details
+      from TMDB, finds subtitles on OpenSubtitles and plays everything with mpv. It is the
+      desktop version of Aperture for Android TV, with the same interface, and works with the
+      Aperture Companion phone app.
+    </p>
+  </description>
+  <launchable type="desktop-id">cc.xdan.Aperture.desktop</launchable>
+  <url type="homepage">https://github.com/XDanfr/Aperture</url>
+  <url type="bugtracker">https://github.com/XDanfr/Aperture/issues</url>
+  <content_rating type="oars-1.1" />
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <releases>
+    <release version="0.5.0" date="2026-11-15" />
+  </releases>
+</component>

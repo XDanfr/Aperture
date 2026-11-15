@@ -1,0 +1,27 @@
+pkgbase = aperture
+	pkgdesc = Local media player for your own video library, with TMDB artwork and a phone companion
+	pkgver = 0.5.0
+	pkgrel = 1
+	url = https://github.com/XDanfr/Aperture
+	arch = x86_64
+	arch = aarch64
+	license = GPL-3.0-only
+	makedepends = jdk21-openjdk
+	depends = mpv
+	depends = libx11
+	depends = libxext
+	depends = libxi
+	depends = libxrender
+	depends = libxtst
+	depends = freetype2
+	depends = fontconfig
+	depends = alsa-lib
+	depends = hicolor-icon-theme
+	provides = aperture-desktop
+	conflicts = aperture-bin
+	options = !strip
+	options = !debug
+	source = aperture-0.5.0.tar.gz::https://github.com/XDanfr/Aperture/archive/refs/tags/v0.5.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = aperture

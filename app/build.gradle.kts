@@ -3,9 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
-    alias(libs.plugins.hilt)
 }
 
 val localProps = Properties().also { props ->
@@ -96,54 +94,29 @@ kotlin {
 }
 
 dependencies {
+    // The app itself lives in :shared (Compose Multiplatform). This module is the Android TV entry
+    // point: Application, Activity, manifest, launcher art and build flavours.
+    implementation(project(":shared"))
     implementation(project(":core"))
-    implementation(libs.zxing.core)
+
+    // The BOM keeps every androidx.compose artifact at the version the TV app has always used,
+    // whatever Compose Multiplatform would otherwise resolve.
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.accompanist.permissions)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.compose.adaptive)
-    implementation(libs.androidx.compose.adaptive.layout)
-    implementation(libs.androidx.compose.adaptive.navigation3)
-    implementation(libs.androidx.compose.material.icons.core)
-    implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.tv.material)
-    implementation(libs.androidx.tv.foundation)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui.tooling.preview)
+
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androidx.documentfile)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-    implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.androidx.navigation3.ui)
-    implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.hilt.android)
-    implementation(libs.hilt.navigation.compose)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui.compose)
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.session)
-    implementation(libs.androidx.graphics.shapes)
-    implementation(libs.nextlib.media3ext)
-    implementation(libs.coil.compose)
-    implementation(libs.androidx.palette)
-    implementation(libs.converter.moshi)
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.serialization.core)
-    implementation(libs.logging.interceptor)
     implementation(libs.material)
-    implementation(libs.moshi.kotlin)
-    implementation(libs.okhttp)
-    implementation(libs.retrofit)
-    testImplementation(libs.androidx.core)
-    testImplementation(libs.androidx.junit)
+    implementation(project.dependencies.platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.coil3.compose)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -151,13 +124,8 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.runner)
+    androidTestImplementation(libs.room.kmp.runtime)
+    androidTestImplementation(libs.coil3.compose)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    "ksp"(libs.androidx.room.compiler)
-    "ksp"(libs.moshi.kotlin.codegen)
-    "ksp"(libs.hilt.compiler)
-}
-
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
 }

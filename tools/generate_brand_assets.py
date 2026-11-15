@@ -121,8 +121,18 @@ for density, size, layer in [('mdpi', 48, 108), ('hdpi', 72, 162), ('xhdpi', 96,
 save(tile(logo, 512, 'square'), MAIN / 'ic_launcher-playstore.png')
 save(tile(logo, 1024), ROOT / 'Aperture.png')
 
+# Desktop: Windows and Linux show the mark on its own, without the launcher's tile; the taskbar,
+# dock or menu draws whatever sits behind it. macOS uses the layered Icon Composer icon in
+# desktop/icons/Aperture.icon instead (compiled by tools/desktop/compile_mac_icon.sh).
+DESKTOP = ROOT / 'desktop'
+desktop_mark = logo.resize((512, 512), Image.Resampling.LANCZOS)
+save(desktop_mark, DESKTOP / 'icons/Aperture.png')
+save(desktop_mark, DESKTOP / 'src/main/resources/aperture-icon.png')
+logo.resize((256, 256), Image.Resampling.LANCZOS).save(
+    DESKTOP / 'icons/Aperture.ico', sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+
 # The banner's wordmark is vector outlines from the app's own Outfit SemiBold font.
-font = TTFont(ROOT / 'core/src/main/res/font/outfit_semibold.ttf')
+font = TTFont(ROOT / 'core/src/androidMain/res/font/outfit_semibold.ttf')
 glyphs = font.getGlyphSet()
 cmap = font.getBestCmap()
 advance = 0
@@ -176,7 +186,8 @@ adaptive_background_svg = (adaptive_header
 adaptive_background_banner = render(adaptive_background_svg, 1280)
 for p in [MAIN / 'assets/ic_banner.png', MAIN / 'res/drawable/ic_banner.png']:
     save(full_banner, p)
-save(foreground_banner, MAIN / 'res/drawable/ic_banner_foreground.png')
+# Shown in onboarding, so it lives in the shared app's Compose resources (Android and desktop).
+save(foreground_banner, ROOT / 'shared/src/commonMain/composeResources/drawable/ic_banner_foreground.png')
 for density, size in [('mdpi', (160, 90)), ('hdpi', (240, 135)), ('xhdpi', (320, 180)),
                       ('xxhdpi', (480, 270)), ('xxxhdpi', (640, 360))]:
     resource = MAIN / 'res' / f'mipmap-{density}'
@@ -190,4 +201,4 @@ for name in ['ic_launcher_background']:
         f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="{name}">{BACKGROUND}</color>\n</resources>\n')
 for svg in ART.glob('*.svg'):
     svg.write_text('\n'.join(line.rstrip() for line in svg.read_text().splitlines()) + '\n')
-print('Regenerated launcher, monochrome, legacy and layered TV banner assets from artwork/aperture-logo.svg.')
+print('Regenerated launcher, monochrome, legacy, layered TV banner and desktop assets from artwork/aperture-logo.svg.')

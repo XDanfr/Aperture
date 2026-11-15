@@ -1,0 +1,273 @@
+name: Build apps
+
+# Builds Aperture for every platform on each push and pull request:
+# - Android: debug APKs of the TV app and the phone companion, ready to sideload. Signed release
+#   APKs come from "Build signed APKs" (build-apk.yml), Play bundles from build-play.yml.
+# - Windows (MSI, EXE) and macOS (DMG) bundle libmpv; Linux packages (deb, rpm, tarball, Flatpak)
+#   depend on or build their own. Each desktop job installs what it built and runs
+#   `Aperture --check-libmpv`, which fails unless the app loads a working libmpv.
+# On a v* tag, the desktop builds are also attached to a draft release. See docs/DESKTOP.md.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['master', 'feat/**', 'fix/**', 'ci/**']
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-${{ github.ref }}
+  # A newer push supersedes a branch build; tag builds always finish.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  # API keys are optional here: without them the app builds and plays, but can't fetch metadata.
+  TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+  OPENSUBTITLES_API_KEY: ${{ secrets.OPENSUBTITLES_API_KEY }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager --channel=3 --install "platforms;android-37.0" "build-tools;37.0.0"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
+
+      # The Android build reads its keys from local.properties. Without them (pull requests from
+      # forks) the APKs still build, but can't fetch metadata.
+      - name: Prepare API keys
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          def escape(value):
+              return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('=', '\\=').replace(':', '\\:').replace(' ', '\\ ')
+          keys = [k for k in ('TMDB_API_KEY', 'OPENSUBTITLES_API_KEY') if os.environ.get(k)]
+          Path('local.properties').write_text(''.join(f'{k}={escape(os.environ[k])}\n' for k in keys))
+          PY
+
+      - name: Build the TV app and the phone companion
+        run: ./gradlew :app:assembleStandardDebug :mobile:assembleDebug
+
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/standard/debug/app-standard-debug.apk dist/Aperture-tv-debug.apk
+          cp mobile/build/outputs/apk/debug/mobile-debug.apk dist/Aperture-companion-debug.apk
+          rm -f local.properties
+
+      # Named so the release job (which takes Aperture-*) leaves debug APKs out of releases.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-debug-apks
+          path: dist/*.apk
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build MSI and EXE (bundles libmpv-2.dll)
+        run: tools/desktop/package_windows.sh
+
+      - name: Install the MSI and check the installed app
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem desktop/build/dist/*.msi | Select-Object -First 1
+          Start-Process msiexec.exe -ArgumentList '/i', $msi.FullName, '/qn', '/l*v', 'msi-install.log' -Wait
+          $exe = 'C:\Program Files\Aperture\Aperture.exe'
+          if (-not (Test-Path $exe)) { Get-Content msi-install.log -Tail 40; throw "Not installed at $exe" }
+          $result = Join-Path $env:RUNNER_TEMP 'check.txt'
+          Start-Process $exe -ArgumentList '--check-libmpv', $result -Wait
+          Get-Content $result
+          if (-not (Select-String -Path $result -Pattern 'libmpv OK' -Quiet)) { throw 'Installed app could not load libmpv' }
+          Start-Process msiexec.exe -ArgumentList '/x', $msi.FullName, '/qn' -Wait
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-windows-x64
+          path: desktop/build/dist/*
+          if-no-files-found: error
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15        # Apple Silicon
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install mpv
+        run: brew install mpv
+
+      # Bundles libmpv and its dylibs, ad-hoc signs, checks that only bundled libraries load,
+      # and verifies the app inside the DMG. On tags it also collects their sources (GPL).
+      - name: Build DMG
+        run: tools/desktop/package_macos.sh ${{ startsWith(github.ref, 'refs/tags/') && '--sources' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-macos-${{ matrix.arch }}
+          path: desktop/build/dist/*.dmg
+          if-no-files-found: error
+
+      - name: Archive bundled library sources
+        if: startsWith(github.ref, 'refs/tags/')
+        run: tar -C desktop/build/dist -czf "desktop/build/dist/Aperture-macos-${{ matrix.arch }}-third-party-sources.tar.gz" "macos-${{ matrix.arch }}-sources"
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: Aperture-macos-${{ matrix.arch }}-sources
+          path: desktop/build/dist/*-third-party-sources.tar.gz
+
+  linux:
+    # The oldest supported Ubuntu: jpackage names the .deb's dependencies after the build
+    # machine's packages, and 22.04's names also resolve on newer Debian and Ubuntu.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
+
+      - name: Build deb, rpm and tarball
+        run: tools/desktop/package_linux.sh
+
+      # Each package must pull in the distribution's libmpv and then load it.
+      - name: Install the .deb on Ubuntu and check it
+        run: |
+          sudo apt-get install -y ./desktop/build/dist/aperture_*.deb
+          /opt/aperture/bin/Aperture --check-libmpv
+      - name: Install the .rpm on Fedora and check it
+        run: |
+          docker run --rm -v "$PWD/desktop/build/dist:/dist:ro" fedora:43 bash -c '
+            dnf install -y -q /dist/aperture-*.rpm && /opt/aperture/bin/Aperture --check-libmpv'
+      - name: Install the AUR binary package on Arch and check it
+        run: |
+          docker run --rm -v "$PWD:/src:ro" archlinux:latest bash -c '
+            set -e
+            pacman -Syu --noconfirm --needed base-devel >/dev/null
+            useradd -m builder && mkdir /build && cp /src/packaging/aur/aperture-bin/PKGBUILD /build/
+            cp /src/desktop/build/dist/Aperture-*-linux-x64.tar.gz /build/
+            cd /build && pkgver=$(sed -n "s/^pkgver=//p" PKGBUILD)
+            # Use the tarball just built instead of a release download.
+            sed -i "s|::https://github.com/XDanfr/Aperture/releases/download/v\$pkgver/|::file:///build/|" PKGBUILD
+            sed -i "s|^_raw=.*|_raw=file:///src|" PKGBUILD
+            chown -R builder /build
+            pacman -S --noconfirm --needed $(sudo -u builder bash -c "source PKGBUILD; echo \${depends[@]}") >/dev/null
+            sudo -u builder makepkg --noconfirm
+            pacman -U --noconfirm aperture-bin-*.pkg.tar.zst
+            /opt/aperture/bin/Aperture --check-libmpv'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-linux-x64
+          path: |
+            desktop/build/dist/*.deb
+            desktop/build/dist/*.rpm
+            desktop/build/dist/*.tar.gz
+          if-no-files-found: error
+
+  flatpak:
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: Aperture-linux-x64
+          path: dist
+      - name: Use the Linux build
+        run: cp dist/Aperture-*-linux-x64.tar.gz packaging/flatpak/Aperture-linux.tar.gz
+      # Built modules (FFmpeg, mpv...) are reused until the manifest changes.
+      - uses: actions/cache@v4
+        with:
+          path: .flatpak-builder
+          key: flatpak-builder-${{ hashFiles('packaging/flatpak/cc.xdan.Aperture.yml') }}
+      # The image ships the freedesktop runtime and SDK, so build against them as installed. The
+      # flatpak-builder action asks to install them from Flathub, which updates them in place
+      # whenever Flathub has a newer build, and that fails inside the container.
+      - name: Build the Flatpak
+        run: |
+          flatpak-builder --disable-rofiles-fuse --force-clean --repo=repo build packaging/flatpak/cc.xdan.Aperture.yml
+          flatpak build-bundle repo Aperture-linux-x64.flatpak cc.xdan.Aperture \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-linux-x64-flatpak
+          path: Aperture-linux-x64.flatpak
+          if-no-files-found: error
+      - name: Install the bundle and check its libmpv
+        run: |
+          flatpak install --user -y --noninteractive Aperture-linux-x64.flatpak
+          flatpak run --command=aperture cc.xdan.Aperture --check-libmpv
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, macos, linux, flatpak]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: Aperture-*
+          merge-multiple: true
+      - name: Attach to the release (created as a draft if it doesn't exist)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "Desktop builds for $TAG."
+          cd artifacts && sha256sum * > SHA256SUMS-desktop.txt
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber *

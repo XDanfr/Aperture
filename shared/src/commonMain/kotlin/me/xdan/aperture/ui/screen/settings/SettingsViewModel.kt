@@ -1,0 +1,256 @@
+package me.xdan.aperture.ui.screen.settings
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+
+import coil3.annotation.ExperimentalCoilApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.LibraryPreparationStage
+import me.xdan.aperture.domain.repository.UserPreferencesRepository
+import me.xdan.aperture.domain.model.AmbientSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import me.xdan.aperture.data.artwork.ArtworkPrefetcher
+import me.xdan.aperture.data.update.UpdateCheckState
+import me.xdan.aperture.data.update.UpdateManager
+import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
+import me.xdan.aperture.data.sponsor.SponsorVerificationManager
+
+class SettingsViewModel constructor(
+    private val repository: MediaRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val updateManager: UpdateManager,
+    private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
+    private val sponsorVerificationManager: SponsorVerificationManager,
+    private val artworkPrefetcher: ArtworkPrefetcher,
+    private val imageLoader: () -> coil3.ImageLoader
+) : ViewModel() {
+    val sponsorVerificationState = sponsorVerificationManager.state
+
+    fun verifySponsor() {
+        viewModelScope.launch { sponsorVerificationManager.verify() }
+    }
+
+    fun resetSponsorVerificationState() = sponsorVerificationManager.resetState()
+
+    val spotlightSettings: StateFlow<SpotlightSettings> = combine(
+        userPreferencesRepository.hideFinishedFromSpotlight,
+        userPreferencesRepository.finishedSpotlightExclusionDays,
+        userPreferencesRepository.roundedSpotlight
+    ) { hideFinished, exclusionDays, roundedSpotlight ->
+        SpotlightSettings(hideFinished, exclusionDays, roundedSpotlight)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        SpotlightSettings()
+    )
+
+    val themeId = userPreferencesRepository.themeId.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "purple"
+    )
+    val showPresentationMode = userPreferencesRepository.showPresentationMode.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "grouped"
+    )
+    val subtitleAppearance = combine(
+        userPreferencesRepository.subtitleTextScale,
+        userPreferencesRepository.subtitleColour,
+        userPreferencesRepository.subtitleBackgroundOpacity
+    ) { scale, colour, backgroundOpacity ->
+        SubtitleAppearanceSettings(scale, colour, backgroundOpacity)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        SubtitleAppearanceSettings()
+    )
+    val classicPlayerControls = userPreferencesRepository.classicPlayerControls.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false
+    )
+    val tunnelingEnabled = userPreferencesRepository.tunnelingEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true
+    )
+    val softwareVideoDecoding = userPreferencesRepository.softwareVideoDecoding.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true
+    )
+    val playbackEngine = userPreferencesRepository.playbackEngine.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        "auto"
+    )
+
+    val ambientSettings: StateFlow<AmbientSettings> = combine(
+        userPreferencesRepository.ambientMode,
+        userPreferencesRepository.ambientWallBrandPlacement,
+        userPreferencesRepository.ambientShowClock
+    ) { mode, placement, showClock ->
+        AmbientSettings(mode, placement, showClock)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AmbientSettings()
+    )
+    val updateState = updateManager.state
+    val openSubtitlesSession = openSubtitlesSessionManager.state
+    val hiddenMedia = repository.getHiddenMedia().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList()
+    )
+    val mediaFolders = repository.mediaFolders
+    val mediaFolderMessage = MutableStateFlow<String?>(null)
+    private var rescanJob: Job? = null
+
+    fun forceRescan() {
+        if (rescanJob?.isActive == true) return
+        rescanJob = viewModelScope.launch {
+            mediaFolderMessage.value = "Rescanning device storage and selected folders…"
+            repository.scanLocalFiles()
+            val progress = repository.preparationProgress.value
+            mediaFolderMessage.value = if (progress.stage == LibraryPreparationStage.ERROR) {
+                progress.errorMessage ?: "Rescan failed"
+            } else {
+                "Rescan complete"
+            }
+            delay(3_000)
+            mediaFolderMessage.value = null
+        }
+    }
+
+    fun addMediaFolder(uri: String) {
+        viewModelScope.launch {
+            mediaFolderMessage.value = "Adding folder…"
+            repository.addMediaFolder(uri)
+                .onSuccess {
+                    mediaFolderMessage.value = "Folder added. Scanning now…"
+                    repository.scanLocalFiles()
+                    mediaFolderMessage.value = null
+                }
+                .onFailure { error ->
+                    mediaFolderMessage.value = error.message ?: "Aperture could not add that folder"
+                }
+        }
+    }
+
+    fun removeMediaFolder(uri: String) {
+        viewModelScope.launch {
+            repository.removeMediaFolder(uri)
+            mediaFolderMessage.value = null
+        }
+    }
+
+    @OptIn(ExperimentalCoilApi::class)
+    fun clearCache() {
+        imageLoader().memoryCache?.clear()
+        imageLoader().diskCache?.clear()
+        artworkPrefetcher.clear()
+    }
+
+    fun setHideFinishedFromSpotlight(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setHideFinishedFromSpotlight(enabled)
+        }
+    }
+
+    fun setFinishedSpotlightExclusionDays(days: Int) {
+        viewModelScope.launch {
+            userPreferencesRepository.setFinishedSpotlightExclusionDays(days)
+        }
+    }
+
+    fun setRoundedSpotlight(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setRoundedSpotlight(enabled) }
+    }
+
+    fun setClassicPlayerControls(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setClassicPlayerControls(enabled) }
+    }
+
+    fun setTunnelingEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setTunnelingEnabled(enabled) }
+    }
+
+    fun setSoftwareVideoDecoding(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setSoftwareVideoDecoding(enabled) }
+    }
+
+    fun setPlaybackEngine(engine: String) {
+        viewModelScope.launch { userPreferencesRepository.setPlaybackEngine(engine) }
+    }
+
+    fun setTheme(themeId: String) {
+        viewModelScope.launch { userPreferencesRepository.setThemeId(themeId) }
+    }
+
+    fun setShowPresentationMode(mode: String) {
+        viewModelScope.launch { userPreferencesRepository.setShowPresentationMode(mode) }
+    }
+
+    fun setSubtitleAppearance(settings: SubtitleAppearanceSettings) {
+        viewModelScope.launch {
+            userPreferencesRepository.setSubtitleTextScale(settings.textScale)
+            userPreferencesRepository.setSubtitleColour(settings.colour)
+            userPreferencesRepository.setSubtitleBackgroundOpacity(settings.backgroundOpacity)
+        }
+    }
+
+    fun setAmbientSettings(settings: AmbientSettings, onSaved: () -> Unit = {}) {
+        viewModelScope.launch {
+            userPreferencesRepository.setAmbientMode(settings.mode)
+            userPreferencesRepository.setAmbientWallBrandPlacement(settings.wallBrandPlacement)
+            userPreferencesRepository.setAmbientShowClock(settings.showClock)
+            onSaved()
+        }
+    }
+
+    fun unhide(mediaId: Long) {
+        viewModelScope.launch { repository.setHidden(mediaId, false) }
+    }
+
+    fun checkForUpdates() {
+        viewModelScope.launch { updateManager.checkForUpdates() }
+    }
+
+    fun downloadAndInstall(update: UpdateCheckState.Available) {
+        viewModelScope.launch { updateManager.downloadAndInstall(update) }
+    }
+
+    fun resumeUpdateAfterPermission(update: UpdateCheckState.Available) {
+        downloadAndInstall(update)
+    }
+
+    fun loginToOpenSubtitles(username: String, password: String) {
+        viewModelScope.launch { openSubtitlesSessionManager.login(username, password) }
+    }
+
+    fun logoutOfOpenSubtitles() {
+        openSubtitlesSessionManager.logout()
+    }
+
+}
+
+data class SubtitleAppearanceSettings(
+    val textScale: Float = 1f,
+    val colour: String = "white",
+    val backgroundOpacity: Float = 0.55f
+)
+
+data class SpotlightSettings(
+    val hideFinishedFromSpotlight: Boolean = true,
+    val exclusionDays: Int = 14,
+    val roundedSpotlight: Boolean = true
+)

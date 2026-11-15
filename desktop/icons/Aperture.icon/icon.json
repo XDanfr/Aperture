@@ -1,0 +1,181 @@
+{
+  "fill" : "system-dark",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "play.png",
+          "name" : "play",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int6.png",
+          "name" : "int6",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int5.png",
+          "name" : "int5",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int4.png",
+          "name" : "int4",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int3.png",
+          "name" : "int3",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int2.png",
+          "name" : "int2",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "int1.png",
+          "name" : "int1",
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade6.png",
+          "name" : "Blade6",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade5.png",
+          "name" : "Blade5",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade4.png",
+          "name" : "Blade4",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade3.png",
+          "name" : "Blade3",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade2.png",
+          "name" : "Blade2",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image-name" : "Blade1.png",
+          "name" : "Blade1",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.65,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
