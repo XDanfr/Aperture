@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Aperture
+GenericName=Media Player
+Comment=A local media player for your own video library
+Exec=aperture
+Icon=aperture
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=movies;tv;shows;video;library;player;
+StartupWMClass=me-xdan-aperture-desktop-MainKt
