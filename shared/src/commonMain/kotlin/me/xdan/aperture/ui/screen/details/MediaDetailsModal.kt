@@ -1,5 +1,10 @@
 package me.xdan.aperture.ui.screen.details
 
+import androidx.compose.ui.zIndex
+import me.xdan.aperture.ui.platform.usesMouse
+import me.xdan.aperture.ui.platform.onBackgroundClick
+import androidx.compose.material.icons.rounded.Close
+import androidx.tv.material3.textInputFocusTracking
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -42,15 +47,16 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.platform.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.delay
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
@@ -159,13 +165,10 @@ fun MediaDetailsModal(
     if (!isPlaybackActive && (mediaId != null || displayedMedia != null)) {
         Dialog(
             onDismissRequest = { if (mediaId != null) closeModal() },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnClickOutside = false,
-                decorFitsSystemWindows = false
-            )
+            properties = me.xdan.aperture.ui.platform.edgeToEdgeDialogProperties()
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            // Desktop: a click on the dimmed page beside the panel closes it, like any popup.
+            Box(modifier = Modifier.fillMaxSize().onBackgroundClick { if (mediaId != null) closeModal() }) {
                 AnimatedVisibility(
                     visible = isVisible,
                     enter = fadeIn(animationSpec = tween(durationMillis = 200)),
@@ -214,6 +217,13 @@ fun MediaDetailsModal(
                                 m.year?.toString().orEmpty()
                             }
                             val artworkHeight = if (showEpisodeSelector) 120.dp else 160.dp
+                            // Desktop: an on-screen close button, where a TV remote would press Back.
+                            if (usesMouse) {
+                                DetailsCloseButton(
+                                    onClick = { if (mediaId != null) closeModal() },
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 40.dp).zIndex(1f)
+                                )
+                            }
                             Surface(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
@@ -239,7 +249,7 @@ fun MediaDetailsModal(
                                         )
                                     } else {
                                         AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
+                                            model = ImageRequest.Builder(LocalPlatformContext.current)
                                                 .data(TmdbApi.IMAGE_BASE_URL + "w780" + artworkPath)
                                                 .crossfade(false)
                                                 .build(),
@@ -573,7 +583,7 @@ private fun AssetPickerDialog(
                 androidx.compose.material3.OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().textInputFocusTracking(),
                     singleLine = true,
                     label = { androidx.compose.material3.Text("Search title") },
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
@@ -665,5 +675,20 @@ private fun AssetPickerDialog(
                 }
             }
         }
+    }
+}
+@Composable
+private fun DetailsCloseButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(40.dp),
+        colors = IconButtonDefaults.colors(
+            containerColor = Color.Black.copy(alpha = 0.55f),
+            contentColor = Color.White,
+            focusedContainerColor = MaterialTheme.colorScheme.primary,
+            focusedContentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
+        Icon(Icons.Rounded.Close, contentDescription = "Close", modifier = Modifier.size(22.dp))
     }
 }

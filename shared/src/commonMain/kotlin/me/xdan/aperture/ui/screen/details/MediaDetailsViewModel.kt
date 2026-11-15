@@ -2,7 +2,6 @@ package me.xdan.aperture.ui.screen.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
@@ -14,10 +13,8 @@ import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.domain.playback.nextEpisodeForContinueWatching
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.data.remote.dto.TmdbResult
-import javax.inject.Inject
 
-@HiltViewModel
-class MediaDetailsViewModel @Inject constructor(
+class MediaDetailsViewModel constructor(
     private val repository: MediaRepository
 ) : ViewModel() {
 
