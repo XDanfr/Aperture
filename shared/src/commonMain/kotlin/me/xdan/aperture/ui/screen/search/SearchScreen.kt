@@ -1,5 +1,9 @@
 package me.xdan.aperture.ui.screen.search
 
+import me.xdan.aperture.ui.platform.usesMouse
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -33,6 +37,12 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
+    // The field keeps its own cursor so text typed from elsewhere (below) lands at the end.
+    var fieldValue by remember { mutableStateOf(TextFieldValue(query, TextRange(query.length))) }
+    LaunchedEffect(query) {
+        if (query != fieldValue.text) fieldValue = TextFieldValue(query, TextRange(query.length))
+    }
+    var fieldFocused by remember { mutableStateOf(false) }
 
     // Focus Pull
     LaunchedEffect(results.isNotEmpty()) {
@@ -46,6 +56,19 @@ fun SearchScreen(
             .fillMaxSize()
             .padding(16.dp)
             .graphicsLayer { clip = false }
+            // Desktop: typing goes to the search field even while a result has focus (from the
+            // mouse or arrow keys), as on any search page.
+            .onPreviewKeyEvent { event ->
+                if (!usesMouse || fieldFocused || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (event.isCtrlPressed || event.isMetaPressed || event.isAltPressed) return@onPreviewKeyEvent false
+                val codePoint = event.utf16CodePoint
+                if (codePoint < 32 || codePoint == 127) return@onPreviewKeyEvent false
+                val text = fieldValue.text + codePoint.toChar()
+                fieldValue = TextFieldValue(text, TextRange(text.length))
+                viewModel.onQueryChange(text)
+                runCatching { contentEntryFocusRequester.requestFocus() }
+                true
+            }
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -53,8 +76,11 @@ fun SearchScreen(
             colors = SurfaceDefaults.colors(containerColor = Color.DarkGray)
         ) {
             BasicTextField(
-                value = query,
-                onValueChange = { viewModel.onQueryChange(it) },
+                value = fieldValue,
+                onValueChange = {
+                    fieldValue = it
+                    if (it.text != query) viewModel.onQueryChange(it.text)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
@@ -64,8 +90,10 @@ fun SearchScreen(
                     )
                     .focusRequester(contentEntryFocusRequester)
                     .onFocusChanged {
+                        fieldFocused = it.isFocused
                         if (it.isFocused) onContentFocused(contentEntryFocusRequester)
                     }
+                    .textInputFocusTracking()
                     .padding(16.dp),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
                 decorationBox = { innerTextField ->

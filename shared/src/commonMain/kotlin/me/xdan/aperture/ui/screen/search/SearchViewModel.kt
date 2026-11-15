@@ -2,7 +2,6 @@ package me.xdan.aperture.ui.screen.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,11 +11,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.domain.repository.MediaRepository
-import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@HiltViewModel
-class SearchViewModel @Inject constructor(
+class SearchViewModel constructor(
     repository: MediaRepository
 ) : ViewModel() {
     private val _query = MutableStateFlow("")
