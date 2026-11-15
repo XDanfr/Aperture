@@ -1,19 +1,9 @@
-@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 
 package me.xdan.aperture.ui.screen.player
 
-import android.content.Context
-import android.util.Log
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.net.Uri
-import android.provider.DocumentsContract
+import me.xdan.aperture.platform.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,7 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.data.remote.api.OpenSubtitleResult
@@ -38,10 +28,8 @@ import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import javax.inject.Inject
 
-@HiltViewModel
-class PlayerViewModel @Inject constructor(
+class PlayerViewModel constructor(
     val player: PlayerEngine,
     private val repository: MediaRepository,
     private val preferences: UserPreferencesRepository,
@@ -49,7 +37,8 @@ class PlayerViewModel @Inject constructor(
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val okHttpClient: OkHttpClient,
     private val companionHub: me.xdan.aperture.companion.CompanionHub,
-    @ApplicationContext private val context: Context
+    private val platform: PlaybackPlatform,
+    stores: me.xdan.aperture.platform.KeyValueStores
 ) : ViewModel() {
 
     private val _media = MutableStateFlow<MediaEntity?>(null)
@@ -113,10 +102,7 @@ class PlayerViewModel @Inject constructor(
     private var activeMediaId: Long? = null
     private val downloadedSubtitleFiles = mutableListOf<File>()
     private var pendingPlayback: PendingPlayback? = null
-    private val syncPreferences = context.getSharedPreferences(
-        PLAYBACK_SYNC_PREFERENCES,
-        Context.MODE_PRIVATE
-    )
+    private val syncPreferences = stores.open(PLAYBACK_SYNC_PREFERENCES)
 
     private val playerListener = object : PlayerEngine.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -193,10 +179,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun checkDisplayCapabilities() {
-        val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
-        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
-        val hdrCapabilities = display?.hdrCapabilities
-        _isDisplayHdrCapable.value = hdrCapabilities?.supportedHdrTypes?.isNotEmpty() == true
+        _isDisplayHdrCapable.value = platform.isDisplayHdrCapable
     }
 
     fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
@@ -228,7 +211,7 @@ class PlayerViewModel @Inject constructor(
                 player.setTunnelingEnabled(tunneling)
 
                 val compatibility = withContext(Dispatchers.IO) {
-                    inspectPlaybackCompatibility(media.filePath)
+                    platform.inspectCompatibility(media.filePath)
                 }
                 
                 if (compatibility != null) {
@@ -255,11 +238,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun showCompatibilityToast() {
-        android.widget.Toast.makeText(
-            context,
-            "Playback may be unstable on this device",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+        platform.showToast("Playback may be unstable on this device")
     }
 
     fun playDespiteWarning(dontShowAgain: Boolean = false) {
@@ -301,12 +280,12 @@ class PlayerViewModel @Inject constructor(
 
         player.setSubtitleDelay(_subtitleDelayMs.value)
         
-        player.setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-        player.clearTrackOverrides(C.TRACK_TYPE_AUDIO)
-        player.setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+        player.setTrackTypeDisabled(TrackTypes.AUDIO, false)
+        player.clearTrackOverrides(TrackTypes.AUDIO)
+        player.setTrackTypeDisabled(TrackTypes.VIDEO, false)
 
-        val mediaItem = buildMediaItem(media)
-        player.setMedia(mediaItem.localConfiguration!!.uri, mediaItem.localConfiguration!!.subtitleConfigurations)
+        val (mediaUri, subtitles) = buildMediaItem(media)
+        player.setMedia(mediaUri, subtitles)
 
         val hasActiveProgress = progress?.let {
             it.duration > 0 &&
@@ -401,116 +380,35 @@ class PlayerViewModel @Inject constructor(
             .apply()
     }
 
-    private suspend fun buildMediaItem(media: MediaEntity): MediaItem {
+    private suspend fun buildMediaItem(media: MediaEntity): Pair<String, List<ExternalSubtitle>> {
         val isDocumentUri = media.filePath.startsWith("content://")
         val videoFile = media.filePath.takeUnless { isDocumentUri }?.let(::File)
-        val videoBaseName = if (videoFile != null) {
-            videoFile.nameWithoutExtension
-        } else {
-            Uri.decode(Uri.parse(media.filePath).lastPathSegment.orEmpty())
-                .substringAfterLast('/')
-                .substringBeforeLast('.')
-        }
+        val videoBaseName = videoFile?.nameWithoutExtension ?: platform.baseName(media.filePath)
         val localSubtitles = if (isDocumentUri) {
-            withContext(Dispatchers.IO) { findSiblingDocumentSubtitles(media, videoBaseName) }
+            withContext(Dispatchers.IO) {
+                platform.siblingDocumentSubtitles(media, videoBaseName, SUBTITLE_EXTENSIONS)
+            }
         } else {
             videoFile?.let(::findSiblingSubtitles).orEmpty().map { file ->
-                SubtitleSource(Uri.fromFile(file), file.nameWithoutExtension, file.extension)
+                SubtitleFile(platform.fileUri(file), file.nameWithoutExtension, file.extension)
             }
         }
         val downloadedSubtitles = downloadedSubtitleFiles.map { file ->
-            SubtitleSource(Uri.fromFile(file), file.nameWithoutExtension, file.extension)
+            SubtitleFile(platform.fileUri(file), file.nameWithoutExtension, file.extension)
         }
         val subtitles = (localSubtitles + downloadedSubtitles)
             .distinctBy { it.uri }
             .mapIndexed { index, subtitle ->
-                MediaItem.SubtitleConfiguration.Builder(subtitle.uri)
-                    .setMimeType(subtitleMimeType(subtitle.extension))
-                    .setLabel(subtitle.label)
-                    .setLanguage(
-                        inferLanguage(
-                            subtitle.label,
-                            videoBaseName
-                        )
-                    )
-                    .setSelectionFlags(if (index == 0) C.SELECTION_FLAG_DEFAULT else 0)
-                    .build()
+                ExternalSubtitle(
+                    uri = subtitle.uri,
+                    mimeType = subtitleMimeType(subtitle.extension),
+                    label = subtitle.label,
+                    language = inferLanguage(subtitle.label, videoBaseName),
+                    isDefault = index == 0
+                )
             }
-        return MediaItem.Builder()
-            .setUri(mediaPlaybackUri(media.filePath))
-            .setSubtitleConfigurations(subtitles)
-            .build()
+        return platform.playbackUri(media.filePath) to subtitles
     }
-
-    private fun inspectPlaybackCompatibility(filePath: String): PlaybackCompatibilityWarning? {
-        val extractor = MediaExtractor()
-        return try {
-            val uri = mediaPlaybackUri(filePath)
-            if (uri.scheme == "content") {
-                extractor.setDataSource(context, uri, null)
-            } else {
-                extractor.setDataSource(filePath)
-            }
-            var hasDolbyVision = false
-            var hasEac3 = false
-            var hasTrueHd = false
-            var isHevc = false
-            var is4k = false
-            var hasHdr10 = false
-            var is10Bit = false
-
-            repeat(extractor.trackCount) { index ->
-                val format = extractor.getTrackFormat(index)
-                val mime = format.getString(MediaFormat.KEY_MIME)?.lowercase() ?: return@repeat
-
-                when (mime) {
-                    "video/dolby-vision" -> hasDolbyVision = true
-                    "audio/eac3", "audio/eac3-joc" -> hasEac3 = true
-                    "audio/true-hd" -> hasTrueHd = true
-                    "video/hevc" -> {
-                        isHevc = true
-                        val width = if (format.containsKey(MediaFormat.KEY_WIDTH)) {
-                            format.getInteger(MediaFormat.KEY_WIDTH)
-                        } else 0
-                        val height = if (format.containsKey(MediaFormat.KEY_HEIGHT)) {
-                            format.getInteger(MediaFormat.KEY_HEIGHT)
-                        } else 0
-                        if (width >= 3840 || height >= 2160) is4k = true
-                        
-                        val transfer = if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
-                            format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
-                        } else -1
-                        if (transfer == MediaFormat.COLOR_TRANSFER_ST2084 || 
-                            transfer == MediaFormat.COLOR_TRANSFER_HLG) {
-                            hasHdr10 = true
-                        }
-
-                        val profile = if (format.containsKey(MediaFormat.KEY_PROFILE)) {
-                            format.getInteger(MediaFormat.KEY_PROFILE)
-                        } else -1
-                        // HEVCProfileMain10 = 2
-                        if (profile == 2) is10Bit = true
-                    }
-                }
-            }
-
-            PlaybackCompatibilityWarning(
-                hasDolbyVision = hasDolbyVision,
-                hasEac3 = hasEac3,
-                hasTrueHd = hasTrueHd,
-                is4kHevc = is4k && isHevc,
-                hasHdr10 = hasHdr10,
-                is10Bit = is10Bit
-            ).takeIf { it.hasDolbyVision || it.hasEac3 || it.hasTrueHd || it.is4kHevc || it.hasHdr10 || it.is10Bit }
-        } catch (_: Exception) {
-            null
-        } finally {
-            extractor.release()
-        }
-    }
-
-    private fun mediaPlaybackUri(location: String): Uri =
-        if (location.startsWith("content://")) Uri.parse(location) else Uri.fromFile(File(location))
 
     private fun findSiblingSubtitles(videoFile: File): List<File> {
         val base = videoFile.nameWithoutExtension
@@ -523,63 +421,9 @@ class PlayerViewModel @Inject constructor(
         }.getOrDefault(emptyList())
     }
 
-    private fun findSiblingDocumentSubtitles(
-        media: MediaEntity,
-        videoBaseName: String
-    ): List<SubtitleSource> {
-        val rootUri = media.sourceRootUri?.let(Uri::parse) ?: return emptyList()
-        val parentUri = media.parentDocumentUri?.let(Uri::parse) ?: return emptyList()
-        val parentDocumentId = runCatching {
-            DocumentsContract.getDocumentId(parentUri)
-        }.getOrNull() ?: return emptyList()
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            rootUri,
-            parentDocumentId
-        )
-        val projection = arrayOf(
-            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-            DocumentsContract.Document.COLUMN_MIME_TYPE
-        )
-        return runCatching {
-            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
-                val idColumn = cursor.getColumnIndexOrThrow(
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID
-                )
-                val nameColumn = cursor.getColumnIndexOrThrow(
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
-                )
-                buildList {
-                    while (cursor.moveToNext()) {
-                        val name = cursor.getString(nameColumn) ?: continue
-                        val extension = name.substringAfterLast('.', missingDelimiterValue = "")
-                            .lowercase()
-                        val nameWithoutExtension = name.substringBeforeLast('.')
-                        val matchesVideo = nameWithoutExtension.equals(
-                            videoBaseName,
-                            ignoreCase = true
-                        ) || nameWithoutExtension.startsWith("$videoBaseName.", ignoreCase = true)
-                        if (extension in SUBTITLE_EXTENSIONS && matchesVideo) {
-                            add(
-                                SubtitleSource(
-                                    uri = DocumentsContract.buildDocumentUriUsingTree(
-                                        rootUri,
-                                        cursor.getString(idColumn)
-                                    ),
-                                    label = nameWithoutExtension,
-                                    extension = extension
-                                )
-                            )
-                        }
-                    }
-                }
-            }.orEmpty()
-        }.getOrDefault(emptyList())
-    }
-
     fun searchOpenSubtitles() {
         val media = _media.value ?: return
-        if (BuildConfig.OPENSUBTITLES_API_KEY.isBlank()) {
+        if (AppBuild.OPENSUBTITLES_API_KEY.isBlank()) {
             _onlineSubtitles.value = OnlineSubtitleState.Error(
                 "Add OPENSUBTITLES_API_KEY to local.properties to enable online subtitles."
             )
@@ -601,7 +445,7 @@ class PlayerViewModel @Inject constructor(
                     query = media.title,
                     seasonNumber = media.seasonNumber,
                     episodeNumber = media.episodeNumber,
-                    apiKey = BuildConfig.OPENSUBTITLES_API_KEY,
+                    apiKey = AppBuild.OPENSUBTITLES_API_KEY,
                     authorization = "Bearer $token"
                 )
                 val options = response.data.mapNotNull(::toOnlineSubtitleOption).take(20)
@@ -628,11 +472,11 @@ class PlayerViewModel @Inject constructor(
                 val download = openSubtitlesApi.createDownload(
                     openSubtitlesSessionManager.downloadEndpoint(),
                     OpenSubtitlesDownloadRequest(option.fileId),
-                    BuildConfig.OPENSUBTITLES_API_KEY,
+                    AppBuild.OPENSUBTITLES_API_KEY,
                     "Bearer $token"
                 )
                 val extension = download.fileName?.substringAfterLast('.', "srt") ?: "srt"
-                val directory = File(context.cacheDir, "open_subtitles").apply { mkdirs() }
+                val directory = File(platform.cacheDir, "open_subtitles").apply { mkdirs() }
                 val destination = File(directory, "${media.id}-${option.fileId}.$extension")
                 withContext(Dispatchers.IO) {
                     okHttpClient.newCall(Request.Builder().url(download.link).build()).execute().use { response ->
@@ -645,8 +489,8 @@ class PlayerViewModel @Inject constructor(
                 downloadedSubtitleFiles += destination
                 val position = player.currentPosition
                 val isPlaying = player.isPlaying.value
-                val mediaItem = buildMediaItem(media)
-                player.setMedia(mediaItem.localConfiguration!!.uri, mediaItem.localConfiguration!!.subtitleConfigurations)
+                val (mediaUri, subtitles) = buildMediaItem(media)
+                player.setMedia(mediaUri, subtitles)
                 player.seekTo(position)
                 if (isPlaying) player.play()
                 OnlineSubtitleState.Attached(option.label)
@@ -803,12 +647,6 @@ private data class PendingPlayback(
     val compatibility: PlaybackCompatibilityWarning?
 )
 
-private data class SubtitleSource(
-    val uri: Uri,
-    val label: String,
-    val extension: String
-)
-
 data class PlayerSubtitleStyle(
     val textScale: Float = 1f,
     val colour: String = "white",
@@ -850,4 +688,4 @@ private fun inferLanguage(subtitleName: String, videoName: String): String? =
     subtitleName.removePrefix(videoName).trimStart('.', ' ', '-', '_')
         .substringBefore('.').takeIf { it.length in 2..3 }
 
-private val SUBTITLE_EXTENSIONS = setOf("srt", "vtt", "ssa", "ass", "ttml", "dfxp", "xml")
+internal val SUBTITLE_EXTENSIONS = setOf("srt", "vtt", "ssa", "ass", "ttml", "dfxp", "xml")
