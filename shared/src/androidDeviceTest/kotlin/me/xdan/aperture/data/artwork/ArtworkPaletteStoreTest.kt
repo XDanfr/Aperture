@@ -20,7 +20,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.xdan.aperture.data.local.AppDatabase
 import me.xdan.aperture.data.local.entity.ArtworkPaletteEntity
-import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.DatabaseMigrations
 import me.xdan.aperture.ui.artwork.ArtworkExtractionVersion
 import org.junit.Assert.*
@@ -122,17 +121,18 @@ class ArtworkPaletteStoreTest {
     fun migrationAddsThePaletteTableWithoutLosingTheLibrary() = runBlocking {
         val name = "palette-migration-test.db"
         context.deleteDatabase(name)
-        val old = Room.databaseBuilder(context, AppDatabase::class.java, name).build()
-        old.mediaDao().insertMedia(MediaEntity(id = 1, filePath = "/saved.mkv", title = "Saved library title", type = "MOVIE"))
-        old.close()
-        SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE).use {
-            it.execSQL("DROP TABLE artwork_palettes")
+        // A version 7 database: the media and progress tables of the time, and no palette table.
+        SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name), null).use {
+            it.execSQL("CREATE TABLE IF NOT EXISTS `media` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `filePath` TEXT NOT NULL, `sourceRootUri` TEXT, `parentDocumentUri` TEXT, `title` TEXT NOT NULL, `year` INTEGER, `tmdbId` INTEGER, `posterPath` TEXT, `backdropPath` TEXT, `overview` TEXT, `metadataAttemptedAt` INTEGER, `type` TEXT NOT NULL, `seasonNumber` INTEGER, `episodeNumber` INTEGER, `episodeTitle` TEXT, `episodeOverview` TEXT, `stillPath` TEXT, `duration` INTEGER, `lastPlayedPosition` INTEGER, `isFavorite` INTEGER NOT NULL, `favoriteAddedAt` INTEGER, `isHidden` INTEGER NOT NULL, `dateAdded` INTEGER NOT NULL)")
+            it.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_media_filePath` ON `media` (`filePath`)")
+            it.execSQL("CREATE TABLE IF NOT EXISTS `playback_progress` (`mediaId` INTEGER NOT NULL, `position` INTEGER NOT NULL, `duration` INTEGER NOT NULL, `lastUpdated` INTEGER NOT NULL, `isCompleted` INTEGER NOT NULL, `completedAt` INTEGER, `keepInContinueWatching` INTEGER NOT NULL, PRIMARY KEY(`mediaId`))")
+            it.execSQL("INSERT INTO media (id, filePath, title, type, isFavorite, isHidden, dateAdded) VALUES (1, '/saved.mkv', 'Saved library title', 'MOVIE', 0, 0, 1)")
             it.version = 7
         }
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(DatabaseMigrations.MIGRATION_7_8).build()
+            .addMigrations(DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9).build()
         try {
-            assertEquals("Saved library title", migrated.mediaDao().getMediaById(1)!!.title)
+            assertEquals("Saved library title", migrated.mediaDao().getMediaById(1, 1)!!.title)
             migrated.artworkPaletteDao().put(ArtworkPaletteEntity("/new.jpg", 42, ArtworkExtractionVersion))
             assertEquals(42, migrated.artworkPaletteDao().get("/new.jpg")!!.seedArgb)
         } finally { migrated.close(); context.deleteDatabase(name) }

@@ -4,7 +4,18 @@ import kotlinx.coroutines.flow.Flow
 import me.xdan.aperture.domain.model.AmbientBrandPlacement
 import me.xdan.aperture.domain.model.AmbientModeType
 
+/**
+ * App settings. Taste settings (theme, subtitles, Spotlight, show layout, player controls) belong
+ * to the active profile; device settings (playback engine, ambient mode, onboarding) are shared.
+ */
 interface UserPreferencesRepository {
+    val activeProfileId: Flow<Long>
+    suspend fun setActiveProfileId(profileId: Long)
+    fun themeIdFor(profileId: Long): Flow<String>
+    suspend fun setThemeIdFor(profileId: Long, themeId: String)
+    /** Forget a deleted profile's settings. */
+    suspend fun clearProfilePreferences(profileId: Long)
+
     val isOnboardingCompleted: Flow<Boolean>
     val hideFinishedFromSpotlight: Flow<Boolean>
     val finishedSpotlightExclusionDays: Flow<Int>

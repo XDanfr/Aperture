@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.rememberNavBackStack
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import me.xdan.aperture.companion.CompanionHub
 import me.xdan.aperture.data.sponsor.SponsorVerificationManager
@@ -94,6 +95,15 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
     val onboardingCompleted by mainViewModel.isOnboardingCompleted.collectAsState()
     val tutorialRequired by mainViewModel.isTutorialRequired.collectAsState()
     val legacyCleanupRequired by mainViewModel.legacyCleanupRequired.collectAsState()
+    val profileRepository: me.xdan.aperture.domain.repository.ProfileRepository = koinInject()
+    val profilesViewModel: me.xdan.aperture.ui.screen.profiles.ProfilesViewModel = koinViewModel()
+    val profiles by profilesViewModel.profiles.collectAsState()
+    val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
+    val profileChosen by profileRepository.profileChosen.collectAsState()
+    LaunchedEffect(Unit) { profileRepository.resolveLaunchChoice() }
+    val choosingProfile = onboardingCompleted == true && !profileChosen && profiles.size > 1
+    // Read from long-lived effects (the companion collector), which would otherwise keep the first value.
+    val choosingProfileNow by rememberUpdatedState(choosingProfile)
     val sponsorVerified by sponsorVerificationManager.isVerified.collectAsState()
     val sponsorVerificationState by sponsorVerificationManager.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -136,6 +146,7 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
         onboardingCompleted == true &&
         !legacyCleanupRequired &&
         !tutorialRequired &&
+        !choosingProfile &&
         !appState.isPlayerActive &&
         !appState.isAmbientActive &&
         !sponsorVerified &&
@@ -187,7 +198,7 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                             appState.lastInteractionTime = System.currentTimeMillis()
                             when (request) {
                                 is me.xdan.aperture.companion.CompanionNavigation.Play -> {
-                                    if (onboardingCompleted != true || legacyCleanupRequired) return@collect
+                                    if (onboardingCompleted != true || legacyCleanupRequired || choosingProfileNow) return@collect
                                     appState.isAmbientActive = false
                                     if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
                                     appState.isPlayerActive = true
@@ -202,12 +213,25 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                         }
                     }
 
+                    // A different profile has its own lists and progress, so start again from Home.
+                    LaunchedEffect(backstack) {
+                        snapshotFlow { activeProfileId }
+                            .drop(1)
+                            .collect {
+                                if (backstack.size > 1 || backstack.lastOrNull() !is Destination.Home) {
+                                    backstack.clear()
+                                    backstack.add(Destination.Home)
+                                }
+                            }
+                    }
+
                     LaunchedEffect(legacyCleanupRequired, onboardingCompleted) {
                         while (true) {
                             delay(1000)
                             if (!legacyCleanupRequired &&
                                 onboardingCompleted == true &&
                                 !appState.isPlayerActive &&
+                                !choosingProfileNow &&
                                 !showSponsorPrompt &&
                                 !showSponsorQr &&
                                 !showSponsorVerification &&
@@ -222,6 +246,12 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                         me.xdan.aperture.ui.screen.onboarding.LegacyInstallCleanup(
                             onRecheck = mainViewModel::refreshLegacyInstall,
                             onCancel = onExit
+                        )
+                    } else if (choosingProfile) {
+                        me.xdan.aperture.ui.screen.profiles.ProfilePickerScreen(
+                            profiles = profiles,
+                            lastProfileId = activeProfileId,
+                            onSelect = profilesViewModel::select
                         )
                     } else if (appState.isAmbientActive) {
                         BackHandler {

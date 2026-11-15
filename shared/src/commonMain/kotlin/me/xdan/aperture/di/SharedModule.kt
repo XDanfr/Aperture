@@ -12,6 +12,8 @@ import me.xdan.aperture.data.remote.api.OpenSubtitlesApi
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.repository.MediaRepositoryImpl
 import me.xdan.aperture.data.repository.UserPreferencesRepositoryImpl
+import me.xdan.aperture.data.repository.ProfileRepositoryImpl
+import me.xdan.aperture.domain.repository.ProfileRepository
 import me.xdan.aperture.data.sponsor.SponsorVerificationManager
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
 import me.xdan.aperture.domain.repository.MediaRepository
@@ -75,6 +77,7 @@ val sharedModule = module {
     single { get<AppDatabase>().mediaDao() }
     single { get<AppDatabase>().playbackProgressDao() }
     single { get<AppDatabase>().artworkPaletteDao() }
+    single { get<AppDatabase>().profileDao() }
 
     // artwork. Coil's singleton loader is this one, so AsyncImage and the palette store agree.
     single<ImageLoader> {
@@ -89,11 +92,12 @@ val sharedModule = module {
 
     // repositories and services
     single<UserPreferencesRepository> { UserPreferencesRepositoryImpl(get()) }
-    single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get()) }
+    single<ProfileRepository> { ProfileRepositoryImpl(get(), get()) }
+    single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
     single { SponsorVerificationManager(get(), get()) }
     single { OpenSubtitlesSessionManager(get(), get()) }
     single { CompanionDeviceStore(get(), get()) }
-    single { CompanionHub(get(), get(), get(), get(), get()) }
+    single { CompanionHub(get(), get(), get(), get(), get(), get()) }
 
     // view models
     viewModel { MainViewModel(get(), get(), get(), get(), get()) }
@@ -107,6 +111,7 @@ val sharedModule = module {
     viewModel { MediaActionsViewModel(get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { CompanionViewModel(get()) }
+    viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
 }
 
 /** Platform-specific image loader setup (disk cache location, decoders). */
