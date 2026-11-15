@@ -112,7 +112,9 @@ actual fun Dialog(
         // Full-window dialogs draw their own scrim, so Compose never sees a click "outside". A
         // click that no panel took (panels are Surfaces, which absorb clicks) landed on the scrim.
         androidx.compose.foundation.layout.Box(
-            androidx.compose.ui.Modifier.fillMaxSize().onBackgroundClick(onClick = onDismissRequest)
+            androidx.compose.ui.Modifier.fillMaxSize().onBackgroundClick(onClick = onDismissRequest),
+            // Compose centres dialog content itself; this full-window Box must keep doing so.
+            contentAlignment = androidx.compose.ui.Alignment.Center
         ) { content() }
     }
 }
