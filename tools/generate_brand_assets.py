@@ -121,6 +121,16 @@ for density, size, layer in [('mdpi', 48, 108), ('hdpi', 72, 162), ('xhdpi', 96,
 save(tile(logo, 512, 'square'), MAIN / 'ic_launcher-playstore.png')
 save(tile(logo, 1024), ROOT / 'Aperture.png')
 
+# Desktop: Windows and Linux show the mark on its own, without the launcher's tile; the taskbar,
+# dock or menu draws whatever sits behind it. macOS uses the layered Icon Composer icon in
+# desktop/icons/Aperture.icon instead (compiled by tools/desktop/compile_mac_icon.sh).
+DESKTOP = ROOT / 'desktop'
+desktop_mark = logo.resize((512, 512), Image.Resampling.LANCZOS)
+save(desktop_mark, DESKTOP / 'icons/Aperture.png')
+save(desktop_mark, DESKTOP / 'src/main/resources/aperture-icon.png')
+logo.resize((256, 256), Image.Resampling.LANCZOS).save(
+    DESKTOP / 'icons/Aperture.ico', sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+
 # The banner's wordmark is vector outlines from the app's own Outfit SemiBold font.
 font = TTFont(ROOT / 'core/src/androidMain/res/font/outfit_semibold.ttf')
 glyphs = font.getGlyphSet()
@@ -191,4 +201,4 @@ for name in ['ic_launcher_background']:
         f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="{name}">{BACKGROUND}</color>\n</resources>\n')
 for svg in ART.glob('*.svg'):
     svg.write_text('\n'.join(line.rstrip() for line in svg.read_text().splitlines()) + '\n')
-print('Regenerated launcher, monochrome, legacy and layered TV banner assets from artwork/aperture-logo.svg.')
+print('Regenerated launcher, monochrome, legacy, layered TV banner and desktop assets from artwork/aperture-logo.svg.')
