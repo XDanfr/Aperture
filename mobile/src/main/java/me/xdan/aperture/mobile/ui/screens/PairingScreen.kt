@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import me.xdan.aperture.mobile.ui.components.deviceIcon
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -253,7 +254,7 @@ private fun DiscoverStep(
             ) {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    leadingContent = { Icon(Icons.Rounded.Tv, contentDescription = null) },
+                    leadingContent = { Icon(deviceIcon(tv.deviceKind), contentDescription = null) },
                     headlineContent = { Text(tv.name) },
                     supportingContent = { Text(tv.host) }
                 )
