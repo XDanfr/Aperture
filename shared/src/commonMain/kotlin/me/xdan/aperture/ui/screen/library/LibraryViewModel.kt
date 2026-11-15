@@ -2,16 +2,13 @@ package me.xdan.aperture.ui.screen.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import me.xdan.aperture.data.local.entity.MediaEntity
-import javax.inject.Inject
 
-@HiltViewModel
-class LibraryViewModel @Inject constructor(
+class LibraryViewModel constructor(
     repository: MediaRepository,
     preferences: UserPreferencesRepository
 ) : ViewModel() {
