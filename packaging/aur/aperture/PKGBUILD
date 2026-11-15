@@ -1,0 +1,39 @@
+# Maintainer: XDanfr <https://github.com/XDanfr>
+#
+# Builds Aperture's desktop app from source. TMDB and OpenSubtitles keys are compiled in when set
+# in the environment (TMDB_API_KEY, OPENSUBTITLES_API_KEY); without them the app still plays
+# videos but can't fetch artwork, details or online subtitles. See docs/DESKTOP.md.
+pkgname=aperture
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Local media player for your own video library, with TMDB artwork and a phone companion"
+arch=('x86_64' 'aarch64')
+url="https://github.com/XDanfr/Aperture"
+license=('GPL-3.0-only')
+# libmpv comes from the mpv package. The bundled Java runtime needs the X11 and audio libraries.
+depends=('mpv' 'libx11' 'libxext' 'libxi' 'libxrender' 'libxtst' 'freetype2' 'fontconfig' 'alsa-lib'
+         'hicolor-icon-theme')
+makedepends=('jdk21-openjdk')
+provides=('aperture-desktop')
+conflicts=('aperture-bin')
+# jpackage's runtime and launcher are already stripped; makepkg's strip and debug split break them.
+options=('!strip' '!debug')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/XDanfr/Aperture/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP') # Replace with the tag archive's checksum (updpkgsums) when publishing.
+
+build() {
+  cd "Aperture-$pkgver"
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+  # The desktop build doesn't need an Android SDK; Gradle fetches its dependencies.
+  ./gradlew --no-daemon --no-configuration-cache :desktop:createDistributable
+}
+
+package() {
+  cd "Aperture-$pkgver"
+  install -d "$pkgdir/opt/aperture" "$pkgdir/usr/bin"
+  cp -a desktop/build/compose/binaries/main/app/aperture/. "$pkgdir/opt/aperture/"
+  ln -s /opt/aperture/bin/Aperture "$pkgdir/usr/bin/aperture"
+  install -Dm644 packaging/linux/aperture.desktop "$pkgdir/usr/share/applications/aperture.desktop"
+  install -Dm644 desktop/icons/Aperture.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/aperture.png"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

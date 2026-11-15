@@ -1,0 +1,32 @@
+# Maintainer: XDanfr <https://github.com/XDanfr>
+#
+# Repackages the prebuilt Linux build from Aperture's GitHub release (the tarball the
+# "Build desktop apps" workflow attaches), so nothing is compiled. API keys are built in.
+pkgname=aperture-bin
+_pkgname=aperture
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Local media player for your own video library, with TMDB artwork and a phone companion (prebuilt)"
+arch=('x86_64')
+url="https://github.com/XDanfr/Aperture"
+license=('GPL-3.0-only')
+depends=('mpv' 'libx11' 'libxext' 'libxi' 'libxrender' 'libxtst' 'freetype2' 'fontconfig' 'alsa-lib'
+         'hicolor-icon-theme')
+provides=("$_pkgname" 'aperture-desktop')
+conflicts=("$_pkgname")
+options=('!strip' '!debug')
+_raw="https://raw.githubusercontent.com/XDanfr/Aperture/v$pkgver"
+source=("Aperture-$pkgver-linux-x64.tar.gz::https://github.com/XDanfr/Aperture/releases/download/v$pkgver/Aperture-$pkgver-linux-x64.tar.gz"
+        "aperture-$pkgver.desktop::$_raw/packaging/linux/aperture.desktop"
+        "aperture-$pkgver.png::$_raw/desktop/icons/Aperture.png"
+        "LICENSE-$pkgver::$_raw/LICENSE")
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP') # Replace with real checksums (updpkgsums) when publishing.
+
+package() {
+  install -d "$pkgdir/opt/aperture" "$pkgdir/usr/bin"
+  cp -a aperture/. "$pkgdir/opt/aperture/"
+  ln -s /opt/aperture/bin/Aperture "$pkgdir/usr/bin/aperture"
+  install -Dm644 "aperture-$pkgver.desktop" "$pkgdir/usr/share/applications/aperture.desktop"
+  install -Dm644 "aperture-$pkgver.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/aperture.png"
+  install -Dm644 "LICENSE-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
