@@ -124,6 +124,13 @@ push and pull request, alongside debug APKs of the TV app and the companion, and
 as downloadable artifacts of the run. On a `v*` tag it also attaches the desktop builds to a draft
 GitHub release. The desktop build needs JDK 21 but no Android SDK.
 
+Icons: Windows and Linux show the Aperture mark on its own, without the TV launcher's tile
+(`desktop/icons/Aperture.png` and `.ico`, made by `tools/generate_brand_assets.py`). macOS uses
+the layered icon made with Icon Composer, `desktop/icons/Aperture.icon`.
+`tools/desktop/compile_mac_icon.sh` (Xcode 26) compiles it into `Assets.car`, which macOS 26 draws
+as a Liquid Glass icon, and into `Aperture.icns` for earlier versions. Both are committed, so
+builds don't need Xcode.
+
 None of the builds are code-signed by a paid certificate, so first launches warn:
 
 - **Windows:** SmartScreen shows "Windows protected your PC". Choose *More info > Run anyway*.
