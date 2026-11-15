@@ -1,0 +1,5 @@
+# Filled at build time by tools/desktop/fetch_libmpv_windows.sh and
+# tools/desktop/bundle_libmpv_macos.py (see docs/DESKTOP.md). Never committed.
+/*
+!/.gitignore
+!/common/
