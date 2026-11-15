@@ -1,13 +1,9 @@
 package me.xdan.aperture.ui.screen.settings
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import coil.imageLoader
-import coil.annotation.ExperimentalCoilApi
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
+
+import coil3.annotation.ExperimentalCoilApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,17 +21,15 @@ import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
 import me.xdan.aperture.data.subtitles.OpenSubtitlesSessionManager
 import me.xdan.aperture.data.sponsor.SponsorVerificationManager
-import javax.inject.Inject
 
-@HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SettingsViewModel constructor(
     private val repository: MediaRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val updateManager: UpdateManager,
     private val openSubtitlesSessionManager: OpenSubtitlesSessionManager,
     private val sponsorVerificationManager: SponsorVerificationManager,
     private val artworkPrefetcher: ArtworkPrefetcher,
-    @ApplicationContext private val context: Context
+    private val imageLoader: () -> coil3.ImageLoader
 ) : ViewModel() {
     val sponsorVerificationState = sponsorVerificationManager.state
 
@@ -137,10 +131,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun addMediaFolder(uri: Uri) {
+    fun addMediaFolder(uri: String) {
         viewModelScope.launch {
             mediaFolderMessage.value = "Adding folder…"
-            repository.addMediaFolder(uri.toString())
+            repository.addMediaFolder(uri)
                 .onSuccess {
                     mediaFolderMessage.value = "Folder added. Scanning now…"
                     repository.scanLocalFiles()
@@ -161,8 +155,8 @@ class SettingsViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoilApi::class)
     fun clearCache() {
-        context.imageLoader.memoryCache?.clear()
-        context.imageLoader.diskCache?.clear()
+        imageLoader().memoryCache?.clear()
+        imageLoader().diskCache?.clear()
         artworkPrefetcher.clear()
     }
 

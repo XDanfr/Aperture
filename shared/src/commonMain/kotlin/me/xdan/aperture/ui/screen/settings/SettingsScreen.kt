@@ -1,10 +1,9 @@
 package me.xdan.aperture.ui.screen.settings
 
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.provider.DocumentsContract
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.tv.material3.textInputFocusTracking
+import me.xdan.aperture.platform.AppBuild
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -62,11 +61,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import me.xdan.aperture.resources.Res
+import me.xdan.aperture.resources.tmdb_logo
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.platform.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
@@ -97,7 +97,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    viewModel: SettingsViewModel = org.koin.compose.viewmodel.koinViewModel(),
     drawerFocusRequester: FocusRequester? = null,
     contentEntryFocusRequester: FocusRequester = FocusRequester.Default,
     restoreFocusKey: String? = null,
@@ -106,7 +106,6 @@ fun SettingsScreen(
     onForceRescan: () -> Unit = viewModel::forceRescan,
     onPreviewAmbientMode: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val spotlightSettings by viewModel.spotlightSettings.collectAsState()
     val selectedThemeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
@@ -136,18 +135,12 @@ fun SettingsScreen(
     var showSponsorsQr by remember { mutableStateOf(false) }
     var showSponsorVerification by remember { mutableStateOf(false) }
     var showCompanionPairing by remember { mutableStateOf(false) }
-    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
     val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
     val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
-    var folderPickerAvailable by remember(context) {
-        mutableStateOf(
-            hasFolderPicker(context.packageManager)
-        )
-    }
-    val folderPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let(viewModel::addMediaFolder)
+    val folderPicker = me.xdan.aperture.ui.platform.rememberFolderPicker(viewModel::addMediaFolder)
+    var folderPickerAvailable by remember(folderPicker.isAvailable) {
+        mutableStateOf(folderPicker.isAvailable)
     }
     val listState = rememberLazyListState()
     val internalDonateFocusRequester = remember { FocusRequester() }
@@ -173,7 +166,7 @@ fun SettingsScreen(
             SETTINGS_SUBTITLES_FOCUS_KEY -> 19
             SETTINGS_LICENCES_FOCUS_KEY -> 22
             SETTINGS_UPDATE_FOCUS_KEY -> 23
-            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) 24 else 23
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 24 else 23
             SETTINGS_DONATE_FOCUS_KEY -> 25
             SETTINGS_COMPANION_FOCUS_KEY -> 1
             else -> 0
@@ -352,40 +345,43 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                SettingsItem(
-                    title = "Experimental Tunneling",
-                    subtitle = if (tunnelingEnabled) "Enabled · May improve 4K sync but can cause green flicker on some hardware" else "Disabled · More compatible with standard Android TV hardware",
-                    icon = Icons.Rounded.Refresh,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester -> onContentFocused(requester) },
-                    onClick = { viewModel.setTunnelingEnabled(!tunnelingEnabled) },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = tunnelingEnabled,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
-            }
+            // Tunnelling and the FFmpeg fallback are Media3 options; mpv picks its decoder itself.
+            if (!AppBuild.PLATFORM.isDesktop) {
+                item {
+                    SettingsItem(
+                        title = "Experimental Tunneling",
+                        subtitle = if (tunnelingEnabled) "Enabled · May improve 4K sync but can cause green flicker on some hardware" else "Disabled · More compatible with standard Android TV hardware",
+                        icon = Icons.Rounded.Refresh,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setTunnelingEnabled(!tunnelingEnabled) },
+                        trailingContent = {
+                            ExpressiveToggle(
+                                checked = tunnelingEnabled,
+                                onCheckedChange = null,
+                                isFocused = false
+                            )
+                        }
+                    )
+                }
 
-            item {
-                SettingsItem(
-                    title = "Software Video Decoding",
-                    subtitle = if (softwareVideoDecoding) "Enabled · Fallback to software (FFmpeg) if hardware fails (may be green/laggy)" else "Disabled · Only use hardware decoders (will fail if unsupported)",
-                    icon = Icons.Rounded.Movie,
-                    drawerFocusRequester = drawerFocusRequester,
-                    onFocused = { requester -> onContentFocused(requester) },
-                    onClick = { viewModel.setSoftwareVideoDecoding(!softwareVideoDecoding) },
-                    trailingContent = {
-                        ExpressiveToggle(
-                            checked = softwareVideoDecoding,
-                            onCheckedChange = null,
-                            isFocused = false
-                        )
-                    }
-                )
+                item {
+                    SettingsItem(
+                        title = "Software Video Decoding",
+                        subtitle = if (softwareVideoDecoding) "Enabled · Fallback to software (FFmpeg) if hardware fails (may be green/laggy)" else "Disabled · Only use hardware decoders (will fail if unsupported)",
+                        icon = Icons.Rounded.Movie,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setSoftwareVideoDecoding(!softwareVideoDecoding) },
+                        trailingContent = {
+                            ExpressiveToggle(
+                                checked = softwareVideoDecoding,
+                                onCheckedChange = null,
+                                isFocused = false
+                            )
+                        }
+                    )
+                }
             }
 
             item {
@@ -569,7 +565,7 @@ fun SettingsScreen(
                 )
             }
 
-            if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) item {
+            if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) item {
                 SettingsItem(
                     title = "Check for Updates",
                     subtitle = when (val update = updateState) {
@@ -612,7 +608,7 @@ fun SettingsScreen(
                 )
             }
 
-            if (me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) item {
+            if (me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -738,7 +734,7 @@ fun SettingsScreen(
             message = mediaFolderMessage,
             pickerAvailable = folderPickerAvailable,
             onAdd = {
-                runCatching { folderPicker.launch(null) }
+                runCatching { folderPicker.launch() }
                     .onFailure { folderPickerAvailable = false }
             },
             onRemove = viewModel::removeMediaFolder,
@@ -771,7 +767,7 @@ fun SettingsScreen(
             onDismiss = { showTmdbQr = false },
             header = {
                 androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(me.xdan.aperture.R.drawable.tmdb_logo),
+                    painter = org.jetbrains.compose.resources.painterResource(Res.drawable.tmdb_logo),
                     contentDescription = "TMDB logo",
                     modifier = Modifier.width(200.dp).height(26.dp),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -779,7 +775,7 @@ fun SettingsScreen(
             }
         )
     }
-    if (showSponsorsQr && me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) {
+    if (showSponsorsQr && me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) {
         LinkQrDialog(
             title = "Sponsor XDanfr on GitHub",
             description = "Scan with your phone to support Aperture's development through GitHub Sponsors.",
@@ -794,7 +790,7 @@ fun SettingsScreen(
             }
         )
     }
-    if (showSponsorVerification && me.xdan.aperture.BuildConfig.GITHUB_SPONSORSHIP_ENABLED) {
+    if (showSponsorVerification && me.xdan.aperture.platform.AppBuild.GITHUB_SPONSORSHIP_ENABLED) {
         SponsorVerificationDialog(
             state = sponsorVerificationState,
             onRetry = viewModel::verifySponsor,
@@ -824,12 +820,6 @@ private const val SETTINGS_TMDB_FOCUS_KEY = "tmdb"
 private const val SETTINGS_CLEAR_CACHE_FOCUS_KEY = "clear_cache"
 private const val SETTINGS_DONATE_FOCUS_KEY = "donate"
 
-private fun hasFolderPicker(packageManager: PackageManager): Boolean =
-    Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(packageManager) != null &&
-        packageManager.queryIntentContentProviders(
-            Intent(DocumentsContract.PROVIDER_INTERFACE),
-            0
-        ).isNotEmpty()
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -1299,6 +1289,7 @@ private fun OpenSubtitlesAccountDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(usernameFocusRequester)
+                                .textInputFocusTracking()
                         )
                         Spacer(Modifier.height(ApertureTheme.spacing.medium))
                         androidx.compose.material3.OutlinedTextField(
@@ -1308,6 +1299,7 @@ private fun OpenSubtitlesAccountDialog(
                             singleLine = true,
                             enabled = state != OpenSubtitlesSessionState.SigningIn,
                             visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().textInputFocusTracking(),
                             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -1318,7 +1310,6 @@ private fun OpenSubtitlesAccountDialog(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                                 unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
-                            modifier = Modifier.fillMaxWidth()
                         )
                         if (state is OpenSubtitlesSessionState.Error) {
                             Spacer(Modifier.height(ApertureTheme.spacing.small))
@@ -1645,7 +1636,7 @@ private fun PrivacyDialog(onDismiss: () -> Unit) {
         "Online metadata" to "Library preparation sends titles derived from filenames and available year or episode information to The Movie Database (TMDB) to find descriptions and artwork. Artwork requests also reach TMDB. These services receive network information such as your IP address. Do not grant media access if you do not want this automatic metadata lookup.",
         "Subtitles and accounts" to "OpenSubtitles is optional. Signing in sends your username and password to OpenSubtitles over HTTPS. Aperture stores a session token, username and expiry, not your password, and excludes that session from Android backup. Subtitle searches and downloads contact OpenSubtitles. Sign out in Subtitle Settings to remove the local session. Aperture does not create an Aperture account.",
         "Backups and removal" to "Android may back up library data and preferences under your device backup settings. Clear app storage or uninstall Aperture to remove local data; manage cloud backups separately in Android or your Google Account. External services control their own retention and account deletion. Aperture has no advertising or analytics SDK configured." +
-            if (me.xdan.aperture.BuildConfig.SIDELOAD_UPDATES_ENABLED) " This sideload build contacts GitHub to check releases. Optional sponsorship verification contacts GitHub; APK updates are downloaded only when requested." else " Updates for this build are managed by Google Play. GitHub sponsorship and APK updates are disabled.",
+            if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) " This sideload build contacts GitHub to check releases. Optional sponsorship verification contacts GitHub; APK updates are downloaded only when requested." else " Updates for this build are managed by Google Play. GitHub sponsorship and APK updates are disabled.",
         "Contact" to "Developer: XDanfr. Updated 23 October 2026. For privacy questions, use github.com/XDanfr/Aperture/issues. Do not post passwords, tokens or private filenames publicly. Third-party services handle their own retention and account requests. Aperture does not sell user data."
     ) }
     LaunchedEffect(page) { first.requestFocus() }
