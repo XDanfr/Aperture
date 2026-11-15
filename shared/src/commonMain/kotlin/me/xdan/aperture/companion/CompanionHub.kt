@@ -83,7 +83,8 @@ class CompanionHub(
     private val devices: CompanionDeviceStore,
     private val mediaRepository: MediaRepository,
     private val preferences: UserPreferencesRepository,
-    private val player: PlayerEngine
+    private val player: PlayerEngine,
+    profiles: me.xdan.aperture.domain.repository.ProfileRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val random = SecureRandom()
@@ -133,10 +134,14 @@ class CompanionHub(
         preferences.themeId,
         _nowPlaying,
         libraryRevision,
-        themePhone
-    ) { themeId, nowPlaying, revision, phone ->
+        themePhone,
+        profiles.activeProfile
+    ) { themeId, nowPlaying, revision, phone, profile ->
         val matching = phone.takeIf { themeId == PhoneThemeId }
-        TvState(devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors, platform.deviceKind)
+        TvState(
+            devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors,
+            platform.deviceKind, profile?.name
+        )
     }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple", deviceKind = platform.deviceKind))
 
     val hasLocalNetworkPermission: Boolean

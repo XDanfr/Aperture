@@ -3,7 +3,7 @@ package me.xdan.aperture.data.local
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-/** Schema history for installs that predate the current version. Desktop databases start at the latest schema. */
+/** Schema history for installs that predate the current version. Desktop only needs 8 → 9 (DesktopMigrations). */
 object DatabaseMigrations {
 
     val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -69,8 +69,14 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_8_9 = object : Migration(ProfileMigration.FROM, ProfileMigration.TO) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            ProfileMigration.statements().forEach(db::execSQL)
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
     )
 }

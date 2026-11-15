@@ -30,16 +30,28 @@ class DatabaseUpgradeTest {
                 .addMigrations(*DatabaseMigrations.ALL_MIGRATIONS).build()
             try {
                 val sql = db.openHelper.writableDatabase
-                sql.query("SELECT id,isFavorite,favoriteAddedAt FROM media").use { row ->
+                sql.query("SELECT id,title FROM media").use { row ->
                     row.moveToFirst()
                     assertEquals(42L, row.getLong(0))
-                    assertEquals(1, row.getInt(1))
-                    assertEquals(123L, row.getLong(2))
+                    assertEquals("Test", row.getString(1))
                 }
-                sql.query("SELECT position,keepInContinueWatching FROM playback_progress").use { row ->
+                // My List moved to the first profile when profiles arrived (8 → 9).
+                sql.query("SELECT profileId,mediaId,isFavorite,favoriteAddedAt FROM profile_media_state").use { row ->
                     row.moveToFirst()
-                    assertEquals(500L, row.getLong(0))
-                    assertEquals(1, row.getInt(1))
+                    assertEquals(1L, row.getLong(0))
+                    assertEquals(42L, row.getLong(1))
+                    assertEquals(1, row.getInt(2))
+                    assertEquals(123L, row.getLong(3))
+                }
+                sql.query("SELECT profileId,position,keepInContinueWatching FROM playback_progress").use { row ->
+                    row.moveToFirst()
+                    assertEquals(1L, row.getLong(0))
+                    assertEquals(500L, row.getLong(1))
+                    assertEquals(1, row.getInt(2))
+                }
+                sql.query("SELECT name FROM profiles WHERE id = 1").use { row ->
+                    row.moveToFirst()
+                    assertEquals("Main", row.getString(0))
                 }
             } finally { db.close() }
         } finally { context.deleteDatabase(name) }

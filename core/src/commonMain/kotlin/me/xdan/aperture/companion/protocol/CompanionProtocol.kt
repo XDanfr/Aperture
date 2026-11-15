@@ -196,7 +196,9 @@ data class TvState(
     /** when [themeId] is the phone theme: whose colours the TV is using, and the colours. */
     val themeDeviceId: String? = null,
     val themeColors: PhoneColors? = null,
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    /** who's watching on the TV; favourites and progress the phone sees are this profile's. */
+    val profileName: String? = null
 )
 
 @Serializable

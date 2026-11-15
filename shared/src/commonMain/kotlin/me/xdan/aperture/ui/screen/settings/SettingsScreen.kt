@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
@@ -135,6 +136,10 @@ fun SettingsScreen(
     var showSponsorsQr by remember { mutableStateOf(false) }
     var showSponsorVerification by remember { mutableStateOf(false) }
     var showCompanionPairing by remember { mutableStateOf(false) }
+    var showProfiles by remember { mutableStateOf(false) }
+    val profilesViewModel: me.xdan.aperture.ui.screen.profiles.ProfilesViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val profiles by profilesViewModel.profiles.collectAsState()
+    val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
     val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
     val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
     val sponsorVerificationState by viewModel.sponsorVerificationState.collectAsState()
@@ -152,23 +157,24 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 3
-            SETTINGS_AMBIENT_FOCUS_KEY -> 4
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 5
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 6
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 7
-            SETTINGS_LANGUAGE_FOCUS_KEY -> 11
-            SETTINGS_HIDDEN_FOCUS_KEY -> 13
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 14
-            SETTINGS_RESCAN_FOCUS_KEY -> 15
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 16
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 18
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 19
-            SETTINGS_LICENCES_FOCUS_KEY -> 22
-            SETTINGS_UPDATE_FOCUS_KEY -> 23
-            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 24 else 23
-            SETTINGS_DONATE_FOCUS_KEY -> 25
-            SETTINGS_COMPANION_FOCUS_KEY -> 1
+            SETTINGS_THEME_FOCUS_KEY -> 5
+            SETTINGS_AMBIENT_FOCUS_KEY -> 6
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 7
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 8
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 9
+            SETTINGS_LANGUAGE_FOCUS_KEY -> 13
+            SETTINGS_HIDDEN_FOCUS_KEY -> 15
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 16
+            SETTINGS_RESCAN_FOCUS_KEY -> 17
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 18
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 20
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 21
+            SETTINGS_LICENCES_FOCUS_KEY -> 24
+            SETTINGS_UPDATE_FOCUS_KEY -> 25
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 26 else 25
+            SETTINGS_DONATE_FOCUS_KEY -> 27
+            SETTINGS_COMPANION_FOCUS_KEY -> 3
+            SETTINGS_PROFILES_FOCUS_KEY -> 1
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -199,6 +205,34 @@ fun SettingsScreen(
                     .padding(start = 72.dp, end = 72.dp, bottom = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Profiles",
+                    description = "Who's watching, with their own lists, progress and theme"
+                )
+            }
+
+            item {
+                val activeProfile = profiles.firstOrNull { it.id == activeProfileId }
+                SettingsItem(
+                    title = "Profiles",
+                    subtitle = when (profiles.size) {
+                        0, 1 -> "${activeProfile?.name ?: "One profile"} · Add profiles for everyone who watches"
+                        else -> "Watching as ${activeProfile?.name ?: "…"} · ${profiles.size} profiles"
+                    },
+                    icon = Icons.Rounded.People,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == null || restoreFocusKey == SETTINGS_PROFILES_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_PROFILES_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showProfiles = true }
+                )
+            }
 
             item {
                 SettingsCategoryHeader(
@@ -242,7 +276,7 @@ fun SettingsScreen(
                     icon = Icons.Rounded.Palette,
                     drawerFocusRequester = drawerFocusRequester,
                     focusRequester = contentEntryFocusRequester.takeIf {
-                        restoreFocusKey == null || restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
+                        restoreFocusKey == SETTINGS_THEME_FOCUS_KEY
                     },
                     onFocused = { requester ->
                         onFocusKeyChanged(SETTINGS_THEME_FOCUS_KEY)
@@ -645,6 +679,20 @@ fun SettingsScreen(
     if (showCompanionPairing) {
         me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(onDismiss = { showCompanionPairing = false })
     }
+    if (showProfiles) {
+        me.xdan.aperture.ui.screen.profiles.ProfilesDialog(
+            profiles = profiles,
+            activeProfileId = activeProfileId,
+            onSwitch = { id ->
+                showProfiles = false
+                profilesViewModel.select(id)
+            },
+            onCreate = { name, color -> profilesViewModel.create(name, color) },
+            onUpdate = profilesViewModel::update,
+            onDelete = profilesViewModel::delete,
+            onDismiss = { showProfiles = false }
+        )
+    }
     if (showPrivacy) { PrivacyDialog(onDismiss = { showPrivacy = false }) }
     if (showLicenses) {
         LicencesDialog(onDismiss = { showLicenses = false })
@@ -804,6 +852,7 @@ fun SettingsScreen(
 
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_COMPANION_FOCUS_KEY = "companion"
+private const val SETTINGS_PROFILES_FOCUS_KEY = "profiles"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
