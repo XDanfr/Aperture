@@ -2,7 +2,6 @@ package me.xdan.aperture.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,12 +15,10 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.LibraryPreparationStage
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
-import javax.inject.Inject
 import me.xdan.aperture.data.update.UpdateCheckState
 import me.xdan.aperture.data.update.UpdateManager
 
-@HiltViewModel
-class MainViewModel @Inject constructor(
+class MainViewModel constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val mediaRepository: MediaRepository,
     private val updateManager: UpdateManager,
