@@ -1,6 +1,7 @@
 package me.xdan.aperture.ui.screen.ambient
 
-import android.text.format.DateFormat
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -46,16 +47,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.delay
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.data.local.entity.MediaEntity
@@ -82,9 +82,8 @@ private const val PosterRows = 3
 
 @Composable
 fun AmbientMode(
-    viewModel: AmbientViewModel = viewModel()
+    viewModel: AmbientViewModel = koinViewModel()
 ) {
-    val hostView = LocalView.current
     val allMedia by viewModel.media.collectAsState()
     val settings by viewModel.settings.collectAsState()
 
@@ -212,9 +211,9 @@ private fun CinematicArtwork(
     val travel = remember(media.id) { Animatable(0f) }
     val travelDistance = with(LocalDensity.current) { 30.dp.toPx() }
     val direction = if (media.id % 2L == 0L) 1f else -1f
-    val context = LocalContext.current
-    val backdropSpec = remember(context) {
-        backdropImageSpec(context, BackdropImageUsage.AMBIENT)
+    val screenMetrics = org.koin.compose.koinInject<me.xdan.aperture.util.ScreenMetrics>()
+    val backdropSpec = remember(screenMetrics) {
+        backdropImageSpec(screenMetrics, BackdropImageUsage.AMBIENT)
     }
 
     LaunchedEffect(media.id, animate) {
@@ -232,7 +231,7 @@ private fun CinematicArtwork(
 
     Box(modifier.fillMaxSize()) {
         AsyncImage(
-            model = ImageRequest.Builder(context)
+            model = ImageRequest.Builder(LocalPlatformContext.current)
                 .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
                 .size(backdropSpec.widthPx, backdropSpec.heightPx)
                 .crossfade(false)
@@ -491,11 +490,11 @@ private fun AmbientClock(
     accent: Color,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var time by remember { mutableStateOf(DateFormat.getTimeFormat(context).format(Date())) }
-    LaunchedEffect(context) {
+    val timeFormat = rememberSystemTimeFormat()
+    var time by remember { mutableStateOf(timeFormat().format(Date())) }
+    LaunchedEffect(timeFormat) {
         while (true) {
-            time = DateFormat.getTimeFormat(context).format(Date())
+            time = timeFormat().format(Date())
             delay(30_000L)
         }
     }
