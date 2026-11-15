@@ -29,8 +29,8 @@ Remove it before `feat/jellyfin` is merged into `master`.
 - Non-admin users can't list plugins. Detect a plugin by calling its endpoint and treating a 404 as "not installed".
 - Jellyfin Enhanced and Streamyfin plugins are mostly for the web or Streamyfin. Their server-side features (hidden content, spoiler guard) work without client code.
 - Playback Reporting, Trakt and similar plugins work for free once playback is reported properly.
-- What the test server has (12.1.0): libraries Movies, TV Series, Collections (boxsets), Audiobooks, Home Media, Live TV, and a "Discover" library from the **JellyBridge** plugin, which exposes Seerr Discover as a virtual library. Plugins installed: TMDb, TMDb Box Sets, OMDb, Studio Images, AudioDB, MusicBrainz, ListenBrainz. No Intro Skipper and no Home Screen Sections, so `/HomeScreen/Sections` returns 404 and segments will be empty unless a provider is added. About 7,100 movies, series and episodes.
-- JellyBridge matters for step 7: a Discover library may already exist on the server, so the sidebar should offer it like any other library, and native Seerr support remains for servers without it.
+- Servers can expose Seerr Discover as an ordinary library through the **JellyBridge** plugin. A server without Intro Skipper or Home Screen Sections returns 404 for `/HomeScreen/Sections` and empty segments, and both cases must look normal.
+- For step 7: a Discover library may already exist on the server, so the sidebar should offer it like any other library, and native Seerr support remains for servers without it.
 
 ## Steps
 
