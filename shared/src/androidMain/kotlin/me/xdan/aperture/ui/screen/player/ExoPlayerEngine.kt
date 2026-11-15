@@ -4,6 +4,7 @@ package me.xdan.aperture.ui.screen.player
 
 import android.net.Uri
 import android.util.Log
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -48,14 +49,14 @@ class ExoPlayerEngine(
     private val _audioDecoderName = MutableStateFlow<String?>(null)
     override val audioDecoderName: StateFlow<String?> = _audioDecoderName.asStateFlow()
 
-    private val _tracks = MutableStateFlow(exoPlayer.currentTracks)
-    override val tracks: StateFlow<Tracks> = _tracks.asStateFlow()
+    private val _tracks = MutableStateFlow(exoPlayer.currentTracks.toPlayerTracks())
+    override val tracks: StateFlow<PlayerTracks> = _tracks.asStateFlow()
 
     private val _cues = MutableStateFlow(exoPlayer.currentCues)
-    override val cues: StateFlow<androidx.media3.common.text.CueGroup> = _cues.asStateFlow()
+    override val cues: StateFlow<PlayerCues> = _cues.asStateFlow()
 
-    private val _nativePlayer = MutableStateFlow<androidx.media3.common.Player?>(exoPlayer)
-    override val nativePlayer: StateFlow<androidx.media3.common.Player?> = _nativePlayer.asStateFlow()
+    private val _videoOutput = MutableStateFlow<Any?>(exoPlayer)
+    override val videoOutput: StateFlow<Any?> = _videoOutput.asStateFlow()
 
     private val exoListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -81,7 +82,7 @@ class ExoPlayerEngine(
         }
 
         override fun onTracksChanged(tracks: Tracks) {
-            _tracks.value = tracks
+            _tracks.value = tracks.toPlayerTracks()
         }
 
         override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
@@ -137,15 +138,15 @@ class ExoPlayerEngine(
         exoPlayer.seekTo(positionMs)
     }
 
-    override fun setMedia(uri: Uri, subtitles: List<MediaItem.SubtitleConfiguration>) {
+    override fun setMedia(uri: String, subtitles: List<ExternalSubtitle>) {
         Log.i("ExoPlayerEngine", "Setting media: $uri")
         _videoDecoderName.value = null
         _audioDecoderName.value = null
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         val mediaItem = MediaItem.Builder()
-            .setUri(uri)
-            .setSubtitleConfigurations(subtitles)
+            .setUri(Uri.parse(uri))
+            .setSubtitleConfigurations(subtitles.map { it.toSubtitleConfiguration() })
             .build()
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
@@ -155,10 +156,11 @@ class ExoPlayerEngine(
         exoPlayer.subtitleDelayMilliseconds = delayMs
     }
 
-    override fun setTrackSelectionOverride(group: TrackGroup, trackIndex: Int) {
+    override fun selectTrack(track: PlayerTrack) {
+        val group = track.handle as? TrackGroup ?: return
         exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
             .buildUpon()
-            .setOverrideForType(TrackSelectionOverride(group, trackIndex))
+            .setOverrideForType(TrackSelectionOverride(group, track.indexInGroup))
             .build()
     }
 
@@ -193,3 +195,34 @@ class ExoPlayerEngine(
         listeners.remove(listener)
     }
 }
+
+internal fun Tracks.toPlayerTracks(): PlayerTracks = PlayerTracks(
+    groups.map { group ->
+        val id = group.mediaTrackGroup.id
+        PlayerTrackGroup(
+            type = group.type,
+            id = id,
+            tracks = (0 until group.length).map { index ->
+                val format = group.getTrackFormat(index)
+                PlayerTrack(
+                    type = group.type,
+                    groupId = id,
+                    indexInGroup = index,
+                    label = format.label,
+                    language = format.language,
+                    isSelected = group.isTrackSelected(index),
+                    isSupported = group.isTrackSupported(index),
+                    handle = group.mediaTrackGroup
+                )
+            }
+        )
+    }
+)
+
+internal fun ExternalSubtitle.toSubtitleConfiguration(): MediaItem.SubtitleConfiguration =
+    MediaItem.SubtitleConfiguration.Builder(Uri.parse(uri))
+        .setMimeType(mimeType)
+        .setLabel(label)
+        .setLanguage(language)
+        .setSelectionFlags(if (isDefault) C.SELECTION_FLAG_DEFAULT else 0)
+        .build()

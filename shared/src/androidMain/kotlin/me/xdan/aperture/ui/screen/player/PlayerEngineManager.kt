@@ -2,11 +2,7 @@
 
 package me.xdan.aperture.ui.screen.player
 
-import android.content.Context
-import android.net.Uri
 import android.util.Log
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Tracks
 import androidx.media3.common.text.CueGroup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,14 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.withLock
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Provider
-import javax.inject.Singleton
 
-@Singleton
-class PlayerEngineManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+class PlayerEngineManager(
     private val preferences: UserPreferencesRepository,
     private val factory: PlayerEngineFactory
 ) : PlayerEngine {
@@ -53,17 +43,17 @@ class PlayerEngineManager @Inject constructor(
     private val _audioDecoderName = MutableStateFlow<String?>(null)
     override val audioDecoderName: StateFlow<String?> = _audioDecoderName.asStateFlow()
 
-    private val _tracks = MutableStateFlow(Tracks.EMPTY)
-    override val tracks: StateFlow<Tracks> = _tracks.asStateFlow()
+    private val _tracks = MutableStateFlow(PlayerTracks.EMPTY)
+    override val tracks: StateFlow<PlayerTracks> = _tracks.asStateFlow()
 
-    private val _cues = MutableStateFlow(CueGroup.EMPTY_TIME_ZERO)
-    override val cues: StateFlow<CueGroup> = _cues.asStateFlow()
+    private val _cues = MutableStateFlow<PlayerCues>(CueGroup.EMPTY_TIME_ZERO)
+    override val cues: StateFlow<PlayerCues> = _cues.asStateFlow()
 
-    private val _nativePlayer = MutableStateFlow<androidx.media3.common.Player?>(null)
-    override val nativePlayer: StateFlow<androidx.media3.common.Player?> = _nativePlayer.asStateFlow()
+    private val _nativePlayer = MutableStateFlow<Any?>(null)
+    override val videoOutput: StateFlow<Any?> = _nativePlayer.asStateFlow()
 
-    private var lastMediaUri: Uri? = null
-    private var lastSubtitles: List<MediaItem.SubtitleConfiguration> = emptyList()
+    private var lastMediaUri: String? = null
+    private var lastSubtitles: List<ExternalSubtitle> = emptyList()
     private var autoFallbackEnabled = true
 
     private val engineListener = object : PlayerEngine.Listener {
@@ -121,7 +111,7 @@ class PlayerEngineManager @Inject constructor(
                 scope.launch { engine.audioDecoderName.collect { name -> _audioDecoderName.value = name } }
                 scope.launch { engine.tracks.collect { t -> _tracks.value = t } }
                 scope.launch { engine.cues.collect { c -> _cues.value = c } }
-                scope.launch { engine.nativePlayer.collect { p -> _nativePlayer.value = p } }
+                scope.launch { engine.videoOutput.collect { p -> _nativePlayer.value = p } }
                 
                 currentEngine = engine
                 Log.d("PlayerEngineManager", "Compatibility engine created, restarting media")
@@ -161,7 +151,7 @@ class PlayerEngineManager @Inject constructor(
                 scope.launch { it.audioDecoderName.collect { name -> _audioDecoderName.value = name } }
                 scope.launch { it.tracks.collect { t -> _tracks.value = t } }
                 scope.launch { it.cues.collect { c -> _cues.value = c } }
-                scope.launch { it.nativePlayer.collect { p -> _nativePlayer.value = p } }
+                scope.launch { it.videoOutput.collect { p -> _nativePlayer.value = p } }
                 currentEngine = it
             }
         }
@@ -212,7 +202,7 @@ class PlayerEngineManager @Inject constructor(
         }
     }
 
-    override fun setMedia(uri: Uri, subtitles: List<MediaItem.SubtitleConfiguration>) {
+    override fun setMedia(uri: String, subtitles: List<ExternalSubtitle>) {
         lastMediaUri = uri
         lastSubtitles = subtitles
         autoFallbackEnabled = true
@@ -231,10 +221,10 @@ class PlayerEngineManager @Inject constructor(
         }
     }
 
-    override fun setTrackSelectionOverride(group: androidx.media3.common.TrackGroup, trackIndex: Int) {
+    override fun selectTrack(track: PlayerTrack) {
         scope.launch {
             commandMutex.withLock {
-                currentEngine?.setTrackSelectionOverride(group, trackIndex)
+                currentEngine?.selectTrack(track)
             }
         }
     }

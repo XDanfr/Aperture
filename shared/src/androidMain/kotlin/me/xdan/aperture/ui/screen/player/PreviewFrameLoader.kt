@@ -4,6 +4,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +18,7 @@ import kotlinx.coroutines.withContext
  * Extracts small video preview frames without moving or disturbing the active
  * Media3 player. Positions are quantised to keep scrubbing inexpensive.
  */
-class PreviewFrameLoader(
+class AndroidPreviewFrameLoader(
     private val context: Context,
     private val cacheSize: Int = DEFAULT_CACHE_SIZE
 ) {
@@ -94,10 +99,8 @@ class PreviewFrameLoader(
 
     companion object {
         private const val DEFAULT_CACHE_SIZE = 10
-        private const val QUANTUM_MS = 2_000L
 
-        fun quantise(positionMs: Long): Long =
-            (positionMs.coerceAtLeast(0L) / QUANTUM_MS) * QUANTUM_MS
+        fun quantise(positionMs: Long): Long = PreviewFrameLoader.quantise(positionMs)
     }
 }
 
@@ -118,5 +121,19 @@ private fun Bitmap.scaleToPreview(): Bitmap {
         true
     ).also {
         if (it !== this) recycle()
+    }
+}
+
+@Composable
+actual fun rememberPreviewFrames(): PreviewFrames {
+    val context = LocalContext.current
+    return remember(context) {
+        val loader = AndroidPreviewFrameLoader(context)
+        object : PreviewFrames {
+            override suspend fun load(sourcePath: String, positionMs: Long): ImageBitmap? =
+                loader.load(sourcePath, positionMs)?.asImageBitmap()
+
+            override fun clear() = loader.clear()
+        }
     }
 }

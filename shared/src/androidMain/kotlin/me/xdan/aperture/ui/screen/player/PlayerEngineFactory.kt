@@ -8,16 +8,12 @@ import androidx.media3.common.C
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.flow.first
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class PlayerEngineFactory @Inject constructor(
-    @ApplicationContext private val context: Context,
+class PlayerEngineFactory constructor(
+    private val context: Context,
     private val preferences: UserPreferencesRepository
 ) {
     suspend fun createExoPlayerEngine(
