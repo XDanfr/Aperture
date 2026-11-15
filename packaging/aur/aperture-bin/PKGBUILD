@@ -1,7 +1,7 @@
 # Maintainer: XDanfr <https://github.com/XDanfr>
 #
 # Repackages the prebuilt Linux build from Aperture's GitHub release (the tarball the
-# "Build desktop apps" workflow attaches), so nothing is compiled. API keys are built in.
+# "Build apps" workflow attaches), so nothing is compiled. API keys are built in.
 pkgname=aperture-bin
 _pkgname=aperture
 pkgver=0.5.0

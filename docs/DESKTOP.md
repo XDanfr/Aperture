@@ -119,9 +119,10 @@ has no console. Every packaging script and CI job runs it on what it built.
 ## Packaging
 
 Each platform builds on its own OS. Run the scripts from the repository root; results land in
-`desktop/build/dist/`. `.github/workflows/build-desktop.yml` runs all of them (manually, or on a
-`v*` tag, when it also attaches the results to a draft GitHub release). The desktop build needs
-JDK 21 but no Android SDK.
+`desktop/build/dist/`. `.github/workflows/build-apps.yml` ("Build apps") runs all of them on every
+push and pull request, alongside debug APKs of the TV app and the companion, and keeps the results
+as downloadable artifacts of the run. On a `v*` tag it also attaches the desktop builds to a draft
+GitHub release. The desktop build needs JDK 21 but no Android SDK.
 
 None of the builds are code-signed by a paid certificate, so first launches warn:
 

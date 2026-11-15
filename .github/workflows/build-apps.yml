@@ -1,20 +1,29 @@
-name: Build desktop apps
+name: Build apps
 
-# Windows (MSI, EXE) and macOS (DMG) bundle libmpv; Linux packages (deb, rpm, tarball, Flatpak)
-# depend on or build their own. Each job installs what it built and runs `Aperture
-# --check-libmpv`, which fails unless the app loads a working libmpv. See docs/DESKTOP.md.
+# Builds Aperture for every platform on each push and pull request:
+# - Android: debug APKs of the TV app and the phone companion, ready to sideload. Signed release
+#   APKs come from "Build signed APKs" (build-apk.yml), Play bundles from build-play.yml.
+# - Windows (MSI, EXE) and macOS (DMG) bundle libmpv; Linux packages (deb, rpm, tarball, Flatpak)
+#   depend on or build their own. Each desktop job installs what it built and runs
+#   `Aperture --check-libmpv`, which fails unless the app loads a working libmpv.
+# On a v* tag, the desktop builds are also attached to a draft release. See docs/DESKTOP.md.
 
 on:
   workflow_dispatch:
   push:
+    branches: ['master', 'feat/**', 'fix/**', 'ci/**']
     tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'screenshots/**']
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-${{ github.ref }}
-  cancel-in-progress: false
+  group: apps-${{ github.ref }}
+  # A newer push supersedes a branch build; tag builds always finish.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   # API keys are optional here: without them the app builds and plays, but can't fetch metadata.
@@ -22,6 +31,55 @@ env:
   OPENSUBTITLES_API_KEY: ${{ secrets.OPENSUBTITLES_API_KEY }}
 
 jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager --channel=3 --install "platforms;android-37.0" "build-tools;37.0.0"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
+
+      # The Android build reads its keys from local.properties. Without them (pull requests from
+      # forks) the APKs still build, but can't fetch metadata.
+      - name: Prepare API keys
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          def escape(value):
+              return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('=', '\\=').replace(':', '\\:').replace(' ', '\\ ')
+          keys = [k for k in ('TMDB_API_KEY', 'OPENSUBTITLES_API_KEY') if os.environ.get(k)]
+          Path('local.properties').write_text(''.join(f'{k}={escape(os.environ[k])}\n' for k in keys))
+          PY
+
+      - name: Build the TV app and the phone companion
+        run: ./gradlew :app:assembleStandardDebug :mobile:assembleDebug
+
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/standard/debug/app-standard-debug.apk dist/Aperture-tv-debug.apk
+          cp mobile/build/outputs/apk/debug/mobile-debug.apk dist/Aperture-companion-debug.apk
+          rm -f local.properties
+
+      # Named so the release job (which takes Aperture-*) leaves debug APKs out of releases.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-debug-apks
+          path: dist/*.apk
+          if-no-files-found: error
+
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -189,6 +247,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: Aperture-*
           merge-multiple: true
       - name: Attach to the release (created as a draft if it doesn't exist)
         env:
