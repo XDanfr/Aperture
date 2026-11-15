@@ -1,23 +1,27 @@
 package me.xdan.aperture.data.artwork
 
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
-import coil.ImageLoader
-import coil.decode.DataSource
-import coil.intercept.Interceptor
-import coil.request.ImageRequest
-import coil.request.SuccessResult
+import coil3.ImageLoader
+import coil3.asImage
+import coil3.decode.DataSource
+import coil3.intercept.Interceptor
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import me.xdan.aperture.util.ScreenMetrics
+import okio.Path.Companion.toOkioPath
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.xdan.aperture.data.local.AppDatabase
 import me.xdan.aperture.data.local.entity.ArtworkPaletteEntity
 import me.xdan.aperture.data.local.entity.MediaEntity
-import me.xdan.aperture.di.DatabaseModule
+import me.xdan.aperture.data.local.DatabaseMigrations
 import me.xdan.aperture.ui.artwork.ArtworkExtractionVersion
 import org.junit.Assert.*
 import org.junit.Test
@@ -26,20 +30,24 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 
 class ArtworkPaletteStoreTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
+    private val screen = ScreenMetrics { 1920 to 1080 }
+
+    private fun store(db: AppDatabase, loader: () -> ImageLoader) =
+        ArtworkPaletteStore(context, db.artworkPaletteDao(), screen, loader)
 
     @Test
     fun successfulDisplayFetchPersistsTheSeedAndNewStoreInstancesReuseIt() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         try {
-            val store = ArtworkPaletteStore(context, db.artworkPaletteDao())
+            lateinit var loader: ImageLoader
+            val store = store(db) { loader }
             val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF008577.toInt()) }
             var displayFetches = 0
-            lateinit var loader: ImageLoader
             loader = ImageLoader.Builder(context).components {
                 add(ArtworkPaletteInterceptor(store) { loader })
                 add(Interceptor { chain ->
                     displayFetches++
-                    SuccessResult(BitmapDrawable(context.resources, bitmap), chain.request, DataSource.MEMORY)
+                    SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
                 })
             }.build()
             loader.execute(ImageRequest.Builder(context).data("https://image.tmdb.org/t/p/w500/sample.jpg").build())
@@ -49,7 +57,7 @@ class ArtworkPaletteStoreTest {
                 entry
             }
             assertEquals(ArtworkExtractionVersion, saved.extractionVersion)
-            assertEquals(saved.seedArgb, ArtworkPaletteStore(context, db.artworkPaletteDao()).seed("/sample.jpg"))
+            assertEquals(saved.seedArgb, store(db) { loader }.seed("/sample.jpg"))
             assertEquals(1, displayFetches)
             loader.shutdown()
         } finally { db.close() }
@@ -72,11 +80,14 @@ class ArtworkPaletteStoreTest {
                 .header("Cache-Control", "public, max-age=86400")
                 .body(bytes.toResponseBody("image/png".toMediaType())).build()
         }.build()
-        val store = ArtworkPaletteStore(context, db.artworkPaletteDao())
         lateinit var loader: ImageLoader
-        loader = ImageLoader.Builder(context).callFactory(client)
-            .diskCache(coil.disk.DiskCache.Builder().directory(cacheDirectory).build())
-            .components { add(ArtworkPaletteInterceptor(store) { loader }) }.build()
+        val store = store(db) { loader }
+        loader = ImageLoader.Builder(context)
+            .diskCache(coil3.disk.DiskCache.Builder().directory(cacheDirectory.toOkioPath()).build())
+            .components {
+                add(OkHttpNetworkFetcherFactory(callFactory = { client }))
+                add(ArtworkPaletteInterceptor(store) { loader })
+            }.build()
         try {
             val result = loader.execute(ImageRequest.Builder(context)
                 .data("https://image.tmdb.org/t/p/w500/network-test.png")
@@ -94,11 +105,11 @@ class ArtworkPaletteStoreTest {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         try {
             db.artworkPaletteDao().put(ArtworkPaletteEntity("/versioned.jpg", 123, 1))
-            val store = ArtworkPaletteStore(context, db.artworkPaletteDao())
+            val loader = ImageLoader.Builder(context).build()
+            val store = store(db) { loader }
             val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFCC3333.toInt()) }
             val request = ImageRequest.Builder(context).data("https://image.tmdb.org/t/p/w1280/versioned.jpg").build()
-            val loader = ImageLoader.Builder(context).build()
-            store.artworkLoaded(request.data.toString(), SuccessResult(BitmapDrawable(context.resources, bitmap), request, DataSource.MEMORY), loader)
+            store.artworkLoaded(request.data.toString(), SuccessResult(bitmap.asImage(), request, DataSource.MEMORY), loader)
             withTimeout(5_000) {
                 while (db.artworkPaletteDao().get("/versioned.jpg")?.extractionVersion != ArtworkExtractionVersion) delay(20)
             }
@@ -119,7 +130,7 @@ class ArtworkPaletteStoreTest {
             it.version = 7
         }
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(DatabaseModule.MIGRATION_7_8).build()
+            .addMigrations(DatabaseMigrations.MIGRATION_7_8).build()
         try {
             assertEquals("Saved library title", migrated.mediaDao().getMediaById(1)!!.title)
             migrated.artworkPaletteDao().put(ArtworkPaletteEntity("/new.jpg", 42, ArtworkExtractionVersion))
