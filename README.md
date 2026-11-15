@@ -61,6 +61,20 @@ Download the latest release `.apk` directly from the [Releases](https://github.c
 > [!NOTE]
 > The repo is undergoing a pretty large rework on the front end to adopt **Material 3 Expressive**, and the back end is adopting more codec support. The latest commits may have some bugs.
 
+### Desktop (Windows, macOS, Linux)
+
+The same app runs on desktop through Compose Multiplatform, with mpv for playback and a library
+built from folders you choose. The Windows installers (MSI, EXE) and the macOS DMG include mpv;
+the Linux packages (deb, rpm, AUR, Flatpak) install it from your distribution or build it in.
+
+To run from source, install libmpv (`brew install mpv`, `apt install libmpv2`, …), then:
+
+```bash
+./gradlew :desktop:run
+```
+
+See [docs/DESKTOP.md](docs/DESKTOP.md) for the module layout, controls, packaging and licensing.
+
 ## 📸 Screenshots
 
 <p align="center">
@@ -126,8 +140,8 @@ Address these before expanding the shared focus-morph experiment:
 ## 🛠️ Tech Stack
 
 * **Language:** [Kotlin](https://kotlinlang.org/)
-* **UI Framework:** [Jetpack Compose for TV](https://developer.android.com/training/tv/playback/compose)
-* **Media Engine:** [Media3 / ExoPlayer](https://developer.android.com/media/media3)
+* **UI Framework:** [Jetpack Compose for TV](https://developer.android.com/training/tv/playback/compose), shared with desktop through [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/)
+* **Media Engine:** [Media3 / ExoPlayer](https://developer.android.com/media/media3) on Android, [mpv](https://mpv.io) on desktop
 * **Theming:** Material 3
 * **Website Components:** [matraic/m3e](https://github.com/matraic/m3e)
 
