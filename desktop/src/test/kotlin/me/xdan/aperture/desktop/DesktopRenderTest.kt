@@ -29,12 +29,31 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlinx.coroutines.flow.first
 
 /**
  * Boots the real shared app (Koin graph, Room, DataStore) offscreen at a 1080p TV's 960×540 dp
  * and renders it, so the desktop UI can be checked without a display. Frames land in
  * desktop/build/render/.
  */
+/**
+ * The app with its own ViewModel store. Offscreen scenes otherwise share one across tests, so a
+ * later test would get view models built on an earlier test's (stopped) Koin graph.
+ */
+@androidx.compose.runtime.Composable
+private fun IsolatedApp(state: ApertureAppState) {
+    val owner = androidx.compose.runtime.remember {
+        object : androidx.lifecycle.ViewModelStoreOwner {
+            override val viewModelStore = androidx.lifecycle.ViewModelStore()
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
+    CompositionLocalProvider(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner provides owner) {
+        ApertureApp(appState = state, onExit = {})
+    }
+}
+
 class DesktopRenderTest {
     private val temp = Files.createTempDirectory("aperture-render").toFile()
 
@@ -59,14 +78,14 @@ class DesktopRenderTest {
             val dao = koin.get<me.xdan.aperture.data.local.dao.MediaDao>()
             listOf("Arrival", "Blade Runner 2049", "Dune", "Interstellar", "Moon", "Sunshine").forEachIndexed { i, title ->
                 dao.insertMedia(
-                    me.xdan.aperture.data.local.entity.MediaEntity(
+                    me.xdan.aperture.data.local.entity.MediaRecord(
                         filePath = "/videos/$title.mkv", title = title, year = 2010 + i, type = "MOVIE",
                         overview = "A film used to check the desktop layout.", metadataAttemptedAt = System.currentTimeMillis()
                     )
                 )
             }
             dao.insertMedia(
-                me.xdan.aperture.data.local.entity.MediaEntity(
+                me.xdan.aperture.data.local.entity.MediaRecord(
                     filePath = "/videos/Severance S01E01.mkv", title = "Severance", type = "EPISODE",
                     seasonNumber = 1, episodeNumber = 1, metadataAttemptedAt = System.currentTimeMillis()
                 )
@@ -82,7 +101,7 @@ class DesktopRenderTest {
         seedLibrary(koin)
         val state = ApertureAppState(koin.get())
         val out = File("build/render").apply { mkdirs() }
-        val scene = onEdt { ImageComposeScene(1920, 1080, density = Density(2f)) { ApertureApp(appState = state, onExit = {}) } }
+        val scene = onEdt { ImageComposeScene(1920, 1080, density = Density(2f)) { IsolatedApp(state) } }
         var time = 0L
         fun advance(ms: Long) {
             val until = time + ms * 1_000_000
@@ -123,6 +142,62 @@ class DesktopRenderTest {
         assertTrue(File(out, "mouse-sidebar.png").length() > 10_000)
     }
 
+    @OptIn(androidx.compose.ui.InternalComposeUiApi::class)
+    @Test
+    fun choosesAProfileWithTheRemote() {
+        val koin = boot()
+        seedLibrary(koin)
+        val profiles = koin.get<me.xdan.aperture.domain.repository.ProfileRepository>()
+        val sam = kotlinx.coroutines.runBlocking {
+            profiles.profiles.first()
+            profiles.createProfile("Sam", "green").also { profiles.createProfile("Alex", "orange") }
+        }
+        val state = ApertureAppState(koin.get())
+        val out = File("build/render").apply { mkdirs() }
+        val scene = onEdt { ImageComposeScene(1920, 1080, density = Density(2f)) { IsolatedApp(state) } }
+        var time = 0L
+        fun advance(ms: Long) {
+            val until = time + ms * 1_000_000
+            while (time < until) {
+                time += 16_000_000
+                val t = time
+                onEdt { scene.render(t) }
+                Thread.sleep(5)
+            }
+        }
+        fun snapshot(name: String) {
+            val t = time
+            val png = onEdt { scene.render(t) }.encodeToData(EncodedImageFormat.PNG)!!.bytes
+            File(out, "$name.png").writeBytes(png)
+        }
+        fun press(key: androidx.compose.ui.input.key.Key) {
+            listOf(
+                androidx.compose.ui.input.key.KeyEventType.KeyDown,
+                androidx.compose.ui.input.key.KeyEventType.KeyUp
+            ).forEach { type ->
+                onEdt { scene.sendKeyEvent(androidx.compose.ui.input.key.KeyEvent(key, type)) }
+                advance(120)
+            }
+        }
+        try {
+            advance(8_000)
+            snapshot("profiles-picker")
+            // An offscreen scene has no arrow-key traversal (the window adds it), so step with Tab.
+            press(androidx.compose.ui.input.key.Key.Tab)
+            advance(600)
+            snapshot("profiles-picker-focus-sam")
+            press(androidx.compose.ui.input.key.Key.Enter)
+            advance(4_000)
+            snapshot("profiles-home-as-sam")
+        } finally {
+            onEdt { scene.close() }
+        }
+        kotlinx.coroutines.runBlocking {
+            assertEquals(sam, profiles.activeProfileId.first())
+            assertEquals("green", koin.get<me.xdan.aperture.domain.repository.UserPreferencesRepository>().themeId.first())
+        }
+    }
+
     private fun <T> onEdt(block: () -> T): T {
         var result: Result<T>? = null
         javax.swing.SwingUtilities.invokeAndWait { result = runCatching(block) }
@@ -134,7 +209,7 @@ class DesktopRenderTest {
         val dao = koin.get<me.xdan.aperture.data.local.dao.MediaDao>()
         listOf("Arrival", "Blade Runner 2049", "Dune", "Interstellar", "Moon", "Sunshine").forEachIndexed { i, title ->
             dao.insertMedia(
-                me.xdan.aperture.data.local.entity.MediaEntity(
+                me.xdan.aperture.data.local.entity.MediaRecord(
                     filePath = "/videos/$title.mkv", title = title, year = 2010 + i, type = "MOVIE",
                     overview = "A film used to check the desktop layout.", metadataAttemptedAt = System.currentTimeMillis()
                 )
@@ -176,7 +251,7 @@ class DesktopRenderTest {
         }
         val scene = onEdt {
             ImageComposeScene(1920, 1080, density = Density(2f)) {
-                ApertureApp(appState = state, onExit = {})
+                IsolatedApp(state)
             }
         }
         try {
