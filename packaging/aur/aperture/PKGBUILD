@@ -31,7 +31,7 @@ build() {
 package() {
   cd "Aperture-$pkgver"
   install -d "$pkgdir/opt/aperture" "$pkgdir/usr/bin"
-  cp -a desktop/build/compose/binaries/main/app/aperture/. "$pkgdir/opt/aperture/"
+  cp -a desktop/build/compose/binaries/main/app/Aperture/. "$pkgdir/opt/aperture/"
   ln -s /opt/aperture/bin/Aperture "$pkgdir/usr/bin/aperture"
   install -Dm644 packaging/linux/aperture.desktop "$pkgdir/usr/share/applications/aperture.desktop"
   install -Dm644 desktop/icons/Aperture.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/aperture.png"

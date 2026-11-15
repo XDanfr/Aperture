@@ -37,5 +37,6 @@ done
 if compgen -G "$binaries/rpm/*.rpm" >/dev/null; then cp "$binaries"/rpm/*.rpm "$dist/"; fi
 
 arch="$(uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/')"
-tar -C "$binaries/app" -czf "$dist/Aperture-$version-linux-$arch.tar.gz" aperture
+# Gradle names the app folder "Aperture"; the tarball's is lowercase, as Linux packages expect.
+tar -C "$binaries/app" --transform 's,^Aperture,aperture,' -czf "$dist/Aperture-$version-linux-$arch.tar.gz" Aperture
 ls -l "$dist"
