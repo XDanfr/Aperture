@@ -26,6 +26,7 @@ import me.xdan.aperture.ui.screen.player.PlayerEngine
 import me.xdan.aperture.ui.screen.player.PlayerEngineFactory
 import me.xdan.aperture.ui.screen.player.PlayerEngineManager
 import me.xdan.aperture.util.ScreenMetrics
+import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -34,7 +35,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 /** Android services behind the shared module's platform interfaces. */
 val androidModule = module {
-    single<PlatformContext> { androidContext() }
+    // PlatformContext is Coil's alias for Context, so androidContext() here would resolve this definition again.
+    single<PlatformContext> { androidApplication() }
     single<KeyValueStores> { SharedPreferencesStores(androidContext()) }
     single<DataStore<Preferences>> { androidContext().dataStore }
     single<AppDatabase> {
