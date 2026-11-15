@@ -1,16 +1,6 @@
 package me.xdan.aperture.companion
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
-import android.os.Build
-import android.util.Log
-import androidx.core.content.ContextCompat
-import androidx.media3.common.Player
-import dagger.hilt.android.qualifiers.ApplicationContext
+import me.xdan.aperture.platform.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,7 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.xdan.aperture.BuildConfig
+import me.xdan.aperture.platform.AppBuild
 import me.xdan.aperture.companion.protocol.CompanionCommand
 import me.xdan.aperture.companion.protocol.CompanionMedia
 import me.xdan.aperture.companion.protocol.CompanionMediaType
@@ -51,11 +41,8 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import me.xdan.aperture.ui.screen.player.PlayerEngine
-import java.net.Inet4Address
 import java.security.MessageDigest
 import java.security.SecureRandom
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** a pairing window. the code is shown on the TV; phones exchange it for a token. */
 data class PairingSession(
@@ -91,9 +78,8 @@ sealed interface CompanionServerStatus {
  * the TV end of the phone companion: runs the LAN server while Aperture is in the
  * foreground, advertises it over NSD, owns pairing and publishes playback state.
  */
-@Singleton
-class CompanionHub @Inject constructor(
-    @ApplicationContext private val context: Context,
+class CompanionHub(
+    private val platform: CompanionPlatform,
     private val devices: CompanionDeviceStore,
     private val mediaRepository: MediaRepository,
     private val preferences: UserPreferencesRepository,
@@ -102,7 +88,6 @@ class CompanionHub @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val random = SecureRandom()
     private val server = CompanionHttpServer(scope, ::handle)
-    private var nsdListener: NsdManager.RegistrationListener? = null
     private var publishJob: Job? = null
 
     private val _status = MutableStateFlow<CompanionServerStatus>(CompanionServerStatus.Stopped)
@@ -151,13 +136,11 @@ class CompanionHub @Inject constructor(
         themePhone
     ) { themeId, nowPlaying, revision, phone ->
         val matching = phone.takeIf { themeId == PhoneThemeId }
-        TvState(devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors)
-    }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple"))
+        TvState(devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors, platform.deviceKind)
+    }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple", deviceKind = platform.deviceKind))
 
     val hasLocalNetworkPermission: Boolean
-        get() = Build.VERSION.SDK_INT < 37 || ContextCompat.checkSelfPermission(
-            context, LOCAL_NETWORK_PERMISSION
-        ) == PackageManager.PERMISSION_GRANTED
+        get() = platform.hasLocalNetworkPermission
 
     // region lifecycle
 
@@ -219,7 +202,7 @@ class CompanionHub @Inject constructor(
     fun pairingUri(session: PairingSession): String? {
         val running = _status.value as? CompanionServerStatus.Running ?: return null
         val host = running.host ?: return null
-        return CompanionProtocol.pairingUri(host, running.port, session.code, devices.tvId, devices.tvName)
+        return CompanionProtocol.pairingUri(host, running.port, session.code, devices.tvId, devices.tvName, platform.deviceKind)
     }
 
     // endregion
@@ -269,7 +252,7 @@ class CompanionHub @Inject constructor(
             posterPath = media.posterPath,
             backdropPath = (if (isEpisode) media.stillPath else null) ?: media.backdropPath,
             isPlaying = player.isPlaying.value,
-            isBuffering = player.playbackState.value == Player.STATE_BUFFERING,
+            isBuffering = player.playbackState.value == me.xdan.aperture.ui.screen.player.PlaybackStates.BUFFERING,
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.coerceAtLeast(0),
             hasNextEpisode = hasNextEpisode.value
@@ -284,7 +267,7 @@ class CompanionHub @Inject constructor(
         val json = CompanionProtocol.json
         when (request.method to request.path) {
             "GET" to CompanionProtocol.PATH_INFO -> response.send(
-                200, json.encodeToString(TvInfo.serializer(), TvInfo(devices.tvId, devices.tvName, appVersion = BuildConfig.VERSION_NAME))
+                200, json.encodeToString(TvInfo.serializer(), TvInfo(devices.tvId, devices.tvName, appVersion = AppBuild.VERSION_NAME, deviceKind = platform.deviceKind))
             )
             "POST" to CompanionProtocol.PATH_PAIR_REQUEST -> {
                 val body = runCatching { json.decodeFromString(PairRequest.serializer(), request.body) }.getOrNull()
@@ -325,7 +308,7 @@ class CompanionHub @Inject constructor(
         val name = body.deviceName.ifBlank { "Phone" }
         val token = devices.pair(body.deviceId, name)
         _pairing.value = session.copy(pairedDeviceName = name)
-        return 200 to CompanionProtocol.json.encodeToString(PairResponse.serializer(), PairResponse(token, devices.tvId, devices.tvName))
+        return 200 to CompanionProtocol.json.encodeToString(PairResponse.serializer(), PairResponse(token, devices.tvId, devices.tvName, platform.deviceKind))
     }
 
     private suspend fun handleAuthenticated(request: CompanionHttpServer.Request, response: CompanionHttpServer.ResponseWriter) {
@@ -438,43 +421,24 @@ class CompanionHub @Inject constructor(
     // region NSD and addressing
 
     private fun registerNsd(port: Int) {
-        val nsd = context.getSystemService(NsdManager::class.java) ?: return
-        val info = NsdServiceInfo().apply {
-            serviceName = "Aperture · ${devices.tvName}".take(63)
-            serviceType = CompanionProtocol.SERVICE_TYPE
-            setPort(port)
-            setAttribute(CompanionProtocol.TXT_TV_ID, devices.tvId)
-            setAttribute(CompanionProtocol.TXT_VERSION, CompanionProtocol.VERSION.toString())
-        }
-        val listener = object : NsdManager.RegistrationListener {
-            override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
-                Log.i(TAG, "Advertised ${serviceInfo.serviceName} on $port")
-            }
-            override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                Log.w(TAG, "NSD registration failed: $errorCode")
-            }
-            override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) = Unit
-            override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
-        }
-        runCatching { nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, listener) }
-            .onSuccess { nsdListener = listener }
-            .onFailure { Log.w(TAG, "NSD unavailable", it) }
+        runCatching {
+            platform.advertise(
+                serviceName = "Aperture · ${devices.tvName}".take(63),
+                port = port,
+                txt = mapOf(
+                    CompanionProtocol.TXT_TV_ID to devices.tvId,
+                    CompanionProtocol.TXT_VERSION to CompanionProtocol.VERSION.toString(),
+                    CompanionProtocol.TXT_DEVICE_KIND to platform.deviceKind
+                )
+            )
+        }.onFailure { Log.w(TAG, "NSD unavailable", it) }
     }
 
     private fun unregisterNsd() {
-        val listener = nsdListener ?: return
-        nsdListener = null
-        runCatching { context.getSystemService(NsdManager::class.java)?.unregisterService(listener) }
+        runCatching { platform.stopAdvertising() }
     }
 
-    private fun localIpv4Address(): String? {
-        val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
-        val network = connectivity.activeNetwork ?: return null
-        return connectivity.getLinkProperties(network)?.linkAddresses
-            ?.map { it.address }
-            ?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }
-            ?.hostAddress
-    }
+    private fun localIpv4Address(): String? = platform.localIpv4Address()
 
     // endregion
 

@@ -1,9 +1,5 @@
 package me.xdan.aperture.companion
 
-import android.content.Context
-import android.os.Build
-import android.provider.Settings
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,8 +11,6 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Serializable
 data class PairedPhone(
@@ -31,11 +25,11 @@ data class PairedPhone(
 )
 
 /** paired phones and this TV's stable identity. excluded from backup (see backup rules). */
-@Singleton
-class CompanionDeviceStore @Inject constructor(
-    @ApplicationContext private val context: Context
+class CompanionDeviceStore(
+    stores: me.xdan.aperture.platform.KeyValueStores,
+    private val platform: CompanionPlatform
 ) {
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = stores.open(PREFS)
     private val random = SecureRandom()
     private val listSerializer = ListSerializer(PairedPhone.serializer())
 
@@ -44,8 +38,7 @@ class CompanionDeviceStore @Inject constructor(
     }
 
     val tvName: String
-        get() = Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-            ?.takeIf { it.isNotBlank() } ?: Build.MODEL
+        get() = platform.deviceName
 
     private val _devices = MutableStateFlow(load())
     val devices: StateFlow<List<PairedPhone>> = _devices.asStateFlow()
