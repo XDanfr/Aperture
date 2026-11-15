@@ -1,0 +1,128 @@
+# Aperture as a Flatpak. Build it with packaging/flatpak/build.sh (see docs/DESKTOP.md).
+#
+# mpv is built here as a module, LGPL-only (FFmpeg without its GPL parts, mpv with -Dgpl=false),
+# so libmpv is the sandbox's own and the app finds it in /app/lib. The app itself is the prebuilt
+# Linux build (tools/desktop/package_linux.sh), which carries its own Java runtime.
+id: cc.xdan.Aperture
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: aperture
+rename-desktop-file: aperture.desktop
+rename-icon: aperture
+
+finish-args:
+  # Java's toolkit is X11 only; Wayland sessions run it through Xwayland.
+  - --socket=x11
+  - --share=ipc
+  - --socket=pulseaudio
+  - --device=dri
+  # TMDB, OpenSubtitles and the phone companion (an HTTP server found over mDNS).
+  - --share=network
+  # The folder picker is Java's own, not a portal, so video folders need to be visible. Read-only:
+  # Aperture never writes next to videos (downloads go to its cache).
+  - --filesystem=xdg-videos:ro
+  - --filesystem=home:ro
+  - --filesystem=/media:ro
+  - --filesystem=/run/media:ro
+  - --filesystem=/mnt:ro
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/man
+  - /share/doc
+  - '*.la'
+  - '*.a'
+
+modules:
+  - name: dav1d
+    buildsystem: meson
+    config-opts:
+      - -Denable_tools=false
+      - -Denable_tests=false
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/dav1d.git
+        tag: 1.5.4
+        commit: 54706fc6bc0cdecab7e9593974a4039cc038fca7
+
+  - name: libass
+    config-opts:
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz
+        sha256: 2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc
+
+  # FFmpeg's own decoders cover H.264, HEVC and the rest without any GPL library; dav1d adds
+  # software AV1. No --enable-gpl and no --enable-nonfree, so these libraries are LGPL 2.1+.
+  - name: ffmpeg
+    config-opts:
+      - --enable-shared
+      - --disable-static
+      - --disable-programs
+      - --disable-doc
+      - --enable-libdav1d
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+        sha256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+
+  # Aperture renders through libmpv's software API, so libplacebo needs no GPU backend.
+  - name: libplacebo
+    buildsystem: meson
+    config-opts:
+      - -Dvulkan=disabled
+      - -Dopengl=disabled
+      - -Dd3d11=disabled
+      - -Ddemos=false
+      - -Dtests=false
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.387.0
+        commit: 275f7dea27924cdd34ab2e6c20e448b6bc4fab65
+
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dgpl=false
+      - -Dlua=disabled
+      - -Djavascript=disabled
+      - -Dmanpage-build=disabled
+      - -Dhtml-build=disabled
+      - -Dpdf-build=disabled
+      - -Dpulse=enabled
+      - -Dalsa=enabled
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.42.0.tar.gz
+        sha256: bcfebbfa2b65a6d88dc97ea18117831072373e38b5785a2afb874ed4df5070dd
+
+  - name: aperture
+    buildsystem: simple
+    build-options:
+      # jpackage's runtime is already stripped; leave its binaries alone.
+      no-debuginfo: true
+      strip: false
+    build-commands:
+      - mkdir -p /app/lib/aperture /app/bin
+      - cp -a bin lib /app/lib/aperture/
+      - ln -s /app/lib/aperture/bin/Aperture /app/bin/aperture
+      - install -Dm644 aperture.desktop /app/share/applications/aperture.desktop
+      - install -Dm644 Aperture.png /app/share/icons/hicolor/512x512/apps/aperture.png
+      - install -Dm644 cc.xdan.Aperture.metainfo.xml /app/share/metainfo/cc.xdan.Aperture.metainfo.xml
+    sources:
+      # Copied here by build.sh from desktop/build/dist. For Flathub, point this at the release
+      # asset instead (url + sha256).
+      - type: archive
+        path: Aperture-linux.tar.gz
+      - type: file
+        path: ../linux/aperture.desktop
+      - type: file
+        path: ../../desktop/icons/Aperture.png
+      - type: file
+        path: ../linux/cc.xdan.Aperture.metainfo.xml
