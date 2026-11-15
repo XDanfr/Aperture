@@ -2,22 +2,19 @@ package me.xdan.aperture.ui.screen.actions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.domain.repository.MediaRepository
-import javax.inject.Inject
 
 data class MediaActionState(
     val media: MediaEntity? = null,
     val progress: PlaybackProgressEntity? = null
 )
 
-@HiltViewModel
-class MediaActionsViewModel @Inject constructor(
+class MediaActionsViewModel constructor(
     private val repository: MediaRepository
 ) : ViewModel() {
     private val _state = MutableStateFlow(MediaActionState())

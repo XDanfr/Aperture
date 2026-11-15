@@ -1,8 +1,8 @@
 package me.xdan.aperture.ui.screen.companion
 
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import me.xdan.aperture.platform.thisDeviceNoun
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,9 +32,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.platform.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
@@ -45,7 +44,6 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.Encoder
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import me.xdan.aperture.companion.CompanionHub
 import me.xdan.aperture.companion.CompanionServerStatus
@@ -53,10 +51,8 @@ import me.xdan.aperture.companion.PairedPhone
 import me.xdan.aperture.companion.PairingSession
 import me.xdan.aperture.ui.screen.settings.ThemedQrCode
 import me.xdan.aperture.ui.theme.ApertureTheme
-import javax.inject.Inject
 
-@HiltViewModel
-class CompanionViewModel @Inject constructor(val hub: CompanionHub) : ViewModel()
+class CompanionViewModel constructor(val hub: CompanionHub) : ViewModel()
 
 /** rows of '1'/'0' modules for [ThemedQrCode], which draws its own quiet zone. */
 internal fun qrRows(content: String): List<String> {
@@ -68,18 +64,9 @@ internal fun qrRows(content: String): List<String> {
 
 private fun String.spacedCode() = if (length == 6) substring(0, 3) + " " + substring(3) else this
 
-/** requests Android 17's local network permission, then (re)starts the companion server. */
+/** requests Android 17's local network permission where needed, then (re)starts the companion server. */
 @Composable
-private fun rememberLocalNetworkRequest(hub: CompanionHub): () -> Unit {
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        hub.start()
-    }
-    return remember(launcher) {
-        {
-            if (Build.VERSION.SDK_INT >= 37) launcher.launch(CompanionHub.LOCAL_NETWORK_PERMISSION) else hub.start()
-        }
-    }
-}
+internal expect fun rememberLocalNetworkRequest(hub: CompanionHub): () -> Unit
 
 /**
  * pairing from the TV's own menus (onboarding and Settings). opens a pairing
@@ -88,7 +75,7 @@ private fun rememberLocalNetworkRequest(hub: CompanionHub): () -> Unit {
 @Composable
 fun CompanionPairingDialog(
     onDismiss: () -> Unit,
-    viewModel: CompanionViewModel = hiltViewModel()
+    viewModel: CompanionViewModel = koinViewModel()
 ) {
     val hub = viewModel.hub
     val status by hub.status.collectAsState()
@@ -134,8 +121,8 @@ fun CompanionPairingDialog(
                 ) {
                     Text("Pair a phone", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Use Aperture Companion to browse your library, start playback and control the TV from your phone. " +
-                            "Scan the code, or pick this TV in the app and type the code shown here.",
+                        "Use Aperture Companion to browse your library, start playback and control the $thisDeviceNoun from your phone. " +
+                            "Scan the code, or pick this $thisDeviceNoun in the app and type the code shown here.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
                     )
@@ -149,7 +136,7 @@ fun CompanionPairingDialog(
                             Button(onClick = requestPermission) { Text("Allow local network access") }
                         }
                         CompanionServerStatus.Stopped -> Text(
-                            "Connect this TV to Wi-Fi or Ethernet to pair a phone.",
+                            "Connect this $thisDeviceNoun to Wi-Fi or Ethernet to pair a phone.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -253,7 +240,7 @@ private fun PairedPhoneRow(phone: PairedPhone, onRemove: () -> Unit) {
  * so the user can read the code without navigating to Settings.
  */
 @Composable
-fun CompanionPairingRequestHost(viewModel: CompanionViewModel = hiltViewModel()) {
+fun CompanionPairingRequestHost(viewModel: CompanionViewModel = koinViewModel()) {
     val hub = viewModel.hub
     val session by hub.pairing.collectAsState()
     val current = session ?: return
