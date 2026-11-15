@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import me.xdan.aperture.companion.protocol.CompanionProtocol
+import me.xdan.aperture.companion.protocol.DeviceKind
 import java.net.Inet4Address
 import java.util.concurrent.Executor
 
@@ -17,7 +18,9 @@ data class DiscoveredTv(
     val name: String,
     val tvId: String,
     val host: String,
-    val port: Int
+    val port: Int,
+    /** A [me.xdan.aperture.companion.protocol.DeviceKind]; older TVs don't advertise one. */
+    val deviceKind: String = DeviceKind.TV
 ) {
     val baseUrl: String get() = "http://${if (':' in host) "[$host]" else host}:$port"
 }
@@ -111,7 +114,8 @@ class TvDiscovery(private val context: Context) {
             name = serviceName.removePrefix("Aperture · ").ifBlank { "Aperture TV" },
             tvId = tvId,
             host = address.hostAddress ?: return null,
-            port = port
+            port = port,
+            deviceKind = attributes[CompanionProtocol.TXT_DEVICE_KIND]?.let(::String)?.ifBlank { null } ?: DeviceKind.TV
         )
     }
 

@@ -159,6 +159,7 @@ class TvRepository(
 
     private fun applyState(state: TvState) {
         _tvState.value = state
+        settings.updateDeviceKind(state.deviceKind)
         settings.setLastTvTheme(syncedThemeId(state, settings.deviceId))
         _nowPlaying.value = state.nowPlaying?.let { LiveNowPlaying(it, SystemClock.elapsedRealtime()) }
     }
@@ -194,7 +195,8 @@ class TvRepository(
                     name = response.tvName.ifBlank { tvName },
                     host = host,
                     port = port,
-                    token = response.token
+                    token = response.token,
+                    deviceKind = response.deviceKind
                 )
             )
             _library.value = null
