@@ -1,10 +1,14 @@
-@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 
 package me.xdan.aperture.ui.screen.player
 
-import android.graphics.Bitmap
-import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import me.xdan.aperture.ui.platform.isBackKey
+import me.xdan.aperture.ui.platform.isCanceledCompat
+import me.xdan.aperture.ui.platform.repeatCountCompat
+import me.xdan.aperture.ui.platform.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -17,6 +21,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import me.xdan.aperture.ui.platform.usesMouse
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.MoreVert
@@ -37,7 +43,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -122,6 +127,15 @@ fun ClassicPlayerOsd(
             .background(Color.Black.copy(alpha = scrubBackgroundAlpha))
             .padding(48.dp)
     ) {
+        // Desktop: an on-screen way out, where a TV remote would press Back.
+        if (usesMouse) {
+            ClassicPlayerControlIconButton(
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = "Back",
+                onClick = onPlayerBack,
+                modifier = Modifier.align(Alignment.TopStart).graphicsLayer { alpha = scrubUiAlpha * entryAlpha }
+            )
+        }
         Column(
             modifier = Modifier.align(Alignment.BottomStart)
         ) {
@@ -281,14 +295,13 @@ private fun ClassicPlayerSeekProgress(
     modifier: Modifier = Modifier
 ) {
     val duration = player.duration.coerceAtLeast(0L)
-    val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var originalPosition by remember { mutableLongStateOf(player.currentPosition) }
     var seekPosition by remember { mutableLongStateOf(player.currentPosition) }
     var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
-    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val previewLoader = remember(context) { PreviewFrameLoader(context) }
+    var previewBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    val previewLoader = rememberPreviewFrames()
     var holdDirection by remember { mutableIntStateOf(0) }
     var seekJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val scope = rememberCoroutineScope()
@@ -307,11 +320,14 @@ private fun ClassicPlayerSeekProgress(
     )
 
     val wavy = isPlaying && !scrubbing && progress >= 0.05f
-    val previewPosition = if (scrubbing) PreviewFrameLoader.quantise(seekPosition) else -1L
+    // Desktop: where the mouse hovers over the bar, previewed without scrubbing.
+    var hoverFraction by remember { mutableStateOf<Float?>(null) }
+    val previewTime = if (scrubbing) seekPosition else hoverFraction?.let { (it * duration).toLong() }
+    val previewPosition = previewTime?.let(PreviewFrameLoader::quantise) ?: -1L
 
-    LaunchedEffect(previewPosition, scrubbing, mediaSource) {
+    LaunchedEffect(previewPosition, mediaSource) {
         previewBitmap = null
-        if (!scrubbing || mediaSource.isNullOrBlank() || previewPosition < 0L) return@LaunchedEffect
+        if (mediaSource.isNullOrBlank() || previewPosition < 0L) return@LaunchedEffect
         delay(100)
         previewBitmap = previewLoader.load(mediaSource, previewPosition)
     }
@@ -372,7 +388,7 @@ private fun ClassicPlayerSeekProgress(
         holdDirection = direction
         seekJob?.cancel()
         seekJob = scope.launch {
-            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val startedAt = me.xdan.aperture.platform.elapsedRealtime()
             var lastStepAt = startedAt
             seekPosition = if (direction < 0) {
                 (seekPosition - 10_000L).coerceAtLeast(0L)
@@ -380,7 +396,7 @@ private fun ClassicPlayerSeekProgress(
                 (seekPosition + 10_000L).coerceAtMost(duration)
             }
             while (currentCoroutineContext().isActive) {
-                val now = android.os.SystemClock.elapsedRealtime()
+                val now = me.xdan.aperture.platform.elapsedRealtime()
                 val elapsed = now - startedAt
                 val (interval, step) = when {
                     elapsed < 1_000L -> 250L to 10_000L
@@ -408,6 +424,13 @@ private fun ClassicPlayerSeekProgress(
         seekJob = null
     }
 
+    // Desktop mouse scrubbing: the same scrubbing state as the D-pad, positioned directly.
+    fun pointerScrubTo(fraction: Float) {
+        endHold()
+        beginScrubbing()
+        seekPosition = (fraction * duration).toLong().coerceIn(0L, duration)
+    }
+
     LaunchedEffect(initialScrubDirection) {
         if (initialScrubDirection != 0) {
             scrubFocusRequester.requestFocus()
@@ -418,6 +441,15 @@ private fun ClassicPlayerSeekProgress(
 
     BoxWithConstraints(
         modifier = modifier
+            .seekBarPointerInput(
+                onHover = { hoverFraction = it },
+                onScrubStart = { fraction ->
+                    runCatching { scrubFocusRequester.requestFocus() }
+                    pointerScrubTo(fraction)
+                },
+                onScrub = ::pointerScrubTo,
+                onScrubEnd = ::commitScrubbing
+            )
             .focusRequester(scrubFocusRequester)
             .layout { measurable, constraints ->
                 val relaxedConstraints = constraints.copy(
@@ -436,16 +468,16 @@ private fun ClassicPlayerSeekProgress(
             }
             .focusable()
             .onPreviewKeyEvent { event ->
-                when (event.nativeKeyEvent.action) {
-                    KeyEvent.ACTION_DOWN -> when (event.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> { beginHold(-1); true }
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> { beginHold(1); true }
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                when (event.type) {
+                    KeyEventType.KeyDown -> when (event.key) {
+                        Key.DirectionLeft -> { beginHold(-1); true }
+                        Key.DirectionRight -> { beginHold(1); true }
+                        Key.DirectionCenter, Key.Enter -> {
                             endHold()
                             if (scrubbing) commitScrubbing() else if (player.isPlaying.value) player.pause() else player.play()
                             true
                         }
-                        KeyEvent.KEYCODE_DPAD_UP -> {
+                        Key.DirectionUp -> {
                             if (scrubbing) {
                                 endHold()
                                 cancelScrubbing()
@@ -453,7 +485,7 @@ private fun ClassicPlayerSeekProgress(
                                 true
                             } else false
                         }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        Key.DirectionDown -> {
                             if (scrubbing) {
                                 endHold()
                                 cancelScrubbing()
@@ -461,21 +493,22 @@ private fun ClassicPlayerSeekProgress(
                                 true
                             } else false
                         }
-                        KeyEvent.KEYCODE_BACK -> false
+                        Key.Back -> false
                         else -> false
                     }
-                    KeyEvent.ACTION_UP -> when (event.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> { endHold(); true }
+                    KeyEventType.KeyUp -> when (event.key) {
+                        Key.DirectionLeft, Key.DirectionRight -> { endHold(); true }
                         else -> false
                     }
                     else -> false
                 }
             }
     ) {
-        if (scrubbing) {
+        if (previewTime != null) {
             val previewWidth = 320.dp
             val previewHeight = 180.dp
-            val previewX = ((maxWidth - previewWidth) * animatedProgress)
+            val previewFraction = if (scrubbing) animatedProgress else hoverFraction ?: 0f
+            val previewX = ((maxWidth - previewWidth) * previewFraction)
                 .coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
             Surface(
                 modifier = Modifier
@@ -497,7 +530,7 @@ private fun ClassicPlayerSeekProgress(
                     ) {
                         if (previewBitmap != null) {
                             Image(
-                                bitmap = previewBitmap!!.asImageBitmap(),
+                                bitmap = previewBitmap!!,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -516,7 +549,7 @@ private fun ClassicPlayerSeekProgress(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = classicFormatTime(seekPosition),
+                            text = classicFormatTime(previewTime),
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )

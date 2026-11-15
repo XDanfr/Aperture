@@ -1,7 +1,15 @@
 package me.xdan.aperture.ui.screen.player
 
-import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
+import org.koin.compose.viewmodel.koinViewModel
+
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import me.xdan.aperture.ui.platform.isBackKey
+import me.xdan.aperture.ui.platform.isCanceledCompat
+import me.xdan.aperture.ui.platform.repeatCountCompat
+import me.xdan.aperture.ui.platform.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
@@ -63,13 +71,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.window.Dialog
+import me.xdan.aperture.ui.platform.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.C
-import androidx.media3.common.TrackSelectionOverride
-import androidx.media3.common.Tracks
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.tv.material3.Button
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -86,15 +89,14 @@ import me.xdan.aperture.ui.screen.settings.SettingsViewModel
 import me.xdan.aperture.ui.screen.settings.SubtitleAppearanceSettings
 import me.xdan.aperture.ui.theme.ApertureTheme
 
-@androidx.annotation.OptIn(UnstableApi::class)
 private enum class QuickMenuVideoResizeMode(
     val label: String,
     val description: String,
     val media3Mode: Int
 ) {
-    FIT("Fit", "Show the complete picture", AspectRatioFrameLayout.RESIZE_MODE_FIT),
-    FILL("Stretch", "Fill the screen without preserving shape", AspectRatioFrameLayout.RESIZE_MODE_FILL),
-    ZOOM("Zoom", "Fill the screen and crop the edges", AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
+    FIT("Fit", "Show the complete picture", VideoResizeModes.FIT),
+    FILL("Stretch", "Fill the screen without preserving shape", VideoResizeModes.FILL),
+    ZOOM("Zoom", "Fill the screen and crop the edges", VideoResizeModes.ZOOM)
 }
 
 private enum class QuickMenuSubtitleSubPage {
@@ -130,7 +132,7 @@ fun QuickMenuPages(
     val categoryFocusRequesters = remember {
         listOf(focusRequester) + List(quickMenuCategories.size - 1) { FocusRequester() }
     }
-    val playerViewModel: PlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val playerViewModel: PlayerViewModel = org.koin.compose.viewmodel.koinViewModel()
     val onlineSubtitleState by playerViewModel.onlineSubtitles.collectAsState()
     val openSubtitlesSession by playerViewModel.openSubtitlesSession.collectAsState()
     val subtitleAppearance by settingsViewModel.subtitleAppearance.collectAsState()
@@ -180,7 +182,7 @@ fun QuickMenuPages(
                     },
                     onClose = onClose
                 )
-                QuickMenuPage.Audio -> QuickMenuTrackPage("Audio", C.TRACK_TYPE_AUDIO, player, pageFocusRequester, "No audio tracks available.", onClose)
+                QuickMenuPage.Audio -> QuickMenuTrackPage("Audio", TrackTypes.AUDIO, player, pageFocusRequester, "No audio tracks available.", onClose)
                 QuickMenuPage.Subtitles -> QuickMenuSubtitlesPage(
                     player = player,
                     firstFocusRequester = pageFocusRequester,
@@ -207,7 +209,7 @@ fun QuickMenuPages(
 
 private fun Modifier.closeQuickMenuOnUp(onClose: () -> Unit): Modifier =
     onPreviewKeyEvent { event ->
-        if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+        if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
             onClose()
             true
         } else false
@@ -251,7 +253,6 @@ private fun QuickMenuCategories(
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun QuickMenuTrackPage(title: String, type: Int, player: PlayerEngine, firstFocusRequester: FocusRequester, emptyLabel: String, onClose: () -> Unit) {
     val tracks by player.tracks.collectAsState()
@@ -262,12 +263,12 @@ private fun QuickMenuTrackPage(title: String, type: Int, player: PlayerEngine, f
         if (items.isEmpty()) { QuickMenuEmptyMessage(emptyLabel); return }
         Text("Selected: ${selectedItem?.name ?: "None"}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp), contentPadding = PaddingValues(vertical = 14.dp, horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items, key = { "${it.group.mediaTrackGroup.id}-${it.index}" }) { item ->
+            items(items, key = { "${it.track.groupId}-${it.index}" }) { item ->
                 val isFirstRow = items.indexOf(item) < 3
                 Surface(
                     onClick = {
                         player.setTrackTypeDisabled(type, false)
-                        player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                        player.selectTrack(item.track)
                     },
                     modifier = Modifier.then(if (item == items.firstOrNull()) Modifier.focusRequester(firstFocusRequester) else Modifier).then(if (isFirstRow) Modifier.closeQuickMenuOnUp(onClose) else Modifier),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
@@ -415,7 +416,7 @@ private fun QuickMenuSubtitlesMainPage(
     onClose: () -> Unit
 ) {
     val tracks by player.tracks.collectAsState()
-    val items = getQuickMenuTrackItems(tracks, C.TRACK_TYPE_TEXT).filter { it.isSupported }
+    val items = getQuickMenuTrackItems(tracks, TrackTypes.TEXT).filter { it.isSupported }
     val selectedItem = items.firstOrNull { it.isSelected }
     var showAllTracks by remember { mutableStateOf(false) }
     val secondTrackFocusRequester = remember { FocusRequester() }
@@ -503,8 +504,8 @@ private fun QuickMenuSubtitlesMainPage(
             ) {
                 Surface(
                     onClick = {
-                        player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                        player.clearTrackOverrides(C.TRACK_TYPE_TEXT)
+                        player.setTrackTypeDisabled(TrackTypes.TEXT, true)
+                        player.clearTrackOverrides(TrackTypes.TEXT)
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -541,8 +542,8 @@ private fun QuickMenuSubtitlesMainPage(
                     }
                     Surface(
                         onClick = {
-                            player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                            player.setTrackTypeDisabled(TrackTypes.TEXT, false)
+                            player.selectTrack(item.track)
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -595,8 +596,8 @@ private fun QuickMenuSubtitlesMainPage(
         QuickMenuSubtitleTrackPicker(
             items = items,
             onSelect = { item ->
-                player.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                player.setTrackSelectionOverride(item.group.mediaTrackGroup, item.index)
+                player.setTrackTypeDisabled(TrackTypes.TEXT, false)
+                player.selectTrack(item.track)
                 showAllTracks = false
             },
             onDismiss = { showAllTracks = false }
@@ -877,19 +878,18 @@ private fun QuickMenuAction(label: String, icon: androidx.compose.ui.graphics.ve
     }
 }
 
-private data class QuickMenuTrackItem(val name: String, val isSelected: Boolean, val isSupported: Boolean, val group: Tracks.Group, val index: Int)
+private data class QuickMenuTrackItem(val name: String, val isSelected: Boolean, val isSupported: Boolean, val track: PlayerTrack, val index: Int)
 
-private fun getQuickMenuTrackItems(tracks: Tracks, type: Int): List<QuickMenuTrackItem> {
+private fun getQuickMenuTrackItems(tracks: PlayerTracks, type: Int): List<QuickMenuTrackItem> {
     val result = mutableListOf<QuickMenuTrackItem>()
     tracks.groups.forEach { group ->
         if (group.type != type) return@forEach
-        for (index in 0 until group.length) {
-            val format = group.getTrackFormat(index)
-            result += QuickMenuTrackItem(name = format.label ?: format.language?.uppercase() ?: when (type) {
-                C.TRACK_TYPE_AUDIO -> "Audio ${index + 1}"
-                C.TRACK_TYPE_TEXT -> "Subtitle ${index + 1}"
+        group.tracks.forEachIndexed { index, track ->
+            result += QuickMenuTrackItem(name = track.label ?: track.language?.uppercase() ?: when (type) {
+                TrackTypes.AUDIO -> "Audio ${index + 1}"
+                TrackTypes.TEXT -> "Subtitle ${index + 1}"
                 else -> "Track ${index + 1}"
-            }, isSelected = group.isTrackSelected(index), isSupported = group.isTrackSupported(index), group = group, index = index)
+            }, isSelected = track.isSelected, isSupported = track.isSupported, track = track, index = index)
         }
     }
     return result
