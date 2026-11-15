@@ -227,11 +227,24 @@ jobs:
           path: dist
       - name: Use the Linux build
         run: cp dist/Aperture-*-linux-x64.tar.gz packaging/flatpak/Aperture-linux.tar.gz
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      # Built modules (FFmpeg, mpv...) are reused until the manifest changes.
+      - uses: actions/cache@v4
         with:
-          bundle: Aperture-linux-x64.flatpak
-          manifest-path: packaging/flatpak/cc.xdan.Aperture.yml
-          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/cc.xdan.Aperture.yml') }}
+          path: .flatpak-builder
+          key: flatpak-builder-${{ hashFiles('packaging/flatpak/cc.xdan.Aperture.yml') }}
+      # The image ships the freedesktop runtime and SDK, so build against them as installed. The
+      # flatpak-builder action asks to install them from Flathub, which updates them in place
+      # whenever Flathub has a newer build, and that fails inside the container.
+      - name: Build the Flatpak
+        run: |
+          flatpak-builder --disable-rofiles-fuse --force-clean --repo=repo build packaging/flatpak/cc.xdan.Aperture.yml
+          flatpak build-bundle repo Aperture-linux-x64.flatpak cc.xdan.Aperture \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aperture-linux-x64-flatpak
+          path: Aperture-linux-x64.flatpak
+          if-no-files-found: error
       - name: Install the bundle and check its libmpv
         run: |
           flatpak install --user -y --noninteractive Aperture-linux-x64.flatpak
