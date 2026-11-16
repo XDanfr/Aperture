@@ -35,6 +35,12 @@ interface MediaRepository {
     suspend fun syncMetadata(media: MediaEntity)
     suspend fun searchMetadataCandidates(media: MediaEntity, query: String? = null): List<TmdbResult>
     suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult)
+
+    /**
+     * Removes [mediaId] from the library when its file has been deleted (not just on a drive that's
+     * unplugged). True when it was removed.
+     */
+    suspend fun removeIfGone(mediaId: Long): Boolean = false
 }
 
 data class MediaFolder(
