@@ -14,6 +14,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Info
@@ -50,7 +53,12 @@ import org.koin.core.parameter.parametersOf
  * My List and Watched change the server's state. Playback arrives with the player step.
  */
 @Composable
-fun JellyfinDetailsDialog(item: CatalogItem, onDismiss: () -> Unit) {
+fun JellyfinDetailsDialog(
+    item: CatalogItem,
+    onDismiss: () -> Unit,
+    /** Plays the title (or a show's chosen episode); true starts from the beginning. */
+    onPlay: (me.xdan.aperture.domain.model.MediaKey.Jellyfin, Boolean) -> Unit
+) {
     val viewModel: JellyfinDetailsViewModel = koinViewModel(key = "details:${item.key.stableId}") {
         parametersOf(item.jellyfinId)
     }
@@ -157,21 +165,43 @@ fun JellyfinDetailsDialog(item: CatalogItem, onDismiss: () -> Unit) {
                             Spacer(Modifier.height(10.dp))
                         }
 
-                        Text(
-                            message ?: "Playing Jellyfin titles arrives with the player update.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (message != null) MaterialTheme.colorScheme.error else Color.Gray
-                        )
-                        Spacer(Modifier.height(8.dp))
+                        message?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Row(
                             modifier = Modifier.heightIn(min = 52.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(onClick = viewModel::toggleFavorite, modifier = Modifier.focusRequester(firstAction)) {
-                                Icon(if (shown.isFavorite) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.PlaylistAdd, null)
+                            // A show plays its chosen episode; until the episodes load, there's nothing to play.
+                            val playable = if (isShow) state.episode else target
+                            val inProgress = (playable?.progress ?: 0f) > 0f
+                            Button(
+                                onClick = { playable?.let { onPlay(it.key as me.xdan.aperture.domain.model.MediaKey.Jellyfin, false) } },
+                                enabled = playable != null,
+                                modifier = Modifier.focusRequester(firstAction)
+                            ) {
+                                Icon(if (playable?.played == true && !inProgress) Icons.Rounded.Replay else Icons.Rounded.PlayArrow, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (shown.isFavorite) "Remove from My List" else "My List")
+                                Text(
+                                    when {
+                                        inProgress -> "Continue"
+                                        playable?.played == true -> "Rewatch"
+                                        else -> "Play"
+                                    }
+                                )
+                            }
+                            if (inProgress) {
+                                IconButton(onClick = { playable?.let { onPlay(it.key as me.xdan.aperture.domain.model.MediaKey.Jellyfin, true) } }) {
+                                    Icon(Icons.Rounded.Replay, contentDescription = "Play from the beginning")
+                                }
+                            }
+                            IconButton(onClick = viewModel::toggleFavorite) {
+                                Icon(
+                                    if (shown.isFavorite) Icons.AutoMirrored.Rounded.PlaylistAddCheck else Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                    contentDescription = if (shown.isFavorite) "Remove from My List" else "Add to My List"
+                                )
                             }
                             val watchedLabel = when {
                                 isShow && target.played -> "Mark episode unwatched"

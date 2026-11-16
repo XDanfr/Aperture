@@ -11,6 +11,21 @@ import java.io.File
 
 class AndroidPlaybackPlatform(private val context: Context) : PlaybackPlatform {
 
+    /** Hardware or software decoders; nextlib's FFmpeg renderers cover H.264, HEVC and VP8/9 in software. */
+    override val decodableVideoCodecs: Set<String> by lazy {
+        val mimes = runCatching {
+            android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos
+                .filterNot { it.isEncoder }
+                .flatMap { it.supportedTypes.toList() }
+                .map { it.lowercase() }
+                .toSet()
+        }.getOrDefault(emptySet())
+        buildSet {
+            addAll(listOf("h264", "hevc", "vp8", "vp9", "mpeg4", "mpeg2video"))
+            if ("video/av01" in mimes) add("av1")
+        }
+    }
+
     override val isDisplayHdrCapable: Boolean
         get() {
             val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager

@@ -129,6 +129,23 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
     val updateDialogVisible = AppBuild.SIDELOAD_UPDATES_ENABLED && launchFinished && !legacyCleanupRequired &&
         offeredUpdate != null &&
         offeredUpdate.version != dismissedUpdateVersion
+    // These prompts are windows of their own. When the last one closes, nothing on the screen
+    // underneath has focus, and a remote can't move from nowhere; put it on the first item.
+    val appPromptVisible = updateDialogVisible || showSponsorPrompt || showSponsorQr || showSponsorVerification
+    var appPromptWasVisible by remember { mutableStateOf(false) }
+    val promptFocusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(appPromptVisible) {
+        if (appPromptVisible) {
+            appPromptWasVisible = true
+            return@LaunchedEffect
+        }
+        if (!appPromptWasVisible) return@LaunchedEffect
+        appPromptWasVisible = false
+        repeat(30) {
+            withFrameNanos { }
+            if (promptFocusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)) return@LaunchedEffect
+        }
+    }
     val updateBlocksSponsorPrompt = when (updateState) {
         UpdateCheckState.Checking,
         is UpdateCheckState.PermissionRequired,

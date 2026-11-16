@@ -10,6 +10,9 @@ import me.xdan.aperture.ui.screen.player.SubtitleFile
 import java.io.File
 
 class DesktopPlaybackPlatform : PlaybackPlatform {
+    /** mpv decodes these in software when the GPU can't. */
+    override val decodableVideoCodecs: Set<String> = setOf("h264", "hevc", "vp8", "vp9", "av1", "mpeg4", "mpeg2video", "vc1")
+
     private val _toast = MutableStateFlow<Toast?>(null)
     /** The window shows this briefly, like an Android toast. */
     val toast: StateFlow<Toast?> = _toast.asStateFlow()

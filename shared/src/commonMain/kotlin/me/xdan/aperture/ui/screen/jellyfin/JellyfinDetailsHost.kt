@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
 import me.xdan.aperture.domain.catalog.CatalogItem
+import me.xdan.aperture.domain.model.MediaKey
 
 /** Which Jellyfin title's panel is open, and the card to return focus to when it closes. */
 @Stable
@@ -33,10 +34,18 @@ fun rememberJellyfinDetails(): JellyfinDetailsState = remember { JellyfinDetails
 
 /** Shows the details panel while [state] has a title, then puts focus back on the card that opened it. */
 @Composable
-fun JellyfinDetailsHost(state: JellyfinDetailsState) {
+fun JellyfinDetailsHost(state: JellyfinDetailsState, onPlay: (MediaKey.Jellyfin, Boolean) -> Unit) {
     val item = state.item
     if (item != null) {
-        JellyfinDetailsDialog(item, onDismiss = state::close)
+        JellyfinDetailsDialog(
+            item,
+            onDismiss = state::close,
+            // The panel closes first: it's a window of its own and would stay above the player.
+            onPlay = { key, fromStart ->
+                state.close()
+                onPlay(key, fromStart)
+            }
+        )
     }
     LaunchedEffect(item) {
         if (item != null) return@LaunchedEffect

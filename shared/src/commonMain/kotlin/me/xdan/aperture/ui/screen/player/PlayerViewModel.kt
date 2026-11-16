@@ -16,7 +16,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.xdan.aperture.platform.AppBuild
+import me.xdan.aperture.data.jellyfin.JellyfinPlayback
 import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.data.local.entity.RemoteItemEntity
+import me.xdan.aperture.domain.catalog.JellyfinImages
+import org.jellyfin.sdk.model.api.PlayMethod
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
 import me.xdan.aperture.data.remote.api.OpenSubtitleResult
 import me.xdan.aperture.data.remote.api.OpenSubtitlesApi
@@ -38,7 +42,8 @@ class PlayerViewModel constructor(
     private val okHttpClient: OkHttpClient,
     private val companionHub: me.xdan.aperture.companion.CompanionHub,
     private val platform: PlaybackPlatform,
-    stores: me.xdan.aperture.platform.KeyValueStores
+    stores: me.xdan.aperture.platform.KeyValueStores,
+    private val jellyfin: JellyfinPlayback
 ) : ViewModel() {
 
     private val _media = MutableStateFlow<MediaEntity?>(null)
@@ -103,6 +108,16 @@ class PlayerViewModel constructor(
     private val downloadedSubtitleFiles = mutableListOf<File>()
     private var pendingPlayback: PendingPlayback? = null
     private val syncPreferences = stores.open(PLAYBACK_SYNC_PREFERENCES)
+    /** Which title the subtitle delay is remembered for. */
+    private var syncKey: String? = null
+
+    // Jellyfin playback. [activeMediaId] stays null meanwhile, so nothing is saved locally;
+    // progress goes to the server instead.
+    private var jellyfinStream: JellyfinPlayback.Stream? = null
+    private var jellyfinItemId: String? = null
+    private var jellyfinNextId: String? = null
+    /** False once the original failed to play and the server was asked for a transcode. */
+    private var jellyfinAllowDirect = true
 
     private val playerListener = object : PlayerEngine.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -118,6 +133,15 @@ class PlayerViewModel constructor(
         override fun onPositionDiscontinuity(reason: Int) {}
 
         override fun onPlayerError(error: Throwable) {
+            val stream = jellyfinStream
+            if (stream != null && stream.method != PlayMethod.TRANSCODE && jellyfinAllowDirect) {
+                // The device couldn't play the original; let the server convert it from here.
+                Log.w("PlayerViewModel", "Direct play failed (${error.message}); asking the server to transcode")
+                val position = player.currentPosition.coerceAtLeast(0L)
+                jellyfinAllowDirect = false
+                viewModelScope.launch { startJellyfin(stream.itemId, position, allowDirect = false) }
+                return
+            }
             progressTrackerJob?.cancel()
             osdTimerJob?.cancel()
             _isOsdVisible.value = false
@@ -149,7 +173,8 @@ class PlayerViewModel constructor(
             player.audioDecoderName.collect { _audioDecoderName.value = it }
         }
         checkDisplayCapabilities()
-        viewModelScope.launch { _media.collect(companionHub::onPlaybackMedia) }
+        // The companion only knows local titles until its next protocol version.
+        viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it?.takeIf { media -> media.id > 0 }) } }
         viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
         viewModelScope.launch {
             companionHub.playerCommands.collect { command ->
@@ -193,6 +218,7 @@ class PlayerViewModel constructor(
             Log.d("PlayerViewModel", "File path: ${mediaEntity.filePath}")
             
             progressTrackerJob?.cancel()
+            finishJellyfinSession()
             _nextEpisode.value = null
             _media.value = mediaEntity
             _compatibilityWarning.value = null
@@ -200,7 +226,7 @@ class PlayerViewModel constructor(
             _isCurrentMediaHdr.value = false
             _videoDecoderName.value = null
             _audioDecoderName.value = null
-            restoreSyncSettings(mediaId)
+            restoreSyncSettings(subtitleDelayKey(mediaId))
 
             mediaEntity.let { media ->
                 Log.d("PlayerViewModel", "Checking file existence: ${media.filePath}")
@@ -259,6 +285,11 @@ class PlayerViewModel constructor(
     }
 
     fun retryPlayback() {
+        jellyfinItemId?.takeIf { pendingPlayback == null }?.let { itemId ->
+            _playbackFailure.value = null
+            viewModelScope.launch { startJellyfin(itemId, null, jellyfinAllowDirect) }
+            return
+        }
         val pending = pendingPlayback ?: return
         _playbackFailure.value = null
         viewModelScope.launch { startPlayback(pending) }
@@ -333,6 +364,16 @@ class PlayerViewModel constructor(
     }
 
     fun playNextEpisode() {
+        jellyfinNextId?.let { nextId ->
+            if (_nextEpisode.value == null) return
+            _nextEpisode.value = null
+            jellyfinNextId = null
+            progressTrackerJob?.cancel()
+            player.pause()
+            hideOsd()
+            viewModelScope.launch { startJellyfin(nextId, 0L, allowDirect = true) }
+            return
+        }
         val next = _nextEpisode.value ?: return
         // Claim the transition before saving so Enter and playback-ended cannot
         // enqueue the same episode twice.
@@ -364,9 +405,10 @@ class PlayerViewModel constructor(
         persistSyncSettings()
     }
 
-    private fun restoreSyncSettings(mediaId: Long) {
+    private fun restoreSyncSettings(key: String) {
+        syncKey = key
         val subtitleDelay = syncPreferences.getLong(
-            subtitleDelayKey(mediaId),
+            key,
             0L
         ).coerceIn(-MAX_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
         _subtitleDelayMs.value = subtitleDelay
@@ -374,9 +416,9 @@ class PlayerViewModel constructor(
     }
 
     private fun persistSyncSettings() {
-        val mediaId = _media.value?.id ?: return
+        val key = syncKey ?: return
         syncPreferences.edit()
-            .putLong(subtitleDelayKey(mediaId), _subtitleDelayMs.value)
+            .putLong(key, _subtitleDelayMs.value)
             .apply()
     }
 
@@ -489,7 +531,7 @@ class PlayerViewModel constructor(
                 downloadedSubtitleFiles += destination
                 val position = player.currentPosition
                 val isPlaying = player.isPlaying.value
-                val (mediaUri, subtitles) = buildMediaItem(media)
+                val (mediaUri, subtitles) = jellyfinStream?.let(::jellyfinMediaItem) ?: buildMediaItem(media)
                 player.setMedia(mediaUri, subtitles)
                 player.seekTo(position)
                 if (isPlaying) player.play()
@@ -520,6 +562,17 @@ class PlayerViewModel constructor(
     }
 
     fun saveProgressNow(markCompleted: Boolean = false) {
+        jellyfinStream?.let { stream ->
+            if (markCompleted) {
+                progressTrackerJob?.cancel()
+                finishJellyfinSession(completed = true)
+            } else {
+                val position = player.currentPosition.coerceAtLeast(0L)
+                val paused = !player.isPlaying.value
+                viewModelScope.launch { jellyfin.reportProgress(stream, position, paused) }
+            }
+            return
+        }
         if (markCompleted) progressTrackerJob?.cancel()
         val mediaId = activeMediaId ?: return
         val position = player.currentPosition.coerceAtLeast(0L)
@@ -545,6 +598,111 @@ class PlayerViewModel constructor(
                     (existing?.keepInContinueWatching == true || existing?.isCompleted == true || crossedResumeThreshold)
             )
         )
+    }
+
+    /** Plays a title from the profile's Jellyfin server, resuming where the server says unless [startFromBeginning]. */
+    fun loadJellyfin(itemId: String, startFromBeginning: Boolean = false) {
+        jellyfinAllowDirect = true
+        viewModelScope.launch { startJellyfin(itemId, if (startFromBeginning) 0L else null, allowDirect = true) }
+    }
+
+    /** [startMs] null means the server's resume point (or the start, near the end or after watching). */
+    private suspend fun startJellyfin(itemId: String, startMs: Long?, allowDirect: Boolean) {
+        progressTrackerJob?.cancel()
+        if (jellyfinItemId != itemId) finishJellyfinSession()
+        jellyfinStream = null
+        jellyfinItemId = itemId
+        jellyfinNextId = null
+        activeMediaId = null
+        pendingPlayback = null
+        _nextEpisode.value = null
+        _compatibilityWarning.value = null
+        _playbackFailure.value = null
+        _isCurrentMediaHdr.value = false
+        _videoDecoderName.value = null
+        _audioDecoderName.value = null
+        downloadedSubtitleFiles.clear()
+        _onlineSubtitles.value = OnlineSubtitleState.Idle
+
+        val account = jellyfin.activeAccount()
+        val entity = account?.let { jellyfin.item(it, itemId) }
+        _media.value = entity?.let { jellyfinDisplay(account.baseUrl, it) }
+            ?: MediaEntity(id = jellyfinDisplayId(itemId), filePath = "", title = "Jellyfin", type = "MOVIE")
+        restoreSyncSettings("subtitle_delay_jf_$itemId")
+        if (account == null) {
+            _playbackFailure.value = PlaybackFailure("Not signed in", "Sign in to Jellyfin from Settings to play this title.")
+            return
+        }
+        player.setTunnelingEnabled(preferences.tunnelingEnabled.first())
+
+        val start = startMs ?: entity?.let { item ->
+            val runtime = item.runtimeMs ?: 0L
+            val position = item.playbackPositionMs
+            if (item.played || (runtime > 0 && position >= runtime * 0.95)) 0L else position
+        } ?: 0L
+        val stream = jellyfin.prepare(account, itemId, platform.decodableVideoCodecs, start, allowDirect)
+        if (stream == null) {
+            player.stop()
+            _isOsdVisible.value = false
+            _playbackFailure.value = PlaybackFailure(
+                title = "Couldn't reach Jellyfin",
+                message = "Aperture couldn't get this title from the server. Check that it's on and reachable from this device, then try again."
+            )
+            return
+        }
+        jellyfinStream = stream
+        Log.d("PlayerViewModel", "Jellyfin ${stream.method} for $itemId")
+
+        player.setSubtitleDelay(_subtitleDelayMs.value)
+        player.setTrackTypeDisabled(TrackTypes.AUDIO, false)
+        player.clearTrackOverrides(TrackTypes.AUDIO)
+        player.setTrackTypeDisabled(TrackTypes.VIDEO, false)
+        val (uri, subtitles) = jellyfinMediaItem(stream)
+        player.setMedia(uri, subtitles)
+        player.seekTo(stream.startPositionMs)
+
+        if (entity?.type == "EPISODE") {
+            jellyfin.nextEpisode(account, entity)?.let { next ->
+                jellyfinNextId = next.itemId
+                _nextEpisode.value = jellyfinDisplay(account.baseUrl, next)
+            }
+        }
+
+        player.play()
+        jellyfin.reportStart(stream, stream.startPositionMs)
+        startJellyfinTracker(stream)
+        resetOsdTimer()
+    }
+
+    private fun jellyfinMediaItem(stream: JellyfinPlayback.Stream): Pair<String, List<ExternalSubtitle>> {
+        val server = stream.subtitles.map { ExternalSubtitle(it.url, it.mimeType, it.label, it.language, it.isDefault) }
+        val downloaded = downloadedSubtitleFiles.map { file ->
+            ExternalSubtitle(platform.fileUri(file), subtitleMimeType(file.extension), file.nameWithoutExtension, null, false)
+        }
+        return stream.url to (server + downloaded)
+    }
+
+    /** The server keeps Continue Watching and resume points from these; every 10 s is what Jellyfin clients use. */
+    private fun startJellyfinTracker(stream: JellyfinPlayback.Stream) {
+        progressTrackerJob?.cancel()
+        progressTrackerJob = viewModelScope.launch {
+            while (true) {
+                delay(10_000)
+                jellyfin.reportProgress(stream, player.currentPosition.coerceAtLeast(0L), !player.isPlaying.value)
+            }
+        }
+    }
+
+    /**
+     * Tells the server playback stopped. Runs outside the view model's scope, since this is also
+     * called as the player closes.
+     */
+    private fun finishJellyfinSession(completed: Boolean = false) {
+        val stream = jellyfinStream ?: return
+        jellyfinStream = null
+        val duration = player.duration.takeIf { it > 0 } ?: stream.durationMs ?: 0L
+        val position = if (completed && duration > 0) duration else player.currentPosition.coerceAtLeast(0L)
+        sessionScope.launch { jellyfin.reportStopped(stream, position, duration) }
     }
 
     fun toggleOsd() {
@@ -578,6 +736,7 @@ class PlayerViewModel constructor(
     fun seekBackward() { player.seekTo((player.currentPosition - 10000).coerceAtLeast(0)); showOsdBriefly() }
 
     override fun onCleared() {
+        finishJellyfinSession()
         companionHub.onPlaybackMedia(null)
         player.removeListener(playerListener)
         player.stop()
@@ -589,6 +748,15 @@ class PlayerViewModel constructor(
 
     private fun subtitleDelayKey(mediaId: Long) = "subtitle_delay_$mediaId"
     companion object {
+        /** Outlives the view model, so the stop report still reaches the server after the player closes. */
+        private val sessionScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * A stable, negative id for a Jellyfin title shown through the local [MediaEntity] model, so
+         * per-title screen state resets between titles and nothing mistakes it for a local row.
+         */
+        fun jellyfinDisplayId(itemId: String): Long = -1L - (itemId.hashCode().toLong() and 0x7FFFFFFF)
+
         const val SYNC_STEP_MS = 100L
         const val MAX_SUBTITLE_DELAY_MS = 5_000L
         private const val PLAYBACK_SYNC_PREFERENCES = "playback_sync"
@@ -689,3 +857,25 @@ private fun inferLanguage(subtitleName: String, videoName: String): String? =
         .substringBefore('.').takeIf { it.length in 2..3 }
 
 internal val SUBTITLE_EXTENSIONS = setOf("srt", "vtt", "ssa", "ass", "ttml", "dfxp", "xml")
+
+/** A Jellyfin title in the shape the player screen shows: artwork as full URLs, no local file. */
+private fun jellyfinDisplay(baseUrl: String, item: RemoteItemEntity): MediaEntity {
+    val catalog = JellyfinImages(baseUrl).item(item)
+    val episode = item.type == "EPISODE"
+    return MediaEntity(
+        id = PlayerViewModel.jellyfinDisplayId(item.itemId),
+        filePath = "",
+        title = if (episode) item.seriesName ?: item.name else item.name,
+        year = item.year,
+        tmdbId = item.tmdbId?.toIntOrNull(),
+        posterPath = catalog.poster,
+        backdropPath = catalog.backdrop,
+        overview = item.overview,
+        type = if (episode) "EPISODE" else "MOVIE",
+        seasonNumber = item.seasonNumber,
+        episodeNumber = item.episodeNumber,
+        episodeTitle = if (episode) item.name else null,
+        stillPath = if (episode) catalog.thumb else null,
+        duration = item.runtimeMs
+    )
+}
