@@ -23,7 +23,8 @@ import me.xdan.aperture.domain.repository.ProfileRepository
 class MyListViewModel constructor(
     repository: MediaRepository,
     catalog: JellyfinCatalog,
-    profiles: ProfileRepository
+    profiles: ProfileRepository,
+    hybrid: me.xdan.aperture.domain.hybrid.HybridIndexSource
 ) : ViewModel() {
     private val remote = catalog.activeAccount.flatMapLatest { account ->
         if (account == null) flowOf(emptyList())
@@ -33,7 +34,15 @@ class MyListViewModel constructor(
     val entries: StateFlow<List<BrowseEntry>> = profiles.activeLibraryMode.flatMapLatest { mode ->
         combine(
             if (mode.usesLocal) repository.getFavoriteMedia().map { list -> list.map { BrowseEntry.Local(it) } } else flowOf(emptyList()),
-            if (mode.usesJellyfin) remote else flowOf(emptyList())
-        ) { local, server -> local + server }
+            if (mode.usesJellyfin) remote else flowOf(emptyList()),
+            hybrid.index
+        ) { local, server, index ->
+            // A server favourite that's also a local favourite shows once.
+            val localIds = local.mapNotNull { (it as? BrowseEntry.Local)?.media?.id }.toSet()
+            val covered = localIds.flatMap { index.remoteFor[it].orEmpty() }.map { it.itemId }.toSet()
+            local + server.filterNot { entry ->
+                entry is BrowseEntry.Remote && (entry.item.key as? me.xdan.aperture.domain.model.MediaKey.Jellyfin)?.itemId in covered
+            }
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

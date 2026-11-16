@@ -23,7 +23,8 @@ import me.xdan.aperture.domain.repository.ProfileRepository
 class SearchViewModel constructor(
     repository: MediaRepository,
     catalog: JellyfinCatalog,
-    profiles: ProfileRepository
+    profiles: ProfileRepository,
+    hybrid: me.xdan.aperture.domain.hybrid.HybridIndexSource
 ) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
@@ -58,10 +59,12 @@ class SearchViewModel constructor(
     val results: StateFlow<List<BrowseEntry>> = profiles.activeLibraryMode.flatMapLatest { mode ->
         combine(
             if (mode.usesLocal) local else flowOf(emptyList()),
-            if (mode.usesJellyfin) remote else flowOf(emptyList())
-        ) { localResults, remoteResults ->
-            // Hybrid lists both for now; matching copies merge into one result in the hybrid step.
-            (localResults + remoteResults).sortedBy { it.sortTitle.lowercase() }
+            if (mode.usesJellyfin) remote else flowOf(emptyList()),
+            hybrid.index
+        ) { localResults, remoteResults, index ->
+            // A title in both places shows once, as the local copy.
+            val merged = remoteResults.filterNot { it is BrowseEntry.Remote && it.item.jellyfinItemId in index.matchedRemoteIds }
+            (localResults + merged).sortedBy { it.sortTitle.lowercase() }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -69,3 +72,6 @@ class SearchViewModel constructor(
         _query.value = newQuery
     }
 }
+
+private val me.xdan.aperture.domain.catalog.CatalogItem.jellyfinItemId: String?
+    get() = (key as? me.xdan.aperture.domain.model.MediaKey.Jellyfin)?.itemId
