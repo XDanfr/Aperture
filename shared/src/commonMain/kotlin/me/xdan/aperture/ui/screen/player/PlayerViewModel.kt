@@ -633,7 +633,10 @@ class PlayerViewModel constructor(
             _playbackFailure.value = PlaybackFailure("Not signed in", "Sign in to Jellyfin from Settings to play this title.")
             return
         }
-        player.setTunnelingEnabled(preferences.tunnelingEnabled.first())
+        // Never tunnelled: a network stream pauses to rebuffer now and then, and on some TV chips
+        // (Amlogic, as in the Chromecast with Google TV) tunnelled passthrough audio doesn't come
+        // back after a pause, so the sound cuts out a second or two in and the picture stalls.
+        player.setTunnelingEnabled(false)
 
         val start = startMs ?: entity?.let { item ->
             val runtime = item.runtimeMs ?: 0L
