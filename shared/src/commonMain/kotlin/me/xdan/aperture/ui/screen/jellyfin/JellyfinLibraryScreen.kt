@@ -17,6 +17,8 @@ import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -66,18 +68,24 @@ fun JellyfinLibraryScreen(
         pendingFocusIndex = null
     }
 
-    Row(Modifier.fillMaxSize().padding(start = 40.dp, top = 32.dp, end = 16.dp)) {
-        Column(Modifier.weight(1f)) {
+    // Laid out like the local Movies and Shows grids, so the two feel the same.
+    Row(Modifier.fillMaxSize().graphicsLayer { clip = false }) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 32.dp, end = 16.dp, top = 24.dp)
+                .graphicsLayer { clip = false }
+        ) {
             // Header: name and count, then sort and filters.
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(state.name, style = MaterialTheme.typography.displaySmall)
+                Text(state.name, style = MaterialTheme.typography.headlineLarge)
                 Spacer(Modifier.width(ApertureTheme.spacing.medium))
                 if (items != null) {
                     Text(
                         "%,d %s".format(items.size, if (items.size == 1) "title" else "titles"),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
             }
@@ -101,25 +109,44 @@ fun JellyfinLibraryScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                else -> LazyVerticalGrid(
+                else -> {
+                    // Only the first column hands Left to the sidebar; the rest move along the row.
+                    val columns = GRID_COLUMNS
+                    LazyVerticalGrid(
                     state = gridState,
-                    columns = GridCells.Adaptive(150.dp),
-                    contentPadding = PaddingValues(top = 12.dp, bottom = 48.dp, end = 12.dp, start = 4.dp),
+                    columns = GridCells.Fixed(GRID_COLUMNS),
+                    contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
                     horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
                     verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }
                 ) {
                     itemsIndexed(items, key = { _, item -> item.key.stableId }) { index, item ->
                         val requester = if (index == 0) contentEntryFocusRequester else cardRequesters.getOrPut(index) { FocusRequester() }
                         if (index == 0) cardRequesters[0] = contentEntryFocusRequester
-                        CatalogCard(
-                            item = item,
-                            onClick = { onItemClick(item, it) },
-                            focusRequester = requester,
-                            drawerFocusRequester = drawerFocusRequester,
-                            onFocused = onContentFocused
-                        )
+                        var isFocused by remember { mutableStateOf(false) }
+                        // Cards fade and grow in as they arrive, as on the local grids.
+                        var visible by remember(item.key) { mutableStateOf(false) }
+                        LaunchedEffect(item.key) { visible = true }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = visible,
+                            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
+                                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(260), initialScale = 0.94f),
+                            modifier = Modifier.zIndex(if (isFocused) 1f else 0f)
+                        ) {
+                            CatalogCard(
+                                item = item,
+                                onClick = { onItemClick(item, it) },
+                                modifier = Modifier.fillMaxWidth(),
+                                focusRequester = requester,
+                                drawerFocusRequester = drawerFocusRequester.takeIf { index % columns == 0 },
+                                onFocused = {
+                                    isFocused = true
+                                    onContentFocused(it)
+                                }
+                            )
+                        }
                     }
+                }
                 }
             }
         }
@@ -139,3 +166,6 @@ fun JellyfinLibraryScreen(
     }
 
 }
+
+/** The same five columns as the local Movies and Shows grids. */
+private const val GRID_COLUMNS = 5
