@@ -16,8 +16,13 @@ data class PairedTv(
     val port: Int,
     val token: String,
     /** A [me.xdan.aperture.companion.protocol.DeviceKind]. */
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    /** A [me.xdan.aperture.companion.protocol.DeviceOs]; blank until a newer server says. */
+    val deviceOs: String = ""
 ) {
+    /** "TV", "Mac", "PC" or "computer", for text about this device. */
+    val noun: String get() = DeviceKind.noun(deviceKind, deviceOs)
+
     val baseUrl: String get() = "http://${if (':' in host) "[$host]" else host}:$port"
 }
 
@@ -60,6 +65,7 @@ class CompanionSettings(context: Context) {
             .putInt(KEY_TV_PORT, tv.port)
             .putString(KEY_TV_TOKEN, tv.token)
             .putString(KEY_TV_KIND, tv.deviceKind)
+            .putString(KEY_TV_OS, tv.deviceOs)
             .apply()
         _pairedTv.value = tv
     }
@@ -70,15 +76,17 @@ class CompanionSettings(context: Context) {
         savePairedTv(tv.copy(host = host, port = port))
     }
 
-    fun updateDeviceKind(kind: String) {
+    fun updateDeviceKind(kind: String, os: String) {
         val tv = _pairedTv.value ?: return
-        if (tv.deviceKind == kind) return
-        savePairedTv(tv.copy(deviceKind = kind))
+        // An older server sends no OS; keep what's known rather than forgetting it.
+        val newOs = os.ifBlank { tv.deviceOs }
+        if (tv.deviceKind == kind && tv.deviceOs == newOs) return
+        savePairedTv(tv.copy(deviceKind = kind, deviceOs = newOs))
     }
 
     fun clearPairedTv() {
         pairing.edit().remove(KEY_TV_ID).remove(KEY_TV_NAME).remove(KEY_TV_HOST)
-            .remove(KEY_TV_PORT).remove(KEY_TV_TOKEN).remove(KEY_TV_KIND).apply()
+            .remove(KEY_TV_PORT).remove(KEY_TV_TOKEN).remove(KEY_TV_KIND).remove(KEY_TV_OS).apply()
         _pairedTv.value = null
     }
 
@@ -102,11 +110,12 @@ class CompanionSettings(context: Context) {
         val token = pairing.getString(KEY_TV_TOKEN, null) ?: return null
         return PairedTv(
             tvId = pairing.getString(KEY_TV_ID, null).orEmpty(),
-            name = pairing.getString(KEY_TV_NAME, null) ?: "Aperture TV",
+            name = pairing.getString(KEY_TV_NAME, null) ?: "Aperture",
             host = pairing.getString(KEY_TV_HOST, null) ?: return null,
             port = pairing.getInt(KEY_TV_PORT, 0).takeIf { it > 0 } ?: return null,
             token = token,
-            deviceKind = pairing.getString(KEY_TV_KIND, null) ?: DeviceKind.TV
+            deviceKind = pairing.getString(KEY_TV_KIND, null) ?: DeviceKind.TV,
+            deviceOs = pairing.getString(KEY_TV_OS, null).orEmpty()
         )
     }
 
@@ -118,6 +127,7 @@ class CompanionSettings(context: Context) {
         const val KEY_TV_PORT = "tv_port"
         const val KEY_TV_TOKEN = "tv_token"
         const val KEY_TV_KIND = "tv_kind"
+        const val KEY_TV_OS = "tv_os"
         const val KEY_THEME = "theme_choice"
         const val KEY_TV_THEME = "last_tv_theme"
         const val KEY_ONBOARDED = "onboarding_done"

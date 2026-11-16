@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui.screens
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -111,8 +112,8 @@ fun OnboardingScreen(viewModel: CompanionViewModel) {
                         BrandHero(Modifier.size(160.dp))
                         Text("Aperture Companion", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
                         Text(
-                            "Browse your TV's library, start something on the big screen, and control playback from your phone. " +
-                                "Your videos stay on the TV; only details and artwork come to your phone.",
+                            "Browse the library on your TV or computer, start something playing, and control playback from your phone. " +
+                                "Your videos stay where they are; only details and artwork come to your phone.",
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -125,7 +126,7 @@ fun OnboardingScreen(viewModel: CompanionViewModel) {
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Text("Pair with your TV", style = MaterialTheme.typography.headlineMedium)
+                        Text("Pair with Aperture", style = MaterialTheme.typography.headlineMedium)
                         if (paired) {
                             Text("Paired! Loading your library…", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         } else {
@@ -150,14 +151,14 @@ fun NotPairedPrompt(onPair: () -> Unit, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         BrandHero(Modifier.size(120.dp))
-        Text("No TV paired", style = MaterialTheme.typography.headlineSmall)
+        Text("Nothing paired", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Pair with Aperture on your TV to browse and control it from here.",
+            "Pair with Aperture on your TV or computer to browse and control it from here.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Button(onClick = onPair) { Text("Pair a TV") }
+        Button(onClick = onPair) { Text("Pair a device") }
     }
 }
 
@@ -179,13 +180,13 @@ fun SettingsScreen(
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsSection("TV") {
+        SettingsSection("${LocalDeviceNoun.current.replaceFirstChar { it.uppercase() }}") {
             val current = tv
             if (current == null) {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     leadingContent = { Icon(Icons.Rounded.Tv, null) },
-                    headlineContent = { Text("No TV paired") },
+                    headlineContent = { Text("Nothing paired") },
                     trailingContent = { Button(onClick = onPair) { Text("Pair") } }
                 )
             } else {
@@ -201,14 +202,14 @@ fun SettingsScreen(
                                     ?: "Connected · ${current.host}"
                                 ConnectionState.Connecting -> "Connecting…"
                                 is ConnectionState.Offline -> "Offline · retrying in ${c.retryInSeconds}s"
-                                ConnectionState.Revoked -> "This phone was removed on the TV"
+                                ConnectionState.Revoked -> "This phone was removed on the ${LocalDeviceNoun.current}"
                                 ConnectionState.NotPaired -> "Not paired"
                             }
                         )
                     }
                 )
                 Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onPair) { Text("Pair a different TV") }
+                    OutlinedButton(onClick = onPair) { Text("Pair a different device") }
                     TextButton(onClick = { confirmForget = true }) {
                         Icon(Icons.Rounded.LinkOff, null)
                         Spacer(Modifier.width(6.dp))
@@ -223,16 +224,16 @@ fun SettingsScreen(
                 ThemeRow(
                     selected = choice == ThemeChoice.SYNC_TV,
                     icon = Icons.Rounded.Sync,
-                    title = "Match TV",
+                    title = "Match ${LocalDeviceNoun.current.replaceFirstChar { it.uppercase() }}",
                     subtitle = tvState?.let { state ->
                         when {
-                            state.themeId == DynamicThemeId -> "TV uses Artwork Dynamic · Aperture Purple here"
+                            state.themeId == DynamicThemeId -> "${LocalDeviceNoun.current.replaceFirstChar { it.uppercase() }} uses Artwork Dynamic · Aperture Purple here"
                             state.themeId == me.xdan.aperture.ui.theme.PhoneThemeId && state.themeDeviceId == viewModel.deviceId ->
-                                "TV matches this phone · Material You"
-                            state.themeId == me.xdan.aperture.ui.theme.PhoneThemeId -> "TV matches another phone's colours"
+                                "${LocalDeviceNoun.current.replaceFirstChar { it.uppercase() }} matches this phone · Material You"
+                            state.themeId == me.xdan.aperture.ui.theme.PhoneThemeId -> "${LocalDeviceNoun.current.replaceFirstChar { it.uppercase() }} matches another phone's colours"
                             else -> ApertureThemeOptions.firstOrNull { it.id == state.themeId }?.label
                         }
-                    } ?: "Follows the TV's theme",
+                    } ?: "Follows the ${LocalDeviceNoun.current}'s theme",
                     onClick = { viewModel.setThemeChoice(ThemeChoice.SYNC_TV) }
                 )
                 if (supportsMaterialYou()) {
@@ -303,8 +304,8 @@ fun SettingsScreen(
     if (confirmForget) {
         AlertDialog(
             onDismissRequest = { confirmForget = false },
-            title = { Text("Unpair this TV?") },
-            text = { Text("You'll need to scan the TV's code again to reconnect.") },
+            title = { Text("Unpair this ${LocalDeviceNoun.current}?") },
+            text = { Text("You'll need to scan the ${LocalDeviceNoun.current}'s code again to reconnect.") },
             confirmButton = {
                 TextButton(onClick = { confirmForget = false; viewModel.forgetTv() }) { Text("Unpair") }
             },
@@ -367,7 +368,7 @@ fun PairingPage(viewModel: CompanionViewModel, onDone: () -> Unit) {
                 androidx.compose.material3.IconButton(onClick = onDone) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
-                Text("Pair with your TV", style = MaterialTheme.typography.headlineSmall)
+                Text("Pair with Aperture", style = MaterialTheme.typography.headlineSmall)
             }
             PairingFlow(viewModel, onPaired = onDone)
         }

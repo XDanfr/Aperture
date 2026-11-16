@@ -21,6 +21,13 @@ class DesktopCompanionPlatform : CompanionPlatform {
     }
 
     override val deviceKind: String by lazy(::detectDesktopDeviceKind)
+    override val deviceOs: String = System.getProperty("os.name").orEmpty().lowercase().let { os ->
+        when {
+            "mac" in os -> me.xdan.aperture.companion.protocol.DeviceOs.MAC
+            "windows" in os -> me.xdan.aperture.companion.protocol.DeviceOs.WINDOWS
+            else -> me.xdan.aperture.companion.protocol.DeviceOs.LINUX
+        }
+    }
 
     override fun localIpv4Address(): String? = lanAddress()?.hostAddress
 

@@ -20,8 +20,13 @@ data class DiscoveredTv(
     val host: String,
     val port: Int,
     /** A [me.xdan.aperture.companion.protocol.DeviceKind]; older TVs don't advertise one. */
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    /** A [me.xdan.aperture.companion.protocol.DeviceOs]; blank from older servers. */
+    val deviceOs: String = ""
 ) {
+    /** "TV", "Mac", "PC" or "computer", for text about this device. */
+    val noun: String get() = DeviceKind.noun(deviceKind, deviceOs)
+
     val baseUrl: String get() = "http://${if (':' in host) "[$host]" else host}:$port"
 }
 
@@ -111,11 +116,12 @@ class TvDiscovery(private val context: Context) {
         val tvId = attributes[CompanionProtocol.TXT_TV_ID]?.let(::String).orEmpty()
         return DiscoveredTv(
             serviceName = serviceName,
-            name = serviceName.removePrefix("Aperture · ").ifBlank { "Aperture TV" },
+            name = serviceName.removePrefix("Aperture · ").ifBlank { "Aperture" },
             tvId = tvId,
             host = address.hostAddress ?: return null,
             port = port,
-            deviceKind = attributes[CompanionProtocol.TXT_DEVICE_KIND]?.let(::String)?.ifBlank { null } ?: DeviceKind.TV
+            deviceKind = attributes[CompanionProtocol.TXT_DEVICE_KIND]?.let(::String)?.ifBlank { null } ?: DeviceKind.TV,
+            deviceOs = attributes[CompanionProtocol.TXT_DEVICE_OS]?.let(::String).orEmpty()
         )
     }
 

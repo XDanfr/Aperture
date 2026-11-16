@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.data
 
+import me.xdan.aperture.companion.protocol.DeviceKind
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -159,7 +160,7 @@ class TvRepository(
 
     private fun applyState(state: TvState) {
         _tvState.value = state
-        settings.updateDeviceKind(state.deviceKind)
+        settings.updateDeviceKind(state.deviceKind, state.deviceOs)
         settings.setLastTvTheme(syncedThemeId(state, settings.deviceId))
         _nowPlaying.value = state.nowPlaying?.let { LiveNowPlaying(it, SystemClock.elapsedRealtime()) }
     }
@@ -176,16 +177,17 @@ class TvRepository(
     // region pairing
 
     suspend fun pairWithInvite(invite: PairingInvite): PairingResult =
-        pair(invite.host, invite.port, invite.code, invite.tvId, invite.tvName)
+        pair(invite.host, invite.port, invite.code, invite.tvId, invite.tvName, DeviceKind.noun(invite.deviceKind, invite.deviceOs))
 
     suspend fun requestPairing(tv: DiscoveredTv): PairingResult = try {
         client.requestPairing(tv.baseUrl, settings.deviceId, settings.deviceName)
         PairingResult.Success
     } catch (e: Exception) {
-        PairingResult.Failure(e.toUserMessage())
+        PairingResult.Failure(e.toUserMessage(tv.noun))
     }
 
-    suspend fun pair(host: String, port: Int, code: String, tvId: String = "", tvName: String = ""): PairingResult {
+    /** [noun] names the device in error messages; a typed-in address could be either. */
+    suspend fun pair(host: String, port: Int, code: String, tvId: String = "", tvName: String = "", noun: String = UNKNOWN_NOUN): PairingResult {
         val baseUrl = "http://${if (':' in host) "[$host]" else host}:$port"
         return try {
             val response = client.pair(baseUrl, code.filter(Char::isDigit), settings.deviceId, settings.deviceName)
@@ -196,7 +198,8 @@ class TvRepository(
                     host = host,
                     port = port,
                     token = response.token,
-                    deviceKind = response.deviceKind
+                    deviceKind = response.deviceKind,
+                    deviceOs = response.deviceOs
                 )
             )
             _library.value = null
@@ -204,7 +207,7 @@ class TvRepository(
             reconnectNow()
             PairingResult.Success
         } catch (e: Exception) {
-            PairingResult.Failure(e.toUserMessage())
+            PairingResult.Failure(e.toUserMessage(noun))
         }
     }
 
@@ -243,18 +246,21 @@ class TvRepository(
 
     // endregion
 
-    private fun Exception.toUserMessage(): String = also { android.util.Log.w("TvRepository", "Pairing failed", it) }.let { when (this) {
+    private fun Exception.toUserMessage(noun: String): String = also { android.util.Log.w("TvRepository", "Pairing failed", it) }.let { when (this) {
         is TvApiException -> when (code) {
-            "wrong_code" -> "That code didn't match. Check the code on your TV."
-            "pairing_closed" -> "Pairing isn't open on the TV. Open Settings › Paired phones on the TV and try again."
+            "wrong_code" -> "That code didn't match. Check the code on your $noun."
+            "pairing_closed" -> "Pairing isn't open on the $noun. Open Settings › Paired phones on the $noun and try again."
             "slow_down" -> "Please wait a moment and try again."
-            else -> "The TV refused the request ($status)."
+            else -> "The $noun refused the request ($status)."
         }
-        else -> "Couldn't reach the TV. Make sure Aperture is open and both devices are on the same network."
+        else -> "Couldn't reach the $noun. Make sure Aperture is open and both devices are on the same network."
     } }
 
-    private companion object {
-        val BACKOFF_SECONDS = intArrayOf(2, 3, 5, 8, 13, 20)
+    companion object {
+        /** For text about a device before the phone knows which kind it is. */
+        const val UNKNOWN_NOUN = "TV or computer"
+
+        private val BACKOFF_SECONDS = intArrayOf(2, 3, 5, 8, 13, 20)
     }
 }
 
