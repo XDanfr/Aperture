@@ -39,6 +39,11 @@ import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.ui.theme.ApertureTheme
 
+/** A TMDB path at [size], or a full URL (e.g. a Jellyfin image) as it is. */
+fun artworkUrl(pathOrUrl: String?, size: String): String? = pathOrUrl
+    ?.takeIf { it.isNotBlank() }
+    ?.let { if (it.startsWith("http://") || it.startsWith("https://")) it else TmdbApi.IMAGE_BASE_URL + size + it }
+
 @Composable
 fun MediaCard(
     media: MediaEntity,
@@ -66,6 +71,65 @@ fun MediaCard(
     } else {
         media.title
     }
+    ArtworkCard(
+        artwork = artworkUrl(artworkPath, "w500"),
+        title = fallbackTitle,
+        onClick = onClick,
+        modifier = modifier,
+        focusRequester = focusRequester,
+        aspectRatio = aspectRatio,
+        progress = progress,
+        focusScale = focusScale,
+        drawerFocusRequester = drawerFocusRequester,
+        onFocused = onFocused,
+        onLongClick = onLongClick
+    )
+}
+
+/** A Jellyfin (or any catalog) item as a poster, or as a 16:9 still when [landscape]. */
+@Composable
+fun CatalogCard(
+    item: me.xdan.aperture.domain.catalog.CatalogItem,
+    onClick: (FocusRequester) -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+    landscape: Boolean = false,
+    focusScale: Float = 1.08f,
+    drawerFocusRequester: FocusRequester? = null,
+    onFocused: (FocusRequester) -> Unit = {},
+    onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
+) {
+    ArtworkCard(
+        artwork = if (landscape) item.thumb ?: item.backdrop ?: item.poster else item.poster,
+        title = if (landscape) listOfNotNull(item.title, item.episodeLabel).joinToString(" · ") else item.title,
+        onClick = onClick,
+        modifier = modifier,
+        focusRequester = focusRequester,
+        aspectRatio = if (landscape) 16f / 9f else 2f / 3f,
+        progress = item.progress,
+        focusScale = focusScale,
+        drawerFocusRequester = drawerFocusRequester,
+        onFocused = onFocused,
+        onLongClick = onLongClick
+    )
+}
+
+/** The focusable artwork tile behind every media card. [artwork] is a ready-to-load URL. */
+@Composable
+fun ArtworkCard(
+    artwork: String?,
+    title: String,
+    onClick: (FocusRequester) -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+    aspectRatio: Float = 2f / 3f,
+    progress: Float = 0f,
+    focusScale: Float = 1.08f,
+    drawerFocusRequester: FocusRequester? = null,
+    onFocused: (FocusRequester) -> Unit = {},
+    onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
+) {
+    val fallbackTitle = title
     var isFocused by remember { mutableStateOf(false) }
     val internalFocusRequester = remember { FocusRequester() }
     val cardFocusRequester = focusRequester ?: internalFocusRequester
@@ -148,7 +212,7 @@ fun MediaCard(
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (artworkPath.isNullOrBlank()) {
+                if (artwork.isNullOrBlank()) {
                     ArtworkFallback(
                         title = fallbackTitle,
                         isFocused = isFocused
@@ -156,7 +220,7 @@ fun MediaCard(
                 } else {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalPlatformContext.current)
-                            .data(TmdbApi.IMAGE_BASE_URL + "w500" + artworkPath)
+                            .data(artwork)
                             .crossfade(false)
                             .build(),
                         contentDescription = fallbackTitle,

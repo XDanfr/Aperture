@@ -1,6 +1,7 @@
 package me.xdan.aperture.data.local.dao
 
 import androidx.room.*
+import androidx.room.RoomRawQuery
 import kotlinx.coroutines.flow.Flow
 import me.xdan.aperture.data.local.entity.JellyfinAccountEntity
 import me.xdan.aperture.data.local.entity.RemoteItemEntity
@@ -88,6 +89,27 @@ interface JellyfinDao {
 
     @Query("SELECT COUNT(*) FROM remote_items WHERE accountId = :accountId AND type = :type")
     suspend fun countOfType(accountId: Long, type: String): Int
+
+    /** Library grids: sorting and filtering happen in SQLite (see JellyfinCatalog). */
+    @RawQuery(observedEntities = [RemoteItemEntity::class])
+    fun itemsRaw(query: RoomRawQuery): Flow<List<RemoteItemEntity>>
+
+    @Query("""
+        SELECT * FROM remote_items
+        WHERE accountId = :accountId AND playbackPositionMs > 0 AND played = 0 AND type IN ('MOVIE', 'EPISODE', 'VIDEO')
+        ORDER BY lastPlayedAt DESC LIMIT :limit
+    """)
+    fun continueWatching(accountId: Long, limit: Int): Flow<List<RemoteItemEntity>>
+
+    @Query("""
+        SELECT * FROM remote_items
+        WHERE accountId = :accountId AND libraryId = :libraryId AND type IN ('MOVIE', 'SERIES', 'VIDEO')
+        ORDER BY dateCreated DESC LIMIT :limit
+    """)
+    fun recentlyAdded(accountId: Long, libraryId: String, limit: Int): Flow<List<RemoteItemEntity>>
+
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND type = 'MOVIE' AND backdropImageTag IS NOT NULL AND played = 0 ORDER BY RANDOM() LIMIT :limit")
+    suspend fun spotlightCandidates(accountId: Long, limit: Int): List<RemoteItemEntity>
 
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND seriesId = :seriesId ORDER BY seasonNumber, episodeNumber")
     suspend fun episodesOf(accountId: Long, seriesId: String): List<RemoteItemEntity>
