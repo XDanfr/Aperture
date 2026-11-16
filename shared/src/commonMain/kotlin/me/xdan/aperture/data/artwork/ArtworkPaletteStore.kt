@@ -69,6 +69,23 @@ class ArtworkPaletteStore(
 
     private fun isFullUrl(path: String) = path.startsWith("http://") || path.startsWith("https://")
 
+    /**
+     * Drops artwork a removed title no longer needs: its colours and the cached images. Takes
+     * TMDB paths (removed at each size the app loads) or full image URLs.
+     */
+    suspend fun forget(paths: Collection<String>) {
+        if (paths.isEmpty()) return
+        dao.delete(paths.toList())
+        val loader = imageLoader()
+        val urls = paths.flatMap { path ->
+            if (isFullUrl(path)) listOf(path)
+            else TMDB_SIZES.map { size -> me.xdan.aperture.data.remote.api.TmdbApi.IMAGE_BASE_URL + size + path } +
+                BackdropImageUsage.entries.map { backdropImageUrl(path, backdropImageSpec(screen, it)) }
+        }.toSet()
+        urls.forEach { url -> loader.diskCache?.remove(url) }
+        loader.memoryCache?.let { cache -> cache.keys.filter { it.key in urls }.forEach { cache.remove(it) } }
+    }
+
     fun artworkLoaded(url: String, result: SuccessResult, loader: ImageLoader) {
         val path = artworkPathFromUrl(url) ?: return
         scope.launch { compute(path, url, loader, result, false) }
@@ -123,3 +140,6 @@ class ArtworkPaletteStore(
         return work.await()
     }
 }
+
+/** The TMDB poster and still sizes the app loads, besides backdrops (which follow the screen). */
+private val TMDB_SIZES = listOf("w185", "w342", "w500", "w780", "original")

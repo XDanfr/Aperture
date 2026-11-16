@@ -99,12 +99,15 @@ val sharedModule = module {
     single { me.xdan.aperture.data.jellyfin.JellyfinCredentials(get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinClients(get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinAccounts(get(), get(), get(), get()) }
-    single { me.xdan.aperture.data.jellyfin.JellyfinSync(get(), get()) }
+    single {
+        val artwork: me.xdan.aperture.data.jellyfin.JellyfinArtworkCache = get()
+        me.xdan.aperture.data.jellyfin.JellyfinSync(get(), get(), onRemoved = { account, items -> artwork.forget(account, items) })
+    }
     single { me.xdan.aperture.data.jellyfin.JellyfinArtworkCache(get(), get(), get()) { get() } }
     single { me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher(get(), get(), get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinCatalog(get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinPlayback(get(), get(), get<me.xdan.aperture.data.jellyfin.JellyfinAccounts>().activeAccount) }
-    single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
+    single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get()) }
     single { SponsorVerificationManager(get(), get()) }
     single { OpenSubtitlesSessionManager(get(), get()) }
     single { CompanionDeviceStore(get(), get()) }

@@ -16,4 +16,7 @@ interface ArtworkPaletteDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(palette: ArtworkPaletteEntity)
+
+    @Query("DELETE FROM artwork_palettes WHERE artworkPath IN (:paths)")
+    suspend fun delete(paths: List<String>)
 }

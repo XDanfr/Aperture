@@ -75,6 +75,12 @@ interface JellyfinDao {
     suspend fun deleteItems(accountId: Long, itemIds: List<String>)
 
     /** After a full sync: drops whatever the server no longer has. */
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND syncGeneration != :generation")
+    suspend fun itemsNotIn(accountId: Long, generation: Long): List<RemoteItemEntity>
+
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND itemId IN (:itemIds)")
+    suspend fun itemsById(accountId: Long, itemIds: List<String>): List<RemoteItemEntity>
+
     @Query("DELETE FROM remote_items WHERE accountId = :accountId AND syncGeneration != :generation")
     suspend fun deleteItemsNotIn(accountId: Long, generation: Long): Int
 
