@@ -128,7 +128,7 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun setMedia(uri: String, subtitles: List<ExternalSubtitle>) {
         val s = ensureSession() ?: return
-        Log.i(TAG, "Setting media: $uri")
+        Log.i(TAG, "Setting media: ${me.xdan.aperture.util.redactUrl(uri)}")
         _videoDecoderName.value = null
         _audioDecoderName.value = null
         fileLoaded = false
