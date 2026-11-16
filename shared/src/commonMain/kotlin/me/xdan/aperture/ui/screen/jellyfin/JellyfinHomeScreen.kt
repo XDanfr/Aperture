@@ -143,7 +143,17 @@ fun JellyfinHomeScreen(
             if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
         }
     }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // As on the local Home: the spotlight themes the app (Artwork Dynamic) while it's on screen at
+    // the top and nothing in a row has taken over.
+    var rowHasTheme by remember { mutableStateOf(false) }
+    val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24 } }
+    val rowFocused: (FocusRequester) -> Unit = { requester ->
+        rowHasTheme = true
+        onContentFocused(requester)
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
@@ -159,7 +169,11 @@ fun JellyfinHomeScreen(
                 onOpen = onItemClick,
                 entryFocusRequester = contentEntryFocusRequester.takeIf { spotlightIsEntry },
                 drawerFocusRequester = drawerFocusRequester,
-                onFocused = onContentFocused
+                onFocused = {
+                    rowHasTheme = false
+                    onContentFocused(it)
+                },
+                allowUnfocusedTheme = spotlightAt == 0 && atTop && !rowHasTheme
             )
         }
         rows.forEachIndexed { rowIndex, row ->
@@ -183,7 +197,7 @@ fun JellyfinHomeScreen(
                             onClick = { onItemClick(item, it) },
                             focusRequester = if (!spotlightIsEntry && rowIndex == 0 && index == 0) contentEntryFocusRequester else null,
                             drawerFocusRequester = if (index == 0) drawerFocusRequester else null,
-                            onFocused = onContentFocused,
+                            onFocused = rowFocused,
                             modifier = Modifier.width(if (row.landscape) 280.dp else 150.dp)
                         )
                     }
@@ -206,13 +220,25 @@ private fun SpotlightCarousel(
     onOpen: (CatalogItem, FocusRequester) -> Unit,
     entryFocusRequester: FocusRequester?,
     drawerFocusRequester: FocusRequester?,
-    onFocused: (FocusRequester) -> Unit
+    onFocused: (FocusRequester) -> Unit,
+    allowUnfocusedTheme: Boolean
 ) {
     val carouselState = androidx.tv.material3.rememberCarouselState()
+    val activeArtwork = me.xdan.aperture.ui.component.LocalActiveArtwork.current
     val primary = ApertureTheme.colorScheme.primary
     val requesters = remember(items.map { it.key }) { List(items.size) { FocusRequester() } }
     var focused by remember { mutableStateOf(false) }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(if (rounded) 32.dp else 0.dp)
+    // The shown title themes the app: at once while focused, otherwise after a moment so a card
+    // taking focus wins, as on the local Home.
+    LaunchedEffect(carouselState.activeItemIndex, items, focused, allowUnfocusedTheme) {
+        val artwork = items.getOrNull(carouselState.activeItemIndex)?.let { it.backdrop ?: it.poster } ?: return@LaunchedEffect
+        if (focused) activeArtwork(artwork)
+        else if (allowUnfocusedTheme) {
+            kotlinx.coroutines.delay(180)
+            activeArtwork(artwork)
+        }
+    }
     androidx.tv.material3.Surface(
         modifier = Modifier.fillMaxWidth().height(400.dp).padding(16.dp),
         shape = shape,

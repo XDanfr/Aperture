@@ -652,6 +652,7 @@ fun NavGraph(
                         onPlayerBack = returnFromPlayer,
                         onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onActiveArtworkChanged = mainViewModel::setActiveArtwork,
                         onForceRescan = {
                             isRescanVisible = true
                             mainViewModel.startLibraryPreparation(force = true)
@@ -704,6 +705,7 @@ fun NavGraph(
                         onPlayerBack = returnFromPlayer,
                         onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onActiveArtworkChanged = mainViewModel::setActiveArtwork,
                         onForceRescan = {
                             isRescanVisible = true
                             mainViewModel.startLibraryPreparation(force = true)
@@ -918,6 +920,7 @@ private fun NavContent(
     onPlayerBack: () -> Unit,
     onPlaybackMediaChanged: (Long) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
+    onActiveArtworkChanged: (String) -> Unit,
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
     onOpenLibrary: (Destination) -> Unit,
@@ -930,6 +933,9 @@ private fun NavContent(
     val libraryMode by org.koin.compose.koinInject<me.xdan.aperture.domain.repository.ProfileRepository>()
         .activeLibraryMode.collectAsState(me.xdan.aperture.domain.model.LibraryMode.LOCAL)
     val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
+    androidx.compose.runtime.CompositionLocalProvider(
+        me.xdan.aperture.ui.component.LocalActiveArtwork provides onActiveArtworkChanged
+    ) {
     NavDisplay(
         backStack = displayedDestinations
     ) { destination ->
@@ -1114,5 +1120,6 @@ private fun NavContent(
                 }
             }
         }
+    }
     }
 }

@@ -86,6 +86,12 @@ fun MediaCard(
     )
 }
 
+/**
+ * Where a focused Jellyfin title names its artwork (an image URL), so Artwork Dynamic can theme
+ * from it the way local cards do through their media id. Does nothing outside the browsing screens.
+ */
+val LocalActiveArtwork = androidx.compose.runtime.staticCompositionLocalOf<(String) -> Unit> { {} }
+
 /** A Jellyfin (or any catalog) item as a poster, or as a 16:9 still when [landscape]. */
 @Composable
 fun CatalogCard(
@@ -99,6 +105,7 @@ fun CatalogCard(
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
 ) {
+    val activeArtwork = LocalActiveArtwork.current
     ArtworkCard(
         artwork = if (landscape) item.thumb ?: item.backdrop ?: item.poster else item.poster,
         title = if (landscape) listOfNotNull(item.title, item.episodeLabel).joinToString(" · ") else item.title,
@@ -109,7 +116,10 @@ fun CatalogCard(
         progress = item.progress,
         focusScale = focusScale,
         drawerFocusRequester = drawerFocusRequester,
-        onFocused = onFocused,
+        onFocused = { requester ->
+            onFocused(requester)
+            (item.backdrop ?: item.poster)?.let(activeArtwork)
+        },
         onLongClick = onLongClick
     )
 }

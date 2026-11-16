@@ -30,7 +30,15 @@ internal val PaletteOnlyRequest = Extras.Key(default = false)
 
 private val TmdbArtworkUrl = Regex("^https://image\\.tmdb\\.org/t/p/(?:w[0-9]+|original)(/[^?#]+)(?:[?#].*)?$")
 
-internal fun artworkPathFromUrl(url: String): String? = TmdbArtworkUrl.matchEntire(url)?.groupValues?.get(1)
+/** Jellyfin artwork: `<server>/Items/<id>/Images/<type>?tag=…`. The tag changes when the image does. */
+private val JellyfinArtworkUrl = Regex("^https?://[^?#]+/Items/[^/]+/Images/[A-Za-z]+\\?(?:[^#]*&)?tag=[^&#]+.*$")
+
+/**
+ * The key a seed is saved under: the TMDB path, or for Jellyfin the image URL itself, which is
+ * also how screens name Jellyfin artwork.
+ */
+internal fun artworkPathFromUrl(url: String): String? =
+    TmdbArtworkUrl.matchEntire(url)?.groupValues?.get(1) ?: url.takeIf { JellyfinArtworkUrl.matches(it) }
 
 class ArtworkPaletteStore(
     private val context: PlatformContext,
@@ -51,7 +59,7 @@ class ArtworkPaletteStore(
         dao.get(path)?.takeIf { it.extractionVersion == ArtworkExtractionVersion }?.let { return it.seedArgb }
         val pending = synchronized(inFlight) { inFlight[path] }
         pending?.await()?.let { return it }
-        val url = backdropImageUrl(path, backdropImageSpec(screen, BackdropImageUsage.AMBIENT))
+        val url = if (isFullUrl(path)) path else backdropImageUrl(path, backdropImageSpec(screen, BackdropImageUsage.AMBIENT))
         return compute(path, url, imageLoader(), null, true)
     }
 
@@ -59,6 +67,8 @@ class ArtworkPaletteStore(
         val path = artworkPathFromUrl(url) ?: return
         scope.launch { compute(path, url, loader, result, false) }
     }
+    private fun isFullUrl(path: String) = path.startsWith("http://") || path.startsWith("https://")
+
 
     private suspend fun compute(
         path: String,

@@ -45,6 +45,7 @@ class MainViewModel constructor(
     private val _dynamicAccentArgb = MutableStateFlow<Int?>(null)
     val dynamicAccentArgb: StateFlow<Int?> = _dynamicAccentArgb
     private val activeMediaId = MutableStateFlow<Long?>(null)
+    private val activeArtwork = MutableStateFlow<String?>(null)
 
     val isTutorialRequired = userPreferencesRepository.isTutorialRequired.stateIn(
         viewModelScope,
@@ -85,7 +86,7 @@ class MainViewModel constructor(
         viewModelScope.launch {
             me.xdan.aperture.ui.artwork.dynamicArtworkSeeds(
                 activeMediaId, mediaRepository.getAllMedia(), userPreferencesRepository.themeId,
-                artworkPalettes::observeSeed
+                activeArtwork = activeArtwork, seed = artworkPalettes::observeSeed
             ).collect { _dynamicAccentArgb.value = it }
         }
         viewModelScope.launch {
@@ -135,7 +136,13 @@ class MainViewModel constructor(
     }
 
     fun setActiveMedia(mediaId: Long) {
+        activeArtwork.value = null
         activeMediaId.value = mediaId
+    }
+
+    /** A Jellyfin title is in front: theme from its artwork (an image URL). */
+    fun setActiveArtwork(url: String) {
+        activeArtwork.value = url
     }
 
 }
