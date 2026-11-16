@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui.screens
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,7 +109,7 @@ private fun PlayActions(
     onPlay: (CompanionMedia, Boolean) -> Unit,
     favourite: Boolean,
     onFavourite: (Boolean) -> Unit,
-    playLabel: String = if (media.isInProgress) "Resume on TV" else "Play on TV"
+    playLabel: String = if (media.isInProgress) "Resume on ${LocalDeviceNoun.current}" else "Play on ${LocalDeviceNoun.current}"
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -277,7 +278,7 @@ private fun EpisodeRow(episode: CompanionMedia, canControlTv: Boolean, onPlay: (
         },
         trailingContent = {
             androidx.compose.material3.IconButton(onClick = { onPlay(episode, false) }, enabled = canControlTv) {
-                Icon(Icons.Rounded.Cast, contentDescription = "Play on TV")
+                Icon(Icons.Rounded.Cast, contentDescription = "Play on ${LocalDeviceNoun.current}")
             }
         },
         modifier = Modifier.padding(horizontal = 4.dp)

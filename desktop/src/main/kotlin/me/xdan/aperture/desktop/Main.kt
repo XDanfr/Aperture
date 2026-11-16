@@ -29,6 +29,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -136,7 +137,10 @@ fun main(args: Array<String>) {
             icon = icon,
             onPreviewKeyEvent = { event ->
                 handleWindowKey(event, appState, backDispatcher) { fullscreen = !fullscreen }
-            }
+            },
+            // Compose Desktop only maps Tab to focus moves; arrows that no screen used move focus here,
+            // after the screen had its chance, the way a D-pad does on Android.
+            onKeyEvent = { event -> moveFocusWithArrow(event) }
         ) {
             LaunchedEffect(Unit) {
                 window.minimumSize = Dimension(640, 360)
@@ -171,6 +175,21 @@ private val ArrowDirections = mapOf(
     Key.DirectionLeft to FocusDirection.Left,
     Key.DirectionRight to FocusDirection.Right,
 )
+
+/** Moves focus with an unhandled arrow key. Released keys are consumed with their press. */
+private val arrowsThatMovedFocus = mutableSetOf<Key>()
+
+private fun moveFocusWithArrow(event: KeyEvent): Boolean {
+    val direction = ArrowDirections[event.key] ?: return false
+    if (event.isAltPressed || event.isMetaPressed || event.isCtrlPressed) return false
+    return when (event.type) {
+        KeyEventType.KeyDown -> (WindowFocus.manager?.moveFocus(direction) == true).also { moved ->
+            if (moved) arrowsThatMovedFocus += event.key
+        }
+        KeyEventType.KeyUp -> arrowsThatMovedFocus.remove(event.key)
+        else -> false
+    }
+}
 
 /** What the window-level key handling needs to know about focus. */
 private object WindowFocus {
