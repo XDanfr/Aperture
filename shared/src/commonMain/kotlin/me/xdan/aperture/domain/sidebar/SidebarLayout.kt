@@ -48,10 +48,10 @@ data class SidebarLayout(val order: List<String> = emptyList(), val hidden: Set<
     }
 }
 
-/** Each profile's [SidebarLayout], saved on this device. */
+/** A per-profile [SidebarLayout] (an order and hidden set), saved on this device under [storeName]. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class SidebarRepository(stores: KeyValueStores, private val profiles: ProfileRepository) {
-    private val store = stores.open("sidebar_layout")
+open class ProfileLayoutRepository(stores: KeyValueStores, private val profiles: ProfileRepository, storeName: String) {
+    private val store = stores.open(storeName)
     /** Bumped on save, so [layout] re-reads. */
     private val version = MutableStateFlow(0)
 
@@ -71,3 +71,11 @@ class SidebarRepository(stores: KeyValueStores, private val profiles: ProfileRep
 
     private fun key(profileId: Long) = "p$profileId"
 }
+
+/** Each profile's sidebar. */
+class SidebarRepository(stores: KeyValueStores, profiles: ProfileRepository) :
+    ProfileLayoutRepository(stores, profiles, "sidebar_layout")
+
+/** Each profile's Jellyfin Home rows: "spotlight", "continue", "next_up", "recent:<library id>". */
+class HomeRowsRepository(stores: KeyValueStores, profiles: ProfileRepository) :
+    ProfileLayoutRepository(stores, profiles, "home_rows")

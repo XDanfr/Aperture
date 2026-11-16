@@ -6,6 +6,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.*
@@ -33,21 +37,69 @@ import me.xdan.aperture.ui.platform.Dialog
 import me.xdan.aperture.ui.theme.ApertureTheme
 import org.koin.compose.koinInject
 
-/**
- * Settings › Sidebar: the entries between Home and Settings. Select an entry to pick it up, move
- * it with Up and Down, and select again to put it down. The eye shows or hides it.
- */
+/** Settings › Sidebar: the entries between Home and Settings. */
 @Composable
 fun SidebarDialog(onDismiss: () -> Unit) {
-    val repository: SidebarRepository = koinInject()
     val profiles: ProfileRepository = koinInject()
     val catalog: JellyfinCatalog = koinInject()
     val mode by profiles.activeLibraryMode.collectAsState(LibraryMode.LOCAL)
     val libraries by catalog.libraries.collectAsState(emptyList())
+    val items = remember(mode, libraries) {
+        sidebarCandidates(mode, libraries).map { ArrangeItem(it.key, it.label, it.icon) }
+    }
+    ArrangeDialog(
+        title = "Sidebar",
+        hint = "Select an entry to move it. Home and Settings stay first and last.",
+        items = items,
+        repository = koinInject<SidebarRepository>(),
+        onDismiss = onDismiss
+    )
+}
+
+/** Settings › Home rows: the rows on a Jellyfin profile's Home. */
+@Composable
+fun HomeRowsDialog(onDismiss: () -> Unit) {
+    val catalog: JellyfinCatalog = koinInject()
+    val libraries by catalog.libraries.collectAsState(emptyList())
+    val items = remember(libraries) {
+        me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel.candidates(libraries).map { (key, label) ->
+            ArrangeItem(
+                key, label,
+                when (key) {
+                    me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel.SPOTLIGHT -> Icons.Rounded.Star
+                    me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel.CONTINUE -> Icons.Rounded.History
+                    me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel.NEXT_UP -> Icons.Rounded.SkipNext
+                    else -> Icons.Rounded.NewReleases
+                }
+            )
+        }
+    }
+    ArrangeDialog(
+        title = "Home rows",
+        hint = "Select a row to move it. Empty rows don't show on Home.",
+        items = items,
+        repository = koinInject<me.xdan.aperture.domain.sidebar.HomeRowsRepository>(),
+        onDismiss = onDismiss
+    )
+}
+
+data class ArrangeItem(val key: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+/**
+ * Orders and hides a profile's list of things. Select an entry to pick it up, move it with Up and
+ * Down, and select again to put it down. The eye shows or hides it. Saves as it goes.
+ */
+@Composable
+fun ArrangeDialog(
+    title: String,
+    hint: String,
+    items: List<ArrangeItem>,
+    repository: me.xdan.aperture.domain.sidebar.ProfileLayoutRepository,
+    onDismiss: () -> Unit
+) {
     val saved by repository.layout.collectAsState(SidebarLayout())
     val scope = rememberCoroutineScope()
-
-    val candidates = remember(mode, libraries) { sidebarCandidates(mode, libraries) }
+    val candidates = items
     val byKey = remember(candidates) { candidates.associateBy { it.key } }
     // Edited locally and saved on each change, so the sidebar behind updates as you go.
     var order by remember(saved, candidates) { mutableStateOf(saved.arrangeAll(candidates.map { it.key })) }
@@ -73,10 +125,10 @@ fun SidebarDialog(onDismiss: () -> Unit) {
             colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.padding(ApertureTheme.spacing.extraLarge)) {
-                Text("Sidebar", style = MaterialTheme.typography.headlineSmall)
+                Text(title, style = MaterialTheme.typography.headlineSmall)
                 Text(
                     if (moving != null) "Move with Up and Down, then select to put it down."
-                    else "Select an entry to move it. Home and Settings stay first and last.",
+                    else hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(ApertureTheme.spacing.medium))

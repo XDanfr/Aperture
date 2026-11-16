@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ViewSidebar
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
@@ -141,6 +142,7 @@ fun SettingsScreen(
     var showProfiles by remember { mutableStateOf(false) }
     var showJellyfin by remember { mutableStateOf(false) }
     var showSidebar by remember { mutableStateOf(false) }
+    var showHomeRows by remember { mutableStateOf(false) }
     val jellyfinViewModel: me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel = org.koin.compose.viewmodel.koinViewModel()
     val jellyfinAccount by jellyfinViewModel.account.collectAsState()
     val jellyfinMode by jellyfinViewModel.libraryMode.collectAsState()
@@ -337,6 +339,25 @@ fun SettingsScreen(
                     },
                     onClick = { showSidebar = true }
                 )
+            }
+
+            if (jellyfinMode.usesJellyfin) {
+                item {
+                    SettingsItem(
+                        title = "Home rows",
+                        subtitle = "Choose and order the rows on Home",
+                        icon = Icons.Rounded.ViewAgenda,
+                        drawerFocusRequester = drawerFocusRequester,
+                        focusRequester = contentEntryFocusRequester.takeIf {
+                            restoreFocusKey == SETTINGS_HOME_ROWS_FOCUS_KEY
+                        },
+                        onFocused = { requester ->
+                            onFocusKeyChanged(SETTINGS_HOME_ROWS_FOCUS_KEY)
+                            onContentFocused(requester)
+                        },
+                        onClick = { showHomeRows = true }
+                    )
+                }
             }
 
             item {
@@ -732,6 +753,9 @@ fun SettingsScreen(
     if (showCompanionPairing) {
         me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(onDismiss = { showCompanionPairing = false })
     }
+    if (showHomeRows) {
+        HomeRowsDialog(onDismiss = { showHomeRows = false })
+    }
     if (showSidebar) {
         SidebarDialog(onDismiss = { showSidebar = false })
     }
@@ -915,6 +939,7 @@ private const val SETTINGS_PROFILES_FOCUS_KEY = "profiles"
 private const val SETTINGS_JELLYFIN_FOCUS_KEY = "jellyfin"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_SIDEBAR_FOCUS_KEY = "sidebar"
+private const val SETTINGS_HOME_ROWS_FOCUS_KEY = "home_rows"
 private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
 private const val SETTINGS_UPDATE_FOCUS_KEY = "update"

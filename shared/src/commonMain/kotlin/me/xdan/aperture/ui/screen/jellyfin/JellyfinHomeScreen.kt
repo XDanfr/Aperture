@@ -34,13 +34,21 @@ import me.xdan.aperture.ui.component.CatalogCard
 import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
 import me.xdan.aperture.ui.theme.ApertureTheme
 
-class JellyfinHomeViewModel(catalog: JellyfinCatalog) : ViewModel() {
-    data class Row(val title: String, val items: List<CatalogItem>, val landscape: Boolean = false)
-    data class State(val spotlight: CatalogItem? = null, val rows: List<Row>? = null)
+class JellyfinHomeViewModel(
+    catalog: JellyfinCatalog,
+    homeRows: me.xdan.aperture.domain.sidebar.HomeRowsRepository
+) : ViewModel() {
+    data class Row(val key: String, val title: String, val items: List<CatalogItem>, val landscape: Boolean = false)
+    data class State(
+        val spotlight: CatalogItem? = null,
+        val rows: List<Row>? = null,
+        /** How many rows come before the spotlight, as the profile placed it. */
+        val spotlightPosition: Int = 0
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<State> = combine(catalog.activeAccount, catalog.libraries) { account, libraries -> account to libraries }
-        .flatMapLatest { (account, libraries) ->
+    val state: StateFlow<State> = combine(catalog.activeAccount, catalog.libraries, homeRows.layout) { account, libraries, layout -> Triple(account, libraries, layout) }
+        .flatMapLatest { (account, libraries, layout) ->
             if (account == null) return@flatMapLatest flowOf(State(rows = emptyList()))
             // Typed libraries only. Untyped (mixed) folders stay in the sidebar: a JellyBridge Discover
             // library is one, and its requestable placeholders mustn't read as things you have.
@@ -55,19 +63,40 @@ class JellyfinHomeViewModel(catalog: JellyfinCatalog) : ViewModel() {
             combine(listOf(catalog.continueWatching(account)) + recent) { lists -> lists.toList() }
                 .combine(extras) { lists, (nextUp, spotlight) ->
                     val rows = buildList {
-                        add(Row("Continue Watching", lists[0], landscape = true))
-                        add(Row("Next Up", nextUp, landscape = true))
+                        add(Row(CONTINUE, "Continue Watching", lists[0], landscape = true))
+                        add(Row(NEXT_UP, "Next Up", nextUp, landscape = true))
                         indexed.forEachIndexed { index, library ->
-                            add(Row("Recently added in ${library.name}", lists[index + 1]))
+                            add(Row(recentKey(library.id), "Recently added in ${library.name}", lists[index + 1]))
                         }
-                    }.filter { it.items.isNotEmpty() }
-                    State(spotlight = spotlight, rows = rows)
+                    }.associateBy { it.key }
+                    // In the profile's order (Settings › Home rows), leaving out hidden and empty rows.
+                    val keys = layout.arrange(candidates(libraries).map { it.first })
+                    val shown = keys.mapNotNull(rows::get).filter { it.items.isNotEmpty() }
+                    val before = keys.takeWhile { it != SPOTLIGHT }.toSet()
+                    State(
+                        spotlight = spotlight.takeIf { SPOTLIGHT in keys },
+                        rows = shown,
+                        spotlightPosition = shown.count { it.key in before }
+                    )
                 }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
-    private companion object {
-        val HOME_ROW_COLLECTIONS = setOf("movies", "tvshows", "homevideos")
+    companion object {
+        private val HOME_ROW_COLLECTIONS = setOf("movies", "tvshows", "homevideos")
+        const val SPOTLIGHT = "spotlight"
+        const val CONTINUE = "continue"
+        const val NEXT_UP = "next_up"
+        fun recentKey(libraryId: String) = "recent:$libraryId"
+
+        /** Every row Home can show, as (key, label), in default order. */
+        fun candidates(libraries: List<me.xdan.aperture.data.local.entity.RemoteLibraryEntity>): List<Pair<String, String>> = buildList {
+            add(SPOTLIGHT to "Spotlight")
+            add(CONTINUE to "Continue Watching")
+            add(NEXT_UP to "Next Up")
+            libraries.filter { it.collectionType in HOME_ROW_COLLECTIONS }
+                .forEach { add(recentKey(it.id) to "Recently added in ${it.name}") }
+        }
     }
 }
 
@@ -108,10 +137,11 @@ fun JellyfinHomeScreen(
         contentPadding = PaddingValues(bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
     ) {
-        state.spotlight?.let { spotlight ->
-            item(key = "spotlight") { Spotlight(spotlight) }
-        }
-        itemsIndexed(rows, key = { _, row -> row.title }) { rowIndex, row ->
+        val spotlight = state.spotlight
+        val spotlightAt = state.spotlightPosition.coerceIn(0, rows.size)
+        rows.forEachIndexed { rowIndex, row ->
+            if (spotlight != null && rowIndex == spotlightAt) item(key = "spotlight") { Spotlight(spotlight) }
+            item(key = row.key) {
             Column {
                 Text(
                     row.title,
@@ -136,7 +166,9 @@ fun JellyfinHomeScreen(
                     }
                 }
             }
+            }
         }
+        if (spotlight != null && spotlightAt == rows.size) item(key = "spotlight") { Spotlight(spotlight) }
     }
 }
 
