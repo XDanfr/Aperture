@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ViewSidebar
@@ -115,6 +116,8 @@ fun SettingsScreen(
     val updateState by viewModel.updateState.collectAsState()
     val openSubtitlesSession by viewModel.openSubtitlesSession.collectAsState()
     val hiddenMedia by viewModel.hiddenMedia.collectAsState()
+    val missingMedia by viewModel.missingMedia.collectAsState()
+    var showMissingMedia by remember { mutableStateOf(false) }
     val mediaFolders by viewModel.mediaFolders.collectAsState()
     val mediaFolderMessage by viewModel.mediaFolderMessage.collectAsState()
     val showPresentationMode by viewModel.showPresentationMode.collectAsState()
@@ -563,6 +566,20 @@ fun SettingsScreen(
                 )
             }
 
+            // Only while some titles' files have gone.
+            if (missingMedia.isNotEmpty()) {
+                item {
+                    SettingsItem(
+                        title = "Missing Files",
+                        subtitle = "${missingMedia.size} title${if (missingMedia.size == 1) "" else "s"} whose files have gone",
+                        icon = Icons.Rounded.Warning,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { showMissingMedia = true }
+                    )
+                }
+            }
+
             item {
                 SettingsItem(
                     title = "Media folders",
@@ -826,6 +843,17 @@ fun SettingsScreen(
             media = hiddenMedia,
             onUnhide = viewModel::unhide,
             onDismiss = { showHiddenMedia = false }
+        )
+    }
+    if (showMissingMedia) {
+        HiddenMediaDialog(
+            media = missingMedia,
+            onUnhide = viewModel::removeMissing,
+            onDismiss = { showMissingMedia = false },
+            title = "Missing Files",
+            explanation = "These titles' files have gone. A moved or renamed file is found again on the next scan, keeping its progress. Remove one to forget it for good.",
+            emptyText = "No files are missing.",
+            actionLabel = "Remove"
         )
     }
     if (showSpotlightDaysPicker) {
@@ -1351,7 +1379,11 @@ private fun subtitlePreviewColour(colour: String): Color = when (colour) {
 private fun HiddenMediaDialog(
     media: List<me.xdan.aperture.data.local.entity.MediaEntity>,
     onUnhide: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String = "Hidden Media",
+    explanation: String = "Hidden titles stay out of Home, Search, Movies, Shows and My List.",
+    emptyText: String = "Nothing is hidden.",
+    actionLabel: String = "Unhide"
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
@@ -1359,12 +1391,12 @@ private fun HiddenMediaDialog(
             shape = ApertureTheme.shapes.dialog
         ) {
             Column(Modifier.padding(ApertureTheme.spacing.huge)) {
-                Text("Hidden Media", style = MaterialTheme.typography.headlineSmall)
-                Text("Hidden titles stay out of Home, Search, Movies, Shows and My List.")
+                Text(title, style = MaterialTheme.typography.headlineSmall)
+                Text(explanation)
                 Spacer(Modifier.height(ApertureTheme.spacing.medium))
                 if (media.isEmpty()) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("Nothing is hidden.")
+                        Text(emptyText)
                     }
                 } else {
                     LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
@@ -1374,7 +1406,7 @@ private fun HiddenMediaDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(item.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                Button(onClick = { onUnhide(item.id) }) { Text("Unhide") }
+                                Button(onClick = { onUnhide(item.id) }) { Text(actionLabel) }
                             }
                         }
                     }

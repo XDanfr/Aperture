@@ -111,6 +111,16 @@ class SettingsViewModel constructor(
     )
     val updateState = updateManager.state
     val openSubtitlesSession = openSubtitlesSessionManager.state
+    val missingMedia = repository.getMissingMedia().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList()
+    )
+
+    fun removeMissing(mediaId: Long) {
+        viewModelScope.launch { repository.removeMissing(mediaId) }
+    }
+
     val hiddenMedia = repository.getHiddenMedia().stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),

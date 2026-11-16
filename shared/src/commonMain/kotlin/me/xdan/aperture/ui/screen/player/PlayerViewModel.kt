@@ -232,11 +232,12 @@ class PlayerViewModel constructor(
                 Log.d("PlayerViewModel", "Checking file existence: ${media.filePath}")
                 val file = java.io.File(media.filePath)
                 Log.d("PlayerViewModel", "Exists: ${file.exists()}, Readable: ${file.canRead()}")
-                // A deleted file comes out of the library rather than failing to play every time.
-                if (repository.removeIfGone(media.id)) {
+                // A file that's gone is marked missing (greyed out, out of Home) rather than failing
+                // to play every time; a moved file relinks on the next scan.
+                if (repository.markMissingIfGone(media.id)) {
                     _playbackFailure.value = PlaybackFailure(
-                        title = "This file is gone",
-                        message = "${media.title} is no longer on this device, so it has been removed from your library."
+                        title = "This file is missing",
+                        message = "${media.title} is no longer where it was. If it was moved or renamed, Aperture finds it again on the next scan. Otherwise you can remove it from its details."
                     )
                     return@launch
                 }

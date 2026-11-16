@@ -97,6 +97,11 @@ class MediaDetailsViewModel constructor(
         }
     }
 
+    /** Takes a missing title out of the library (only the user does this). */
+    fun removeMissing(mediaId: Long) {
+        viewModelScope.launch { repository.removeMissing(mediaId) }
+    }
+
     /** The same toggle as the long-press menu: finished, or back to not started. */
     fun toggleWatched(mediaId: Long) {
         viewModelScope.launch {
