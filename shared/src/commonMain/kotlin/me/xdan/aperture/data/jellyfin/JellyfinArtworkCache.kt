@@ -56,9 +56,15 @@ class JellyfinArtworkCache(
     suspend fun prepare(account: JellyfinAccountEntity) = running.withLock {
         withContext(Dispatchers.IO) {
             val images = JellyfinImages(account.baseUrl)
-            val titles = TITLE_TYPES.flatMap { dao.itemsOfType(account.id, it).first() } +
+            val kinds = dao.libraries(account.id).first().associate { it.id to it.collectionType }
+            // Films and shows get everything; home videos just their thumbnails, without colour
+            // work; Discover changes too often to fetch ahead, so its tab loads its own artwork.
+            val titles = TITLE_TYPES.flatMap { dao.itemsOfType(account.id, it).first() }
+                .filter { kinds[it.libraryId] in PREPARED_LIBRARIES } +
                 // Episodes only where Home shows them: part-watched (Continue Watching).
                 dao.itemsOfType(account.id, "EPISODE").first().filter { it.playbackPositionMs > 0 && !it.played }
+            homeVideoThumbnails(images, TITLE_TYPES.flatMap { dao.itemsOfType(account.id, it).first() }
+                .filter { kinds[it.libraryId] == "homevideos" })
             _progress.value = Progress(running = true, total = titles.size)
             val slots = Semaphore(PARALLEL_DOWNLOADS)
             val lock = Mutex()
@@ -83,6 +89,31 @@ class JellyfinArtworkCache(
                 _progress.value = _progress.value.copy(running = false, currentTitle = null, finishedAt = System.currentTimeMillis())
             }
         }
+    }
+
+    /** Home videos: their images only, so the grid fills at once; no colours worked out. */
+    private suspend fun homeVideoThumbnails(images: JellyfinImages, videos: List<RemoteItemEntity>) {
+        val slots = Semaphore(PARALLEL_DOWNLOADS)
+        coroutineScope {
+            videos.map { entity ->
+                async {
+                    slots.withPermit {
+                        val item = images.item(entity)
+                        listOfNotNull(item.thumb, item.poster).distinct().forEach { download(it) }
+                    }
+                }
+            }.awaitAll()
+        }
+    }
+
+    /** A removed title's images and colours, from the cache and the palette store. */
+    suspend fun forget(account: JellyfinAccountEntity, removed: List<RemoteItemEntity>) {
+        if (removed.isEmpty()) return
+        val images = JellyfinImages(account.baseUrl)
+        palettes.forget(removed.flatMap { entity ->
+            val item = images.item(entity)
+            listOfNotNull(item.poster, item.backdrop, item.thumb)
+        }.toSet())
     }
 
     private suspend fun prepareTitle(images: JellyfinImages, entity: RemoteItemEntity) {
@@ -117,6 +148,7 @@ class JellyfinArtworkCache(
 
     private companion object {
         val TITLE_TYPES = listOf("MOVIE", "SERIES", "VIDEO")
+        val PREPARED_LIBRARIES = setOf("movies", "tvshows")
         const val PARALLEL_DOWNLOADS = 4
         const val RECENT_POSTERS = 24
     }

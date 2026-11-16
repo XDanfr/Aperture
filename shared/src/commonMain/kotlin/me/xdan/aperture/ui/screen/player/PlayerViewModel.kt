@@ -236,6 +236,14 @@ class PlayerViewModel constructor(
                 Log.d("PlayerViewModel", "Checking file existence: ${media.filePath}")
                 val file = java.io.File(media.filePath)
                 Log.d("PlayerViewModel", "Exists: ${file.exists()}, Readable: ${file.canRead()}")
+                // A deleted file comes out of the library rather than failing to play every time.
+                if (repository.removeIfGone(media.id)) {
+                    _playbackFailure.value = PlaybackFailure(
+                        title = "This file is gone",
+                        message = "${media.title} is no longer on this device, so it has been removed from your library."
+                    )
+                    return@launch
+                }
                 
                 val tunneling = preferences.tunnelingEnabled.first()
                 player.setTunnelingEnabled(tunneling)

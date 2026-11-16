@@ -73,6 +73,19 @@ class AndroidMediaLibrarySource(private val context: Context) : MediaLibrarySour
         }
     }
 
+    override fun isGone(location: String, parentLocation: String?): Boolean = runCatching {
+        if (location.startsWith("content://")) {
+            // A folder picked through the system picker: gone if its folder is readable and the
+            // file isn't there. Without a known folder (a MediaStore entry), it can't be told.
+            val parent = parentLocation?.let { DocumentFile.fromTreeUri(context, Uri.parse(it)) } ?: return@runCatching false
+            if (!parent.exists() || !parent.canRead()) return@runCatching false
+            DocumentFile.fromSingleUri(context, Uri.parse(location))?.exists() == false
+        } else {
+            val file = File(location)
+            !file.exists() && file.parentFile?.isDirectory == true
+        }
+    }.getOrDefault(false)
+
     override fun releaseFolder(folder: String) {
         context.contentResolver.releasePersistableUriPermission(
             Uri.parse(folder),

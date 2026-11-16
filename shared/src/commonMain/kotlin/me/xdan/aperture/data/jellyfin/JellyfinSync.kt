@@ -31,7 +31,9 @@ import org.jellyfin.sdk.model.api.UserDataChangeInfo
 class JellyfinSync(
     private val dao: JellyfinDao,
     private val clients: JellyfinClients,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Titles gone from the server, after they've left the index (to drop their artwork). */
+    private val onRemoved: suspend (JellyfinAccountEntity, List<me.xdan.aperture.data.local.entity.RemoteItemEntity>) -> Unit = { _, _ -> }
 ) {
     data class Result(val items: Int, val removed: Int, val libraries: Int)
 
@@ -57,7 +59,9 @@ class JellyfinSync(
                 }
             }.awaitAll()
         }
+        val gone = dao.itemsNotIn(account.id, generation)
         val removed = dao.deleteItemsNotIn(account.id, generation)
+        runCatching { onRemoved(account, gone) }
         dao.markFullySynced(account.id, startedAt - CLOCK_SKEW_MS)
         Log.i(TAG, "Full sync of ${account.serverName}: ${count.get()} items, $removed removed")
         Result(count.get(), removed, views.size)
@@ -97,7 +101,12 @@ class JellyfinSync(
 
     /** A LibraryChanged WebSocket message: drop removed items, refetch added and updated ones. */
     suspend fun applyLibraryChange(account: JellyfinAccountEntity, change: LibraryUpdateInfo) = withContext(Dispatchers.IO) {
-        if (change.itemsRemoved.isNotEmpty()) dao.deleteItems(account.id, change.itemsRemoved.map(::normalise))
+        if (change.itemsRemoved.isNotEmpty()) {
+            val ids = change.itemsRemoved.map(::normalise)
+            val gone = dao.itemsById(account.id, ids)
+            dao.deleteItems(account.id, ids)
+            runCatching { onRemoved(account, gone) }
+        }
         refetch(account, (change.itemsAdded + change.itemsUpdated).map(::normalise).distinct())
     }
 

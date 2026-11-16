@@ -41,7 +41,8 @@ class MediaRepositoryImpl constructor(
     private val artworkPrefetcher: ArtworkPrefetcher,
     private val source: MediaLibrarySource,
     stores: KeyValueStores,
-    private val profiles: ProfileRepository
+    private val profiles: ProfileRepository,
+    private val palettes: me.xdan.aperture.data.artwork.ArtworkPaletteStore? = null
 ) : MediaRepository {
 
     private suspend fun profile(): Long = profiles.activeProfileId.first()
@@ -152,10 +153,18 @@ class MediaRepositoryImpl constructor(
                         stage = LibraryPreparationStage.DISCOVERING
                     )
 
+                    val systemSeen = mutableSetOf<String>()
                     runCatching {
                         source.discoverSystemMedia { file ->
+                            systemSeen += file.location
                             processFile(file.name, file.location, file.durationMs)
                         }
+                        // Files the device's own index no longer lists, if they really are gone.
+                        removeRecords(
+                            mediaDao.getAllMediaOnce().filter {
+                                it.sourceRootUri == null && it.filePath !in systemSeen && source.isGone(it.filePath, it.parentDocumentUri)
+                            }
+                        )
                     }.onFailure { it.printStackTrace() }
 
                     selectedFolderUris().forEach { folderUri ->
@@ -245,9 +254,23 @@ class MediaRepositoryImpl constructor(
             )
         }
         if (!readable) return
-        mediaDao.getMediaFromSource(folderUri)
-            .filterNot { it.filePath in seenUris }
-            .forEach { staleMedia -> mediaDao.deleteMedia(staleMedia.id) }
+        removeRecords(mediaDao.getMediaFromSource(folderUri).filterNot { it.filePath in seenUris })
+    }
+
+    /** Takes titles out of the library, with the artwork only they used. */
+    private suspend fun removeRecords(records: List<MediaRecord>) {
+        if (records.isEmpty()) return
+        records.forEach { mediaDao.deleteMedia(it.id) }
+        val stillUsed = mediaDao.getAllMediaOnce().flatMap { listOfNotNull(it.posterPath, it.backdropPath, it.stillPath) }.toSet()
+        val unused = records.flatMap { listOfNotNull(it.posterPath, it.backdropPath, it.stillPath) }.filter { it.isNotBlank() && it !in stillUsed }.toSet()
+        runCatching { palettes?.forget(unused) }
+    }
+
+    override suspend fun removeIfGone(mediaId: Long): Boolean = withContext(Dispatchers.IO) {
+        val record = mediaDao.getRecordById(mediaId) ?: return@withContext false
+        if (!source.isGone(record.filePath, record.parentDocumentUri)) return@withContext false
+        removeRecords(listOf(record))
+        true
     }
 
     private fun selectedFolderUris(): Set<String> =

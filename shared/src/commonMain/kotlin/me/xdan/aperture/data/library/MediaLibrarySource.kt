@@ -28,6 +28,13 @@ interface MediaLibrarySource {
     /** Display name and availability for a selected folder. */
     fun describeFolder(folder: String): MediaFolder
 
+    /**
+     * Whether the file at [location] has been deleted: its folder ([parentLocation], or the path's
+     * parent) is still there and the file isn't. A drive that's been unplugged isn't "gone", so its
+     * titles come back when it does. False when that can't be told.
+     */
+    fun isGone(location: String, parentLocation: String? = null): Boolean = false
+
     /** File name of a stored media location, for re-parsing titles. */
     fun fileName(location: String): String
 
