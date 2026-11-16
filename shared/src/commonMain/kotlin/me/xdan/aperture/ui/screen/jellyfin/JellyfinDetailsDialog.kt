@@ -266,7 +266,11 @@ private fun subheading(item: CatalogItem): String = listOfNotNull(
 
 private fun runtimeLabel(ms: Long): String {
     val minutes = ms / 60_000
-    return if (minutes >= 60) "${minutes / 60} hr ${minutes % 60} min" else "$minutes min"
+    return when {
+        minutes >= 60 -> "${minutes / 60} hr ${minutes % 60} min"
+        minutes == 0L -> "Under 1 min"
+        else -> "$minutes min"
+    }
 }
 
 @Composable

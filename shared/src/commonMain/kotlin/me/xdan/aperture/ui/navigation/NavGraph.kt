@@ -345,23 +345,17 @@ fun NavGraph(
         }
 
         delay(160.milliseconds)
+        // The remembered card may have gone (a watched title leaves Continue Watching), so fall
+        // back to the screen's entry point, server libraries included. Retry for a few frames:
+        // the player's window can still be closing, and nothing would have focus at all.
         val rememberedRequester = lastFocusedRequesters[focusKey]
-        val fallbackRequester = when (focusKey) {
-            "home" -> homeContentEntryRequester
-            "search" -> searchContentEntryRequester
-            "my_list" -> myListContentEntryRequester
-            "movies" -> moviesContentEntryRequester
-            "shows" -> showsContentEntryRequester
-            "settings" -> settingsContentEntryRequester
-            else -> null
-        }
-        val restoredRememberedFocus = rememberedRequester?.let { requester ->
-            runCatching { requester.requestFocus() }.getOrDefault(false)
-        } == true
-        if (!restoredRememberedFocus) {
-            fallbackRequester?.let { requester ->
-                runCatching { requester.requestFocus() }
+        val fallbackRequester = contentEntryRequesters[focusKey]
+        for (attempt in 0 until 30) {
+            val restored = listOfNotNull(rememberedRequester, fallbackRequester).any { requester ->
+                runCatching { requester.requestFocus() }.getOrDefault(false)
             }
+            if (restored) break
+            withFrameNanos { }
         }
         pendingPlayerFocusRestore = null
         playerOriginFocusKey = null
@@ -571,6 +565,9 @@ fun NavGraph(
                                         }
                                     }
                                 }
+                                // Who's watching, apart from the destinations at the bottom of the rail.
+                                }
+                                // Settings stays pinned below the list, so a long list of libraries can't push it out of view.
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Settings,
@@ -593,8 +590,6 @@ fun NavGraph(
                                     }
                                 }
 
-                                // Who's watching, apart from the destinations at the bottom of the rail.
-                                }
                                 val activeProfile = profiles.firstOrNull { it.id == activeProfileId }
                                 if (activeProfile != null) {
                                     NavigationDrawerItem(
