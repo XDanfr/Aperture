@@ -697,6 +697,16 @@ class PlayerViewModel constructor(
     }
 
     /**
+     * The player screen is going. This view model outlives it, so without this a Jellyfin session
+     * stayed open: the 10-second progress reports carried on after leaving the player (with the
+     * stopped player's position), and the server never heard that playback stopped.
+     */
+    fun onPlayerClosed() {
+        progressTrackerJob?.cancel()
+        finishJellyfinSession()
+    }
+
+    /**
      * Tells the server playback stopped. Runs outside the view model's scope, since this is also
      * called as the player closes.
      */
