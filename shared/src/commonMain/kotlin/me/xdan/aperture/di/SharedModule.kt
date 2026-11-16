@@ -108,7 +108,7 @@ val sharedModule = module {
     single { SponsorVerificationManager(get(), get()) }
     single { OpenSubtitlesSessionManager(get(), get()) }
     single { CompanionDeviceStore(get(), get()) }
-    single { CompanionHub(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { CompanionHub(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 
     // view models
     viewModel { MainViewModel(get(), get(), get(), get(), get()) }

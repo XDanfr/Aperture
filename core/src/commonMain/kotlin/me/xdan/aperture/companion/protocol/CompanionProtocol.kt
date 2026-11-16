@@ -181,8 +181,32 @@ data class CompanionMedia(
      * Where the title is: [MediaSource.LOCAL] on the TV, or [MediaSource.JELLYFIN] on its server.
      * Jellyfin titles have negative ids, and their artwork paths are full image URLs.
      */
-    val source: String = MediaSource.LOCAL
+    val source: String = MediaSource.LOCAL,
+    /** The [CompanionCollection.key] this title belongs to; null from older TVs. */
+    val collection: String? = null
 )
+
+/**
+ * One of the TV's library entries, as its sidebar shows them: the profile's order, name and
+ * icon (an id from the TV's sidebar icon set, which the phone mirrors).
+ */
+@Serializable
+data class CompanionCollection(
+    val key: String,
+    val name: String,
+    /** A [CollectionKind]. */
+    val kind: String,
+    val icon: String = ""
+)
+
+object CollectionKind {
+    const val MOVIES = "movies"
+    const val SHOWS = "shows"
+    const val HOME_VIDEOS = "homevideos"
+    /** Requestable titles (JellyBridge and the like): favouriting one asks for a download. */
+    const val DISCOVER = "discover"
+    const val OTHER = "other"
+}
 
 object MediaSource {
     const val LOCAL = "local"
@@ -193,7 +217,9 @@ object MediaSource {
 @Serializable
 data class LibrarySnapshot(
     val revision: Long,
-    val items: List<CompanionMedia>
+    val items: List<CompanionMedia>,
+    /** The TV's library entries in its sidebar order; empty from older TVs. */
+    val collections: List<CompanionCollection> = emptyList()
 )
 
 @Serializable
