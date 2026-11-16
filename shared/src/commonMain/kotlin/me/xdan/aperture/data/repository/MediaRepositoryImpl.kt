@@ -199,7 +199,8 @@ class MediaRepositoryImpl constructor(
                 duration = duration,
                 type = if (cleanedInfo.season != null) "EPISODE" else "MOVIE",
                 seasonNumber = cleanedInfo.season,
-                episodeNumber = cleanedInfo.episode
+                episodeNumber = cleanedInfo.episode,
+                videoHeight = me.xdan.aperture.util.FilenameParser.videoHeight(name)
             )
             mediaDao.insertMedia(media)
         } else if (sourceRootUri != null &&
@@ -319,6 +320,29 @@ class MediaRepositoryImpl constructor(
             currentItemProgress = 1f,
             errorMessage = firstError
         )
+        backfillFilterMetadata()
+    }
+
+    /**
+     * Titles matched before genres, ratings and resolution were kept: the resolution comes from
+     * the file name, and genres and rating from TMDB, looked up once per show or film.
+     */
+    private suspend fun backfillFilterMetadata() {
+        val records = mediaDao.getAllMediaOnce()
+        records.filter { it.videoHeight == null }.forEach { record ->
+            val height = me.xdan.aperture.util.FilenameParser.videoHeight(record.filePath.substringAfterLast('/')) ?: return@forEach
+            mediaDao.updateMedia(record.copy(videoHeight = height))
+        }
+        if (AppBuild.TMDB_API_KEY.isBlank()) return
+        val found = mutableMapOf<Pair<String, Int>, TmdbResult?>()
+        mediaDao.getAllMediaOnce().filter { it.tmdbId != null && it.genres == null }.forEach { record ->
+            val media = record.toEntity()
+            val kind = if (media.type == "EPISODE") "tv" else "movie"
+            val match = found.getOrPut(kind to media.tmdbId!!) {
+                runCatching { searchWithRetry(mediaForMetadataLookup(media)).results.firstOrNull { it.id == media.tmdbId } }.getOrNull()
+            } ?: return@forEach
+            mediaDao.updateMedia(record.copy(genres = match.genreNames ?: "", rating = match.rating))
+        }
     }
 
     private fun updateCurrentItem(title: String, progress: Float) {
@@ -351,6 +375,8 @@ class MediaRepositoryImpl constructor(
         val showTitle = candidate.title ?: candidate.name ?: media.title
         var updated = media.copy(
             tmdbId = candidate.id,
+            genres = candidate.genreNames ?: media.genres,
+            rating = candidate.rating ?: media.rating,
             title = showTitle,
             posterPath = candidate.posterPath,
             backdropPath = candidate.backdropPath,
@@ -370,6 +396,8 @@ class MediaRepositoryImpl constructor(
                             sibling.copy(
                                 title = showTitle,
                                 tmdbId = candidate.id,
+                                genres = candidate.genreNames ?: sibling.genres,
+                                rating = candidate.rating ?: sibling.rating,
                                 posterPath = candidate.posterPath,
                                 backdropPath = candidate.backdropPath,
                                 overview = candidate.overview,
@@ -416,6 +444,8 @@ class MediaRepositoryImpl constructor(
         } else {
             media.copy(
                 tmdbId = result.id,
+                genres = result.genreNames ?: media.genres,
+                rating = result.rating ?: media.rating,
                 posterPath = result.posterPath,
                 backdropPath = result.backdropPath,
                 overview = result.overview,

@@ -24,7 +24,7 @@ import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
         ProfileEntity::class, ProfileMediaStateEntity::class,
         JellyfinAccountEntity::class, RemoteLibraryEntity::class, RemoteItemEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @ConstructedBy(AppDatabaseConstructor::class)
