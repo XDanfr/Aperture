@@ -14,6 +14,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -154,20 +155,23 @@ fun JellyfinHomeScreen(
     }
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        // The page is the entry point: focus goes back to the card it last had, or the first one
+        // on screen. A single button as the entry failed when Home was scrolled down (coming back
+        // to it from the sidebar), since the button wasn't composed, and nothing got focus.
+        modifier = Modifier.fillMaxSize()
+            .focusRequester(contentEntryFocusRequester)
+            .focusRestorer(),
         contentPadding = PaddingValues(bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
     ) {
         val spotlight = state.spotlight
         val spotlightAt = state.spotlightPosition.coerceIn(0, rows.size)
-        // Focus starts on the spotlight's button when it's at the top, as on the local Home.
-        val spotlightIsEntry = spotlight.isNotEmpty() && spotlightAt == 0
         val spotlightItem: @Composable () -> Unit = {
             SpotlightCarousel(
                 items = spotlight,
                 rounded = roundedSpotlight,
                 onOpen = onItemClick,
-                entryFocusRequester = contentEntryFocusRequester.takeIf { spotlightIsEntry },
+                entryFocusRequester = null,
                 drawerFocusRequester = drawerFocusRequester,
                 onFocused = {
                     rowHasTheme = false
@@ -195,7 +199,7 @@ fun JellyfinHomeScreen(
                             item = item,
                             landscape = row.landscape,
                             onClick = { onItemClick(item, it) },
-                            focusRequester = if (!spotlightIsEntry && rowIndex == 0 && index == 0) contentEntryFocusRequester else null,
+                            focusRequester = null,
                             drawerFocusRequester = if (index == 0) drawerFocusRequester else null,
                             onFocused = rowFocused,
                             modifier = Modifier.width(if (row.landscape) 280.dp else 150.dp)

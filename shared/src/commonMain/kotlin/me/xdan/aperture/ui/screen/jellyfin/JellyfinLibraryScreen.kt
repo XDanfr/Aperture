@@ -22,6 +22,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,7 +96,9 @@ fun JellyfinLibraryScreen(
                 options = state.options,
                 onSort = viewModel::sortBy,
                 onUpdate = viewModel::update,
-                firstModifier = if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier
+                firstModifier = (if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
+                    // With no cards, the sort button is where the page starts.
+                    .then(if (items.isNullOrEmpty()) Modifier.focusRequester(contentEntryFocusRequester) else Modifier)
             )
             Spacer(Modifier.height(ApertureTheme.spacing.medium))
 
@@ -118,11 +121,14 @@ fun JellyfinLibraryScreen(
                     contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
                     horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
                     verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+                    // The grid is the entry point, so focus lands on a card that's on screen (the
+                    // last one used, or the first visible) even when the grid is scrolled down.
                     modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }
+                        .focusRequester(contentEntryFocusRequester)
+                        .focusRestorer()
                 ) {
                     itemsIndexed(items, key = { _, item -> item.key.stableId }) { index, item ->
-                        val requester = if (index == 0) contentEntryFocusRequester else cardRequesters.getOrPut(index) { FocusRequester() }
-                        if (index == 0) cardRequesters[0] = contentEntryFocusRequester
+                        val requester = cardRequesters.getOrPut(index) { FocusRequester() }
                         var isFocused by remember { mutableStateOf(false) }
                         // Cards fade and grow in as they arrive, as on the local grids.
                         var visible by remember(item.key) { mutableStateOf(false) }
