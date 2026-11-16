@@ -328,13 +328,15 @@ fun NavGraph(
             "settings" -> settingsContentEntryRequester
             else -> null
         }
-        val restoredRememberedFocus = rememberedRequester?.let { requester ->
-            runCatching { requester.requestFocus() }.getOrDefault(false)
-        } == true
-        if (!restoredRememberedFocus) {
-            fallbackRequester?.let { requester ->
-                runCatching { requester.requestFocus() }
+        // The remembered card may have gone (a watched title leaves Continue Watching), so fall
+        // back to the screen's entry point. Retry for a few frames: the player's window can still
+        // be closing, and nothing would have focus at all.
+        for (attempt in 0 until 30) {
+            val restored = listOfNotNull(rememberedRequester, fallbackRequester).any { requester ->
+                runCatching { requester.requestFocus() }.getOrDefault(false)
             }
+            if (restored) break
+            withFrameNanos { }
         }
         pendingPlayerFocusRestore = null
         playerOriginFocusKey = null
