@@ -198,7 +198,7 @@ fun OnboardingScreen(
                             jellyfinMode.usesLocal -> PreparationSource.BOTH
                             else -> PreparationSource.JELLYFIN
                         },
-                        focusEnabled = !showThemePicker && !showAmbientSettings && !showCompanionPairing,
+                        focusEnabled = !showThemePicker && !showAmbientSettings && !showCompanionPairing && !showJellyfin,
                         modifier = Modifier.weight(1.5f).heightIn(max = 480.dp)
                     )
                     Surface(
@@ -432,11 +432,21 @@ private fun PreparationPanel(
     val isComplete = progress.stage == LibraryPreparationStage.COMPLETE
 
     val skipFocusRequester = remember { FocusRequester() }
-    val currentFocusEnabled by rememberUpdatedState(focusEnabled)
-    LaunchedEffect(Unit) {
-        androidx.compose.runtime.withFrameNanos { }
-        androidx.compose.runtime.withFrameNanos { }
-        if (!rescanMode && currentFocusEnabled) skipFocusRequester.requestFocus()
+    // Focus starts on Skip once the window has focus and nothing is on top. One early try isn't
+    // enough: after a Jellyfin sign-in this panel appears while the sign-in dialog is still
+    // closing, and that request went nowhere, leaving nothing focused. Only the first landing
+    // counts, so closing the theme picker later still returns to its own button.
+    val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    var focusedOnce by remember { mutableStateOf(false) }
+    LaunchedEffect(focusEnabled, windowInfo.isWindowFocused) {
+        if (rescanMode || focusedOnce || !focusEnabled || !windowInfo.isWindowFocused) return@LaunchedEffect
+        repeat(30) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { skipFocusRequester.requestFocus() }.getOrDefault(false)) {
+                focusedOnce = true
+                return@LaunchedEffect
+            }
+        }
     }
 
     Surface(
