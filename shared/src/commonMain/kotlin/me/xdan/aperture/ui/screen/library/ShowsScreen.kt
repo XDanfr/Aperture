@@ -37,11 +37,14 @@ fun ShowsScreen(
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onActiveMediaChanged: (Long) -> Unit,
+    onRemoteClick: (me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester) -> Unit = { _, _ -> }
 ) {
     val groups by viewModel.showGroups.collectAsState()
     val presentationMode by viewModel.showPresentationMode.collectAsState()
-    if (groups.isEmpty()) {
+    val showGrid by viewModel.showGrid.collectAsState()
+    // Grouped view also counts server-only shows (hybrid); the episodes view is local only.
+    if (if (presentationMode == "episodes") groups.isEmpty() else showGrid.total == 0) {
         EmptyLibrary("No TV shows found.", drawerFocusRequester, contentEntryFocusRequester, onContentFocused)
         return
     }
@@ -57,10 +60,10 @@ fun ShowsScreen(
             onActiveMediaChanged = onActiveMediaChanged
         )
     } else {
-        val grid by viewModel.showGrid.collectAsState()
         GroupedShowsGrid(
-            grid = grid,
+            grid = showGrid,
             onSort = viewModel::sortShows,
+            onRemoteClick = onRemoteClick,
             onUpdate = viewModel::updateShows,
             onMediaClick = onMediaClick,
             onMediaLongClick = onMediaLongClick,
@@ -74,8 +77,9 @@ fun ShowsScreen(
 
 @Composable
 private fun GroupedShowsGrid(
-    grid: LocalGrid<ShowGroup>,
+    grid: LocalGrid<GridEntry<ShowGroup>>,
     onSort: (me.xdan.aperture.domain.catalog.LibraryQuery.Sort) -> Unit,
+    onRemoteClick: (me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester) -> Unit,
     onUpdate: ((me.xdan.aperture.domain.catalog.LibraryQuery) -> me.xdan.aperture.domain.catalog.LibraryQuery) -> Unit,
     onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
@@ -118,9 +122,27 @@ private fun GroupedShowsGrid(
                     verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
                     horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
                 ) {
-                    itemsIndexed(groups, key = { _, group -> group.title }) { index, group ->
-                        val media = group.representative
+                    itemsIndexed(groups, key = { _, entry -> entry.key }) { index, entry ->
                         var isFocused by remember { mutableStateOf(false) }
+                        if (entry is GridEntry.Remote) {
+                            // A show only the server has (hybrid mode).
+                            Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                                me.xdan.aperture.ui.component.CatalogCard(
+                                    item = entry.item,
+                                    onClick = { onRemoteClick(entry.item, it) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    focusRequester = jump.requesterFor(index, contentEntryFocusRequester),
+                                    drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                                    onFocused = {
+                                        isFocused = true
+                                        onContentFocused(it)
+                                    }
+                                )
+                            }
+                            return@itemsIndexed
+                        }
+                        val group = (entry as GridEntry.Local<ShowGroup>).value
+                        val media = group.representative
                         Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                             AnimatedLibraryCard(media.id) {
                                 MediaCard(

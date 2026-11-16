@@ -58,4 +58,28 @@ class LocalLibraryQueryTest {
         val current = LibraryQuery(decade = 1980, uhdOnly = true)
         assertEquals(current, LibraryQuery.decode(current.encode()))
     }
+
+    @Test
+    fun localAndServerTitlesSortAndFilterTogether() {
+        fun server(n: Int, title: String, year: Int, played: Boolean = false) = me.xdan.aperture.domain.catalog.CatalogItem(
+            key = me.xdan.aperture.domain.model.MediaKey.Jellyfin(1, "s$n"),
+            kind = me.xdan.aperture.domain.catalog.CatalogItem.Kind.MOVIE,
+            title = title, year = year, played = played, dateAdded = 100L + n
+        )
+        val titles: List<GridTitle<GridEntry<MediaEntity>>> =
+            films.take(2).map { LocalLibraryQuery.movieTitle(it, emptyMap()).withValue(GridEntry.Local(it, "local:${it.id}")) } +
+                listOf(LocalLibraryQuery.remoteTitle(server(1, "Blade Runner", 1982), null), LocalLibraryQuery.remoteTitle(server(2, "Heat", 1995, played = true), null))
+
+        fun names(query: LibraryQuery) = LocalLibraryQuery.arrange(titles, query, 1, LocalLibraryQuery.movieSorts).items.map {
+            when (it) {
+                is GridEntry.Local -> it.value.title
+                is GridEntry.Remote -> it.item.title
+            }
+        }
+        assertEquals(listOf("Alien", "Blade Runner", "Heat", "The Matrix"), names(LibraryQuery()))
+        assertEquals(listOf("Alien", "Blade Runner", "The Matrix"), names(LibraryQuery(unwatchedOnly = true)))
+        assertEquals(listOf("Heat", "The Matrix"), names(LibraryQuery(decade = 1990)))
+        // Newest first: server dates (101, 102) sit between the local ones (10, 30).
+        assertEquals(listOf("Heat", "Blade Runner", "Alien", "The Matrix"), names(LibraryQuery(sort = LibraryQuery.Sort.DATE_ADDED, descending = true)))
+    }
 }

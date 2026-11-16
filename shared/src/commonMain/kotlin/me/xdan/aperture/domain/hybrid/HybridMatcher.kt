@@ -15,7 +15,18 @@ data class HybridShow(
     val episodeMatches: Map<Long, List<RemoteItemEntity>>
 )
 
-data class HybridIndex(val movies: List<HybridMovie>, val shows: List<HybridShow>) {
+data class HybridIndex(
+    val movies: List<HybridMovie>,
+    val shows: List<HybridShow>,
+    /** The server's address, for building artwork URLs; blank when there's no server. */
+    val baseUrl: String = ""
+) {
+    /** One server film per title the device doesn't have (the first of several versions). */
+    val serverOnlyMovies: List<RemoteItemEntity> by lazy { movies.filter { it.local.isEmpty() }.mapNotNull { it.remote.firstOrNull() } }
+
+    /** One server series per show the device has no episodes of. */
+    val serverOnlyShows: List<RemoteItemEntity> by lazy { shows.filter { it.localEpisodes.isEmpty() }.mapNotNull { it.remoteSeries.firstOrNull() } }
+
     /** Local media id to the server items that are the same title, for merging lists. */
     val remoteFor: Map<Long, List<RemoteItemEntity>> by lazy {
         buildMap {

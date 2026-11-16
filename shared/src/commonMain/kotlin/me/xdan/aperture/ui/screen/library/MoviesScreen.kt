@@ -41,7 +41,8 @@ fun MoviesScreen(
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit,
-    onActiveMediaChanged: (Long) -> Unit
+    onActiveMediaChanged: (Long) -> Unit,
+    onRemoteClick: (me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester) -> Unit = { _, _ -> }
 ) {
     val grid by viewModel.movieGrid.collectAsState()
     val movies = grid.items
@@ -90,11 +91,24 @@ fun MoviesScreen(
                     verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
                     horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
                 ) {
-                    itemsIndexed(movies, key = { _, item -> item.id }) { index, item ->
+                    itemsIndexed(movies, key = { _, entry -> entry.key }) { index, entry ->
                         var isFocused by remember { mutableStateOf(false) }
                         Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                            AnimatedMovieCard(
-                                media = item,
+                            if (entry is GridEntry.Remote) {
+                                // A film only the server has (hybrid mode).
+                                me.xdan.aperture.ui.component.CatalogCard(
+                                    item = entry.item,
+                                    onClick = { onRemoteClick(entry.item, it) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    focusRequester = jump.requesterFor(index, contentEntryFocusRequester),
+                                    drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                                    onFocused = {
+                                        isFocused = true
+                                        onContentFocused(it)
+                                    }
+                                )
+                            } else AnimatedMovieCard(
+                                media = (entry as GridEntry.Local<MediaEntity>).value,
                                 focusRequester = jump.requesterFor(index, contentEntryFocusRequester),
                                 isLeftmost = index % 5 == 0,
                                 onMediaClick = onMediaClick,
