@@ -140,9 +140,9 @@ class CompanionHub(
         val matching = phone.takeIf { themeId == PhoneThemeId }
         TvState(
             devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors,
-            platform.deviceKind, profile?.name
+            deviceKind = platform.deviceKind, deviceOs = platform.deviceOs, profileName = profile?.name
         )
-    }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple", deviceKind = platform.deviceKind))
+    }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple", deviceKind = platform.deviceKind, deviceOs = platform.deviceOs))
 
     val hasLocalNetworkPermission: Boolean
         get() = platform.hasLocalNetworkPermission
@@ -207,7 +207,7 @@ class CompanionHub(
     fun pairingUri(session: PairingSession): String? {
         val running = _status.value as? CompanionServerStatus.Running ?: return null
         val host = running.host ?: return null
-        return CompanionProtocol.pairingUri(host, running.port, session.code, devices.tvId, devices.tvName, platform.deviceKind)
+        return CompanionProtocol.pairingUri(host, running.port, session.code, devices.tvId, devices.tvName, platform.deviceKind, platform.deviceOs)
     }
 
     // endregion
@@ -272,7 +272,7 @@ class CompanionHub(
         val json = CompanionProtocol.json
         when (request.method to request.path) {
             "GET" to CompanionProtocol.PATH_INFO -> response.send(
-                200, json.encodeToString(TvInfo.serializer(), TvInfo(devices.tvId, devices.tvName, appVersion = AppBuild.VERSION_NAME, deviceKind = platform.deviceKind))
+                200, json.encodeToString(TvInfo.serializer(), TvInfo(devices.tvId, devices.tvName, appVersion = AppBuild.VERSION_NAME, deviceKind = platform.deviceKind, deviceOs = platform.deviceOs))
             )
             "POST" to CompanionProtocol.PATH_PAIR_REQUEST -> {
                 val body = runCatching { json.decodeFromString(PairRequest.serializer(), request.body) }.getOrNull()
@@ -313,7 +313,7 @@ class CompanionHub(
         val name = body.deviceName.ifBlank { "Phone" }
         val token = devices.pair(body.deviceId, name)
         _pairing.value = session.copy(pairedDeviceName = name)
-        return 200 to CompanionProtocol.json.encodeToString(PairResponse.serializer(), PairResponse(token, devices.tvId, devices.tvName, platform.deviceKind))
+        return 200 to CompanionProtocol.json.encodeToString(PairResponse.serializer(), PairResponse(token, devices.tvId, devices.tvName, platform.deviceKind, platform.deviceOs))
     }
 
     private suspend fun handleAuthenticated(request: CompanionHttpServer.Request, response: CompanionHttpServer.ResponseWriter) {
@@ -433,7 +433,8 @@ class CompanionHub(
                 txt = mapOf(
                     CompanionProtocol.TXT_TV_ID to devices.tvId,
                     CompanionProtocol.TXT_VERSION to CompanionProtocol.VERSION.toString(),
-                    CompanionProtocol.TXT_DEVICE_KIND to platform.deviceKind
+                    CompanionProtocol.TXT_DEVICE_KIND to platform.deviceKind,
+                    CompanionProtocol.TXT_DEVICE_OS to platform.deviceOs
                 )
             )
         }.onFailure { Log.w(TAG, "NSD unavailable", it) }
