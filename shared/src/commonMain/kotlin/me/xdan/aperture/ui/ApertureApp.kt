@@ -101,6 +101,9 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
     val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
     val profileChosen by profileRepository.profileChosen.collectAsState()
     LaunchedEffect(Unit) { profileRepository.resolveLaunchChoice() }
+    // Keeps the active profile's Jellyfin index current while the app is open.
+    val jellyfinWatcher: me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher = koinInject()
+    LaunchedEffect(jellyfinWatcher) { jellyfinWatcher.run() }
     val choosingProfile = onboardingCompleted == true && !profileChosen && profiles.size > 1
     // Read from long-lived effects (the companion collector), which would otherwise keep the first value.
     val choosingProfileNow by rememberUpdatedState(choosingProfile)

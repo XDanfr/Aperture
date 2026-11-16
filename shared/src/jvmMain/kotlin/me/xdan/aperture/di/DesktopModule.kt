@@ -62,6 +62,11 @@ val desktopModule = module {
     single { MpvPlayerEngine() } bind PlayerEngine::class
     single { DesktopPlaybackPlatform() } bind PlaybackPlatform::class
     single<CompanionPlatform> { DesktopCompanionPlatform() }
+    single<org.jellyfin.sdk.Jellyfin> {
+        org.jellyfin.sdk.createJellyfin {
+            clientInfo = org.jellyfin.sdk.model.ClientInfo(name = "Aperture", version = me.xdan.aperture.platform.AppBuild.VERSION_NAME)
+        }
+    }
     single<UpdateManager> { NoUpdateManager() }
     single<LegacyInstallMigration> { LegacyInstallMigration.None }
 }

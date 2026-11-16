@@ -49,9 +49,15 @@ class DatabaseUpgradeTest {
                     assertEquals(500L, row.getLong(1))
                     assertEquals(1, row.getInt(2))
                 }
-                sql.query("SELECT name FROM profiles WHERE id = 1").use { row ->
+                // Jellyfin arrived in 10: profiles start local and no account exists yet.
+                sql.query("SELECT name, libraryMode FROM profiles WHERE id = 1").use { row ->
                     row.moveToFirst()
                     assertEquals("Main", row.getString(0))
+                    assertEquals("LOCAL", row.getString(1))
+                }
+                sql.query("SELECT COUNT(*) FROM jellyfin_accounts").use { row ->
+                    row.moveToFirst()
+                    assertEquals(0, row.getInt(0))
                 }
             } finally { db.close() }
         } finally { context.deleteDatabase(name) }

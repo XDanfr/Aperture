@@ -78,6 +78,7 @@ val sharedModule = module {
     single { get<AppDatabase>().playbackProgressDao() }
     single { get<AppDatabase>().artworkPaletteDao() }
     single { get<AppDatabase>().profileDao() }
+    single { get<AppDatabase>().jellyfinDao() }
 
     // artwork. Coil's singleton loader is this one, so AsyncImage and the palette store agree.
     single<ImageLoader> {
@@ -92,7 +93,14 @@ val sharedModule = module {
 
     // repositories and services
     single<UserPreferencesRepository> { UserPreferencesRepositoryImpl(get()) }
-    single<ProfileRepository> { ProfileRepositoryImpl(get(), get()) }
+    single<ProfileRepository> { ProfileRepositoryImpl(get(), get(), get(), get()) }
+
+    // jellyfin. Each platform module provides the SDK's Jellyfin instance.
+    single { me.xdan.aperture.data.jellyfin.JellyfinCredentials(get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinClients(get(), get(), get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinAccounts(get(), get(), get(), get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinSync(get(), get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher(get(), get(), get(), get()) }
     single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
     single { SponsorVerificationManager(get(), get()) }
     single { OpenSubtitlesSessionManager(get(), get()) }
