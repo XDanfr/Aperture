@@ -90,6 +90,13 @@ fun OnboardingScreen(
     var showThemePicker by remember { mutableStateOf(false) }
     var showAmbientSettings by remember { mutableStateOf(false) }
     var showCompanionPairing by remember { mutableStateOf(false) }
+    // Where this install's media is; asked before any permission so Jellyfin-only setups never see one.
+    var mediaSource by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<MediaSourceChoice?>(null) }
+    var showJellyfin by remember { mutableStateOf(false) }
+    val jellyfinViewModel: me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val jellyfinAccount by jellyfinViewModel.account.collectAsState()
+    val jellyfinSetup by jellyfinViewModel.setup.collectAsState()
+    val jellyfinMode by jellyfinViewModel.libraryMode.collectAsState()
     val companionRequester = remember { FocusRequester() }
     val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
     val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
@@ -231,14 +238,41 @@ fun OnboardingScreen(
                     }
                 }
             }
-        } else {
+        } else if (mediaSource == null) {
+            MediaSourcePanel(
+                onChoose = { choice ->
+                    mediaSource = choice
+                    if (choice != MediaSourceChoice.DEVICE) showJellyfin = true
+                },
+                modifier = Modifier.align(Alignment.Center)
+            )
+        } else if (mediaSource == MediaSourceChoice.DEVICE || jellyfinMode == me.xdan.aperture.domain.model.LibraryMode.HYBRID) {
             PermissionPanel(
                 explanation = libraryAccess.explanation,
                 actionLabel = libraryAccess.actionLabel,
                 onGrantPermission = libraryAccess.request,
                 modifier = Modifier.align(Alignment.Center)
             )
+        } else if (!showJellyfin) {
+            // Backed out of signing in: choose again.
+            LaunchedEffect(Unit) { mediaSource = null }
         }
+    }
+    if (showJellyfin) {
+        me.xdan.aperture.ui.screen.jellyfin.JellyfinDialog(
+            jellyfinViewModel,
+            onDismiss = { showJellyfin = false }
+        )
+    }
+    // Signed in for Jellyfin only: nothing local to scan, so onboarding is done.
+    LaunchedEffect(jellyfinAccount, jellyfinSetup, jellyfinMode, mediaSource) {
+        if (mediaSource != null && mediaSource != MediaSourceChoice.DEVICE && jellyfinAccount != null &&
+            jellyfinSetup == null && jellyfinMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN
+        ) {
+            showJellyfin = false
+            onComplete()
+        }
+        if (jellyfinMode == me.xdan.aperture.domain.model.LibraryMode.HYBRID && jellyfinSetup == null) showJellyfin = false
     }
     if (showThemePicker) {
         ThemePickerDialog(
@@ -273,6 +307,50 @@ fun OnboardingScreen(
         )
     }
 
+}
+
+enum class MediaSourceChoice { DEVICE, JELLYFIN, BOTH }
+
+@Composable
+private fun MediaSourcePanel(onChoose: (MediaSourceChoice) -> Unit, modifier: Modifier = Modifier) {
+    val first = remember { FocusRequester() }
+    val windowInfo = LocalWindowInfo.current
+    LaunchedEffect(windowInfo.isWindowFocused) {
+        if (!windowInfo.isWindowFocused) return@LaunchedEffect
+        repeat(30) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { first.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+        }
+    }
+    Surface(
+        colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.72f), contentColor = MaterialTheme.colorScheme.onSurface),
+        shape = ApertureTheme.shapes.dialog,
+        modifier = modifier.width(620.dp)
+    ) {
+        Column(Modifier.padding(ApertureTheme.spacing.huge)) {
+            Text("Where's your media?", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
+            Text(
+                "You can change this later in Settings.",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+            )
+            Spacer(Modifier.height(ApertureTheme.spacing.large))
+            listOf(
+                Triple(MediaSourceChoice.DEVICE, "On this device", "Videos stored on this device or a drive connected to it"),
+                Triple(MediaSourceChoice.JELLYFIN, "On a Jellyfin server", "Browse and play a Jellyfin library"),
+                Triple(MediaSourceChoice.BOTH, "Both", "A Jellyfin library alongside this device's videos")
+            ).forEachIndexed { index, (choice, title, body) ->
+                androidx.tv.material3.ListItem(
+                    selected = false,
+                    onClick = { onChoose(choice) },
+                    headlineContent = { Text(title) },
+                    supportingContent = { Text(body) },
+                    modifier = if (index == 0) Modifier.focusRequester(first) else Modifier
+                )
+                Spacer(Modifier.height(ApertureTheme.spacing.extraSmall))
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
