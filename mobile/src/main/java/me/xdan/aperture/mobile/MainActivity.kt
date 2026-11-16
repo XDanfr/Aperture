@@ -197,6 +197,7 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
     val connection by viewModel.connection.collectAsState()
     val library by viewModel.library.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
+    val tvState by viewModel.tvState.collectAsState()
     val canControl = connection == ConnectionState.Connected
 
     if (pairing) {
@@ -253,7 +254,8 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
                     canPlay = canControl,
                     onOpen = onOpen,
                     onPlay = { media -> viewModel.playOnTv(media.id) },
-                    onResume = { media -> openEntry = lib.entryFor(media) }
+                    onResume = { media -> openEntry = lib.entryFor(media) },
+                    librarySource = tvState?.librarySource.orEmpty()
                 )
                 return@AnimatedContent
             }

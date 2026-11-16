@@ -145,7 +145,9 @@ fun HomeScreen(
     canPlay: Boolean,
     onOpen: (LibraryEntry) -> Unit,
     onPlay: (CompanionMedia) -> Unit,
-    onResume: (CompanionMedia) -> Unit
+    onResume: (CompanionMedia) -> Unit,
+    /** Where the TV profile's library comes from ([MediaSource]); blank from older TVs. */
+    librarySource: String = ""
 ) {
     val picks = remember(library) { spotlightPicks(library) }
     val listState = rememberLazyListState()
@@ -222,7 +224,7 @@ fun HomeScreen(
                 item(key = "empty") {
                     EmptyState(
                         "Your library is empty",
-                        "Add folders on your ${LocalDeviceNoun.current} in Settings › Media folders, and they'll appear here."
+                        emptyLibraryMessage(librarySource, LocalDeviceNoun.current)
                     )
                 }
             }
@@ -480,4 +482,13 @@ private fun ContinueWatching(items: List<CompanionMedia>, onResume: (CompanionMe
             }
         }
     }
+}
+
+/** What to do about an empty library, by where the TV profile's titles come from. */
+internal fun emptyLibraryMessage(librarySource: String, deviceNoun: String): String = when (librarySource) {
+    me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN ->
+        "Nothing from Jellyfin yet. Your $deviceNoun may still be syncing with the server, or this account can't see any libraries."
+    me.xdan.aperture.companion.protocol.MediaSource.BOTH ->
+        "Add folders on your $deviceNoun in Settings › Media folders, or check its Jellyfin server has finished syncing."
+    else -> "Add folders on your $deviceNoun in Settings › Media folders, and they'll appear here."
 }

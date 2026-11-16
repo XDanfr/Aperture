@@ -4,6 +4,7 @@ import me.xdan.aperture.companion.protocol.CompanionMedia
 import me.xdan.aperture.companion.protocol.CompanionMediaType
 import me.xdan.aperture.companion.protocol.CompanionProtocol
 import me.xdan.aperture.companion.protocol.MediaSource
+import me.xdan.aperture.companion.protocol.TvState
 import me.xdan.aperture.companion.protocol.tmdbImageUrl
 import me.xdan.aperture.ui.screen.player.PlayerViewModel
 import org.junit.Assert.assertEquals
@@ -32,6 +33,8 @@ class JellyfinCompanionProtocolTest {
         // An older TV sends neither field: the title is local and the source unknown.
         val old = json.decodeFromString(CompanionMedia.serializer(), """{"id":5,"type":"MOVIE","title":"Alien"}""")
         assertEquals(MediaSource.LOCAL, old.source)
+        val oldState = json.decodeFromString(TvState.serializer(), """{"tvName":"Living room","themeId":"purple"}""")
+        assertEquals("", oldState.librarySource)
         // An older phone ignores the new fields.
         val server = CompanionMedia(id = -7, type = CompanionMediaType.MOVIE, title = "Heat", source = MediaSource.JELLYFIN)
         val encoded = json.encodeToString(CompanionMedia.serializer(), server)

@@ -236,7 +236,12 @@ data class TvState(
     val deviceKind: String = DeviceKind.TV,
     val deviceOs: String = "",
     /** who's watching on the TV; favourites and progress the phone sees are this profile's. */
-    val profileName: String? = null
+    val profileName: String? = null,
+    /**
+     * Where that profile's library comes from: [MediaSource.LOCAL], [MediaSource.JELLYFIN], or
+     * [MediaSource.BOTH]. Blank from TVs that predate Jellyfin.
+     */
+    val librarySource: String = ""
 )
 
 @Serializable

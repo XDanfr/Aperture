@@ -165,7 +165,7 @@ private fun MovieDetails(
         Backdrop(media.backdropPath, media.posterPath, media.title)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(media.title, style = MaterialTheme.typography.headlineMedium)
-            DotSeparatedRow(listOfNotNull(media.year?.toString(), media.durationMs?.let(::formatRuntime)))
+            DotSeparatedRow(listOfNotNull(media.year?.toString(), media.durationMs?.let(::formatRuntime), sourceLabel(media.source)))
         }
         if (media.isInProgress) {
             LinearWavyProgressIndicator(
@@ -200,7 +200,8 @@ private fun ShowDetails(
                         listOfNotNull(
                             show.year?.toString(),
                             "${seasons.size} season${if (seasons.size == 1) "" else "s"}",
-                            "${show.episodes.size} episodes"
+                            "${show.episodes.size} episodes",
+                            sourceLabel(show.representative.source)
                         )
                     )
                 }
@@ -298,3 +299,7 @@ fun formatClock(ms: Long): String {
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+/** "From Jellyfin" for a server title; local titles need no label. */
+internal fun sourceLabel(source: String): String? =
+    "From Jellyfin".takeIf { source == me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN }

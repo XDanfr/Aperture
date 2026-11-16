@@ -159,7 +159,12 @@ class CompanionHub(
         val matching = phone.takeIf { themeId == PhoneThemeId }
         TvState(
             devices.tvName, themeId, nowPlaying, revision.toLong(), matching?.deviceId, matching?.colors,
-            deviceKind = platform.deviceKind, deviceOs = platform.deviceOs, profileName = profile?.name
+            deviceKind = platform.deviceKind, deviceOs = platform.deviceOs, profileName = profile?.name,
+            librarySource = when (profile?.libraryMode) {
+                "JELLYFIN" -> me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN
+                "HYBRID" -> me.xdan.aperture.companion.protocol.MediaSource.BOTH
+                else -> me.xdan.aperture.companion.protocol.MediaSource.LOCAL
+            }
         )
     }.stateIn(scope, SharingStarted.Eagerly, TvState(devices.tvName, "purple", deviceKind = platform.deviceKind, deviceOs = platform.deviceOs))
 
