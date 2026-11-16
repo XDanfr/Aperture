@@ -77,6 +77,11 @@ class SettingsViewModel constructor(
         SharingStarted.WhileSubscribed(5_000),
         false
     )
+    val losslessPassthrough = userPreferencesRepository.losslessPassthrough.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        false
+    )
     val tunnelingEnabled = userPreferencesRepository.tunnelingEnabled.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -178,6 +183,10 @@ class SettingsViewModel constructor(
 
     fun setClassicPlayerControls(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setClassicPlayerControls(enabled) }
+    }
+
+    fun setLosslessPassthrough(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setLosslessPassthrough(enabled) }
     }
 
     fun setTunnelingEnabled(enabled: Boolean) {

@@ -21,6 +21,8 @@ interface UserPreferencesRepository {
     val classicPlayerControls: Flow<Boolean>
     val shouldShowCompatibilityWarning: Flow<Boolean>
     val tunnelingEnabled: Flow<Boolean>
+    /** Send DTS and Dolby TrueHD to the TV or receiver undecoded. Off: decoded on this device. */
+    val losslessPassthrough: Flow<Boolean>
     val softwareVideoDecoding: Flow<Boolean>
     val playbackEngine: Flow<String>
 
@@ -40,6 +42,7 @@ interface UserPreferencesRepository {
     suspend fun setClassicPlayerControls(enabled: Boolean)
     suspend fun setShouldShowCompatibilityWarning(enabled: Boolean)
     suspend fun setTunnelingEnabled(enabled: Boolean)
+    suspend fun setLosslessPassthrough(enabled: Boolean)
     suspend fun setSoftwareVideoDecoding(enabled: Boolean)
     suspend fun setPlaybackEngine(engine: String)
 }
