@@ -87,8 +87,23 @@ private data class SpotlightPick(
     val posterPath: String?,
     val backdropPath: String?,
     val meta: List<String>,
-    val overview: String?
+    val overview: String?,
+    /** When the title arrived (local: found by the TV; Jellyfin: added to the server). */
+    val addedAt: Long = 0,
+    val fromJellyfin: Boolean = false
 )
+
+/** How recently a title must have arrived to be called new. */
+private const val NEW_FOR_MS = 30L * 24 * 60 * 60 * 1000
+
+/**
+ * "New on Jellyfin" or "New on your TV" for a title added in the last [NEW_FOR_MS]; null for
+ * anything older (or with no date), so the label always means what it says.
+ */
+internal fun newLabel(addedAt: Long, fromJellyfin: Boolean, deviceNoun: String, now: Long = System.currentTimeMillis()): String? {
+    if (addedAt <= 0 || now - addedAt > NEW_FOR_MS) return null
+    return if (fromJellyfin) "New on Jellyfin" else "New on your $deviceNoun"
+}
 
 private const val SPOTLIGHT_COUNT = 6
 
@@ -103,7 +118,9 @@ private fun spotlightPicks(library: Library): List<SpotlightPick> =
                     posterPath = media.posterPath,
                     backdropPath = media.backdropPath,
                     meta = listOfNotNull(media.year?.toString(), media.durationMs?.let(::formatRuntime), "Movie"),
-                    overview = media.overview
+                    overview = media.overview,
+                    addedAt = media.dateAdded,
+                    fromJellyfin = media.source == me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN
                 )
             }
             is LibraryEntry.Show -> {
@@ -119,7 +136,10 @@ private fun spotlightPicks(library: Library): List<SpotlightPick> =
                         if (seasons > 1) "$seasons seasons" else null,
                         "TV show"
                     ),
-                    overview = group.overview
+                    overview = group.overview,
+                    // A show is new when an episode is: the latest one's arrival and source.
+                    addedAt = group.episodes.maxOf { it.dateAdded },
+                    fromJellyfin = group.episodes.maxBy { it.dateAdded }.source == me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN
                 )
             }
         }.takeIf { it.posterPath != null || it.backdropPath != null }
@@ -368,7 +388,9 @@ private fun SpotlightPage(
                 .padding(start = 20.dp, end = 20.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("New on your ${LocalDeviceNoun.current}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            newLabel(pick.addedAt, pick.fromJellyfin, LocalDeviceNoun.current)?.let {
+                Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
             Text(
                 pick.entry.title,
                 style = MaterialTheme.typography.displaySmall,
