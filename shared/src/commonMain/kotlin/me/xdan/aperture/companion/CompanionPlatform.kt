@@ -10,6 +10,8 @@ interface CompanionPlatform {
 
     /** A [me.xdan.aperture.companion.protocol.DeviceKind], so the phone shows a fitting icon. */
     val deviceKind: String get() = me.xdan.aperture.companion.protocol.DeviceKind.TV
+    /** A [me.xdan.aperture.companion.protocol.DeviceOs]. */
+    val deviceOs: String get() = me.xdan.aperture.companion.protocol.DeviceOs.ANDROID
 
     /** The LAN IPv4 address phones should connect to, if any. */
     fun localIpv4Address(): String?

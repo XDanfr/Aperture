@@ -29,6 +29,8 @@ object CompanionProtocol {
     const val TXT_TV_ID = "id"
     const val TXT_VERSION = "v"
     const val TXT_DEVICE_KIND = "k"
+    /** The server's operating system ([DeviceOs]); older servers don't send it. */
+    const val TXT_DEVICE_OS = "o"
 
     const val TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/"
 
@@ -45,11 +47,12 @@ object CompanionProtocol {
         code: String,
         tvId: String,
         tvName: String,
-        deviceKind: String = DeviceKind.TV
+        deviceKind: String = DeviceKind.TV,
+        deviceOs: String = ""
     ): String =
         buildPairingUri(
             linkedMapOf(
-                "h" to host, "p" to port.toString(), "c" to code, "id" to tvId, "n" to tvName, "k" to deviceKind
+                "h" to host, "p" to port.toString(), "c" to code, "id" to tvId, "n" to tvName, "k" to deviceKind, "o" to deviceOs
             )
         )
 
@@ -65,7 +68,8 @@ object CompanionProtocol {
             code = code,
             tvId = query["id"].orEmpty(),
             tvName = query["n"].orEmpty().ifBlank { "Aperture TV" },
-            deviceKind = query["k"].orEmpty().ifBlank { DeviceKind.TV }
+            deviceKind = query["k"].orEmpty().ifBlank { DeviceKind.TV },
+            deviceOs = query["o"].orEmpty()
         )
     }
 }
@@ -82,7 +86,8 @@ data class PairingInvite(
     val code: String,
     val tvId: String,
     val tvName: String,
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    val deviceOs: String = ""
 )
 
 /**
@@ -93,6 +98,25 @@ object DeviceKind {
     const val TV = "tv"
     const val DESKTOP = "desktop"
     const val LAPTOP = "laptop"
+
+    /**
+     * What to call a server in text: "TV" for a TV, "Mac" or "PC" for those computers, and
+     * "computer" when the operating system isn't known (Linux, or an older version of Aperture).
+     */
+    fun noun(kind: String, os: String): String = when {
+        kind == TV -> "TV"
+        os == DeviceOs.MAC -> "Mac"
+        os == DeviceOs.WINDOWS -> "PC"
+        else -> "computer"
+    }
+}
+
+/** The server's operating system, sent beside [DeviceKind] so the phone can say "Mac" or "PC". */
+object DeviceOs {
+    const val ANDROID = "android"
+    const val MAC = "mac"
+    const val WINDOWS = "windows"
+    const val LINUX = "linux"
 }
 
 @Serializable
@@ -101,7 +125,8 @@ data class TvInfo(
     val tvName: String,
     val protocol: Int = CompanionProtocol.VERSION,
     val appVersion: String = "",
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    val deviceOs: String = ""
 )
 
 @Serializable
@@ -122,7 +147,8 @@ data class PairResponse(
     val token: String,
     val tvId: String,
     val tvName: String,
-    val deviceKind: String = DeviceKind.TV
+    val deviceKind: String = DeviceKind.TV,
+    val deviceOs: String = ""
 )
 
 @Serializable
@@ -197,6 +223,7 @@ data class TvState(
     val themeDeviceId: String? = null,
     val themeColors: PhoneColors? = null,
     val deviceKind: String = DeviceKind.TV,
+    val deviceOs: String = "",
     /** who's watching on the TV; favourites and progress the phone sees are this profile's. */
     val profileName: String? = null
 )

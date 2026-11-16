@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui.screens
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -137,7 +138,7 @@ fun NowPlayingBar(
                 Column(Modifier.weight(1f)) {
                     Text(np.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        np.subtitle ?: "Playing on TV",
+                        np.subtitle ?: "Playing on ${LocalDeviceNoun.current}",
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -193,7 +194,7 @@ fun NowPlayingSheet(
                 Artwork(np.backdropPath ?: np.posterPath, size = "w780", modifier = Modifier.matchParentSize())
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Playing on your TV", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("Playing on your ${LocalDeviceNoun.current}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Text(np.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 np.subtitle?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

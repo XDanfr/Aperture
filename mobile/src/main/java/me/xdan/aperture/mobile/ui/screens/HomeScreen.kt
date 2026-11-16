@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui.screens
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -221,7 +222,7 @@ fun HomeScreen(
                 item(key = "empty") {
                     EmptyState(
                         "Your library is empty",
-                        "Add folders on the TV in Settings › Media folders, and they'll appear here."
+                        "Add folders on your ${LocalDeviceNoun.current} in Settings › Media folders, and they'll appear here."
                     )
                 }
             }
@@ -365,7 +366,7 @@ private fun SpotlightPage(
                 .padding(start = 20.dp, end = 20.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("New on your TV", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("New on your ${LocalDeviceNoun.current}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Text(
                 pick.entry.title,
                 style = MaterialTheme.typography.displaySmall,
@@ -393,9 +394,9 @@ private fun SpotlightPage(
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text(
                         when {
-                            pick.entry is LibraryEntry.Show -> pick.play.episodeLabel?.let { "${if (resume) "Resume" else "Play"} $it" } ?: "Play on TV"
-                            resume -> "Resume on TV"
-                            else -> "Play on TV"
+                            pick.entry is LibraryEntry.Show -> pick.play.episodeLabel?.let { "${if (resume) "Resume" else "Play"} $it" } ?: "Play on ${LocalDeviceNoun.current}"
+                            resume -> "Resume on ${LocalDeviceNoun.current}"
+                            else -> "Play on ${LocalDeviceNoun.current}"
                         }
                     )
                 }
