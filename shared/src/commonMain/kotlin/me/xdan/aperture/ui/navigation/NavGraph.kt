@@ -884,6 +884,8 @@ internal fun sidebarCandidates(
     if (mode.usesJellyfin) {
         libraries
             .filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
+            // In hybrid mode the server's films and shows are inside Movies and Shows already.
+            .filterNot { mode.usesLocal && it.collectionType in setOf("movies", "tvshows") }
             .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it.collectionType), Destination.Library(it.id))) }
     }
     add(SidebarEntry("my_list", "My List", Icons.AutoMirrored.Rounded.PlaylistAdd, Destination.MyList))
@@ -1023,16 +1025,23 @@ private fun NavContent(
                         )
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
                     }
-                    is Destination.Movies -> MoviesScreen(
+                    is Destination.Movies -> {
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
+                        MoviesScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
                         onMediaLongClick = mediaLongClick,
                         drawerFocusRequester = drawerFocusRequester,
                         contentEntryFocusRequester = contentEntryFocusRequester,
                         onContentFocused = contentFocused,
-                        onActiveMediaChanged = onActiveMediaChanged
-                    )
-                    is Destination.Shows -> ShowsScreen(
+                        onActiveMediaChanged = onActiveMediaChanged,
+                            onRemoteClick = { item, from -> details.open(item, from) }
+                        )
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                    }
+                    is Destination.Shows -> {
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
+                        ShowsScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = episodeAwareMediaClick,
                         onMediaLongClick = { media, requester, fromContinue, opensToRight, episodeOnly ->
@@ -1043,8 +1052,11 @@ private fun NavContent(
                         drawerFocusRequester = drawerFocusRequester,
                         contentEntryFocusRequester = contentEntryFocusRequester,
                         onContentFocused = contentFocused,
-                        onActiveMediaChanged = onActiveMediaChanged
-                    )
+                        onActiveMediaChanged = onActiveMediaChanged,
+                            onRemoteClick = { item, from -> details.open(item, from) }
+                        )
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                    }
                     is Destination.Settings -> SettingsScreen(
                         drawerFocusRequester = drawerFocusRequester,
                         contentEntryFocusRequester = contentEntryFocusRequester,

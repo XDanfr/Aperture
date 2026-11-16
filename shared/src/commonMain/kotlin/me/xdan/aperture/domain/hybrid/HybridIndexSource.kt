@@ -33,6 +33,7 @@ class HybridIndexSource(
             dao.libraries(account.id)
         ) { local, movies, series, episodes, libraries ->
             HybridMatcher.match(local, movies + series + episodes, libraries.associate { it.id to it.collectionType })
+                .copy(baseUrl = account.baseUrl)
         }.flowOn(Dispatchers.Default)
     }
 }
