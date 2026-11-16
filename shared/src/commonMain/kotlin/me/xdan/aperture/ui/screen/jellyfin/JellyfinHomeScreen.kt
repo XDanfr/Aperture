@@ -209,6 +209,7 @@ private fun SpotlightCarousel(
     onFocused: (FocusRequester) -> Unit
 ) {
     val carouselState = androidx.tv.material3.rememberCarouselState()
+    val primary = ApertureTheme.colorScheme.primary
     val requesters = remember(items.map { it.key }) { List(items.size) { FocusRequester() } }
     var focused by remember { mutableStateOf(false) }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(if (rounded) 32.dp else 0.dp)
@@ -220,7 +221,7 @@ private fun SpotlightCarousel(
             androidx.tv.material3.Border(
                 border = androidx.compose.foundation.BorderStroke(
                     width = if (focused) 3.dp else 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (focused) 1f else 0.28f)
+                    color = primary.copy(alpha = if (focused) 1f else 0.28f)
                 ),
                 shape = shape
             )
@@ -242,9 +243,13 @@ private fun SpotlightCarousel(
                 }
                 Box(
                     Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            listOf(me.xdan.aperture.ui.theme.HeroGradientStart, me.xdan.aperture.ui.theme.HeroGradientEnd)
-                        )
+                        if (rounded) {
+                            Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.22f)))
+                        } else {
+                            Brush.verticalGradient(
+                                listOf(me.xdan.aperture.ui.theme.HeroGradientStart, me.xdan.aperture.ui.theme.HeroGradientEnd)
+                            )
+                        }
                     )
                 )
                 Column(Modifier.align(Alignment.BottomStart).padding(32.dp).fillMaxWidth(0.6f)) {
@@ -261,7 +266,20 @@ private fun SpotlightCarousel(
                         modifier = Modifier
                             .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
                             .focusRequester(requester)
-                            .onFocusChanged { if (it.isFocused) onFocused(requester) }
+                            .onFocusChanged { if (it.isFocused) onFocused(requester) },
+                        // The theme's colour, as on the local Home's spotlight.
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            androidx.tv.material3.ButtonDefaults.colors()
+                        } else {
+                            androidx.tv.material3.ButtonDefaults.colors(
+                                containerColor = primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
                     ) {
                         Text(
                             when {
