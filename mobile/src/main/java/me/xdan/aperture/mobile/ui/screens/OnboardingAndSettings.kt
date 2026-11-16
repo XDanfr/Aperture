@@ -207,7 +207,7 @@ fun SettingsScreen(
                     }
                 )
                 Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onPair) { Text("Pair a different device") }
+                    OutlinedButton(onClick = onPair) { Text("Pair another") }
                     TextButton(onClick = { confirmForget = true }) {
                         Icon(Icons.Rounded.LinkOff, null)
                         Spacer(Modifier.width(6.dp))
