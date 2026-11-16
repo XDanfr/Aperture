@@ -176,8 +176,19 @@ data class CompanionMedia(
     val lastWatchedAt: Long? = null,
     val completed: Boolean = false,
     val isFavorite: Boolean = false,
-    val dateAdded: Long = 0
+    val dateAdded: Long = 0,
+    /**
+     * Where the title is: [MediaSource.LOCAL] on the TV, or [MediaSource.JELLYFIN] on its server.
+     * Jellyfin titles have negative ids, and their artwork paths are full image URLs.
+     */
+    val source: String = MediaSource.LOCAL
 )
+
+object MediaSource {
+    const val LOCAL = "local"
+    const val JELLYFIN = "jellyfin"
+    const val BOTH = "both"
+}
 
 @Serializable
 data class LibrarySnapshot(
@@ -252,5 +263,8 @@ sealed interface CompanionCommand {
     data class SetFavorite(val mediaId: Long, val favorite: Boolean) : CompanionCommand
 }
 
+/** A TMDB path at [size], or a Jellyfin title's artwork, which arrives as a full URL. */
 fun tmdbImageUrl(path: String?, size: String = "w342"): String? =
-    path?.takeIf { it.isNotBlank() }?.let { CompanionProtocol.TMDB_IMAGE_BASE_URL + size + it }
+    path?.takeIf { it.isNotBlank() }?.let {
+        if (it.startsWith("http://") || it.startsWith("https://")) it else CompanionProtocol.TMDB_IMAGE_BASE_URL + size + it
+    }

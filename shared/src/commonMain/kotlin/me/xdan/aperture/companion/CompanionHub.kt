@@ -42,6 +42,8 @@ import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.UserPreferencesRepository
 import me.xdan.aperture.ui.screen.player.PlayerEngine
 import java.security.MessageDigest
+import me.xdan.aperture.data.jellyfin.isDiscover
+import kotlinx.coroutines.flow.flatMapLatest
 import java.security.SecureRandom
 
 /** a pairing window. the code is shown on the TV; phones exchange it for a token. */
@@ -60,11 +62,13 @@ sealed interface CompanionPlayerCommand {
     data class SeekBy(val deltaMs: Long) : CompanionPlayerCommand
     data object NextEpisode : CompanionPlayerCommand
     data class Load(val mediaId: Long, val fromStart: Boolean) : CompanionPlayerCommand
+    data class LoadJellyfin(val itemId: String, val fromStart: Boolean) : CompanionPlayerCommand
 }
 
 /** navigation the activity performs for a phone. */
 sealed interface CompanionNavigation {
     data class Play(val mediaId: Long, val fromStart: Boolean) : CompanionNavigation
+    data class PlayJellyfin(val key: me.xdan.aperture.domain.model.MediaKey.Jellyfin, val fromStart: Boolean) : CompanionNavigation
     data object ExitPlayer : CompanionNavigation
 }
 
@@ -84,7 +88,10 @@ class CompanionHub(
     private val mediaRepository: MediaRepository,
     private val preferences: UserPreferencesRepository,
     private val player: PlayerEngine,
-    profiles: me.xdan.aperture.domain.repository.ProfileRepository
+    private val profiles: me.xdan.aperture.domain.repository.ProfileRepository,
+    private val jellyfin: me.xdan.aperture.data.jellyfin.JellyfinCatalog,
+    private val jellyfinDao: me.xdan.aperture.data.local.dao.JellyfinDao,
+    private val hybrid: me.xdan.aperture.domain.hybrid.HybridIndexSource
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val random = SecureRandom()
@@ -115,10 +122,22 @@ class CompanionHub(
     private val hasNextEpisode = MutableStateFlow(false)
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
 
+    /** The active profile's server titles, so the revision moves when they (or their progress) change. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val serverTitles = combine(profiles.activeLibraryMode, jellyfin.activeAccount) { mode, account -> account?.takeIf { mode.usesJellyfin } }
+        .flatMapLatest { account ->
+            if (account == null) kotlinx.coroutines.flow.flowOf(0)
+            else combine(jellyfinDao.itemsOfType(account.id, "MOVIE"), jellyfinDao.itemsOfType(account.id, "EPISODE")) { movies, episodes ->
+                movies.hashCode() * 31 + episodes.hashCode()
+            }
+        }
+
     private val libraryRevision = combine(
         mediaRepository.getAllMedia(),
-        mediaRepository.getAllProgress()
-    ) { media, progress -> media.hashCode() * 31 + progress.hashCode() }
+        mediaRepository.getAllProgress(),
+        profiles.activeLibraryMode,
+        serverTitles
+    ) { media, progress, mode, server -> ((media.hashCode() * 31 + progress.hashCode()) * 31 + mode.hashCode()) * 31 + server }
         .distinctUntilChanged()
         .debounce(500)
         .stateIn(scope, SharingStarted.Eagerly, 0)
@@ -368,6 +387,13 @@ class CompanionHub(
         val playing = nowPlayingMedia.value != null
         return when (command) {
             is CompanionCommand.PlayMedia -> {
+                if (command.mediaId < 0) {
+                    // A server title: its id maps back to the item.
+                    val key = jellyfinKey(command.mediaId) ?: return false
+                    if (playing) _playerCommands.tryEmit(CompanionPlayerCommand.LoadJellyfin(key.itemId, command.fromStart))
+                    else _navigation.tryEmit(CompanionNavigation.PlayJellyfin(key, command.fromStart))
+                    return true
+                }
                 if (playing) _playerCommands.tryEmit(CompanionPlayerCommand.Load(command.mediaId, command.fromStart))
                 else _navigation.tryEmit(CompanionNavigation.Play(command.mediaId, command.fromStart))
                 true
@@ -378,13 +404,80 @@ class CompanionHub(
             CompanionCommand.NextEpisode -> playing && _playerCommands.tryEmit(CompanionPlayerCommand.NextEpisode)
             CompanionCommand.Stop -> playing && _navigation.tryEmit(CompanionNavigation.ExitPlayer)
             is CompanionCommand.SetFavorite -> {
-                mediaRepository.setFavorite(command.mediaId, command.favorite)
-                true
+                if (command.mediaId < 0) {
+                    val key = jellyfinKey(command.mediaId) ?: return false
+                    val account = jellyfin.activeAccount.first() ?: return false
+                    jellyfin.setFavorite(account, key.itemId, command.favorite)
+                } else {
+                    mediaRepository.setFavorite(command.mediaId, command.favorite)
+                    true
+                }
             }
         }
     }
 
+    /** Server titles by their companion id, from the last snapshot (or looked up). */
+    private val jellyfinIds = java.util.concurrent.ConcurrentHashMap<Long, me.xdan.aperture.domain.model.MediaKey.Jellyfin>()
+
+    private suspend fun jellyfinKey(id: Long): me.xdan.aperture.domain.model.MediaKey.Jellyfin? {
+        jellyfinIds[id]?.let { return it }
+        val account = jellyfin.activeAccount.first() ?: return null
+        var item: me.xdan.aperture.data.local.entity.RemoteItemEntity? = null
+        for (type in listOf("MOVIE", "EPISODE")) {
+            item = jellyfinDao.itemsOfType(account.id, type).first()
+                .firstOrNull { me.xdan.aperture.ui.screen.player.PlayerViewModel.jellyfinDisplayId(it.itemId) == id }
+            if (item != null) break
+        }
+        if (item == null) return null
+        return me.xdan.aperture.domain.model.MediaKey.Jellyfin(account.id, item.itemId).also { jellyfinIds[id] = it }
+    }
+
+    /**
+     * The active profile's server films and episodes, as the phone sees local ones. Discover's
+     * requestable placeholders stay out, and in hybrid mode so do titles this device has too.
+     */
+    private suspend fun jellyfinSnapshot(): List<CompanionMedia> {
+        if (!profiles.activeLibraryMode.first().usesJellyfin) return emptyList()
+        val account = jellyfin.activeAccount.first() ?: return emptyList()
+        val discover = jellyfin.libraries.first().filter { it.isDiscover }.map { it.id }.toSet()
+        val alsoLocal = hybrid.index.first().matchedRemoteIds
+        val images = me.xdan.aperture.domain.catalog.JellyfinImages(account.baseUrl)
+        // The phone describes a show with its episodes' overview field, so episodes carry the show's.
+        val showOverviews = jellyfinDao.itemsOfType(account.id, "SERIES").first().associate { it.itemId to it.overview }
+        return listOf("MOVIE", "EPISODE").flatMap { jellyfinDao.itemsOfType(account.id, it).first() }
+            .filter { it.libraryId !in discover && it.itemId !in alsoLocal && it.seriesId !in alsoLocal }
+            .map { entity ->
+                val id = me.xdan.aperture.ui.screen.player.PlayerViewModel.jellyfinDisplayId(entity.itemId)
+                jellyfinIds[id] = me.xdan.aperture.domain.model.MediaKey.Jellyfin(account.id, entity.itemId)
+                val catalog = images.item(entity)
+                val episode = entity.type == "EPISODE"
+                CompanionMedia(
+                    id = id,
+                    type = if (episode) CompanionMediaType.EPISODE else CompanionMediaType.MOVIE,
+                    title = if (episode) entity.seriesName ?: entity.name else entity.name,
+                    year = entity.year,
+                    overview = if (episode) entity.seriesId?.let(showOverviews::get) else entity.overview,
+                    posterPath = images.titlePoster(entity) ?: catalog.poster,
+                    backdropPath = catalog.backdrop,
+                    stillPath = if (episode) catalog.thumb else null,
+                    seasonNumber = entity.seasonNumber,
+                    episodeNumber = entity.episodeNumber,
+                    episodeTitle = if (episode) entity.name else null,
+                    episodeOverview = if (episode) entity.overview else null,
+                    durationMs = entity.runtimeMs,
+                    positionMs = entity.playbackPositionMs.takeIf { it > 0 },
+                    lastWatchedAt = entity.lastPlayedAt,
+                    completed = entity.played,
+                    isFavorite = entity.isFavorite,
+                    dateAdded = entity.dateCreated ?: 0,
+                    source = me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN
+                )
+            }
+    }
+
     private suspend fun librarySnapshot(): LibrarySnapshot {
+        val server = jellyfinSnapshot()
+        if (!profiles.activeLibraryMode.first().usesLocal) return LibrarySnapshot(libraryRevision.value.toLong(), server)
         val media = mediaRepository.getAllMedia().first()
         val progress = mediaRepository.getAllProgress().first().associateBy { it.mediaId }
         val items = media.asSequence().filterNot { it.isHidden }.map { entity ->
@@ -414,7 +507,7 @@ class CompanionHub(
                 dateAdded = entity.dateAdded
             )
         }.toList()
-        return LibrarySnapshot(libraryRevision.value.toLong(), items)
+        return LibrarySnapshot(libraryRevision.value.toLong(), items + server)
     }
 
     private fun errorJson(code: String) = CompanionProtocol.json.encodeToString(ErrorBody.serializer(), ErrorBody(code))

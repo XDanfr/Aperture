@@ -227,6 +227,13 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                                     appState.isPlayerActive = true
                                     backstack.add(Destination.Player(me.xdan.aperture.domain.model.MediaKey.Local(request.mediaId), request.fromStart))
                                 }
+                                is me.xdan.aperture.companion.CompanionNavigation.PlayJellyfin -> {
+                                    if (onboardingCompleted != true || legacyCleanupRequired || choosingProfileNow) return@collect
+                                    appState.isAmbientActive = false
+                                    if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
+                                    appState.isPlayerActive = true
+                                    backstack.add(Destination.Player(request.key, request.fromStart))
+                                }
                                 me.xdan.aperture.companion.CompanionNavigation.ExitPlayer -> {
                                     if (backstack.size > 1 && backstack.lastOrNull() is Destination.Player) {
                                         backstack.removeAt(backstack.lastIndex)
