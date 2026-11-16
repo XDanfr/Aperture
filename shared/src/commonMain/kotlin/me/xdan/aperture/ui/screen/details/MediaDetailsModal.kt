@@ -82,6 +82,7 @@ fun MediaDetailsModal(
     val assetCandidates by viewModel.assetCandidates.collectAsState()
     val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
     val info by viewModel.info.collectAsState()
+    val availability by viewModel.availability.collectAsState()
     val infoOpen by viewModel.infoOpen.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
     val episodeButtonFocusRequester = remember { FocusRequester() }
@@ -276,6 +277,9 @@ fun MediaDetailsModal(
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = Color.Gray
                                     )
+                                    availability?.let {
+                                        Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                    }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = m.episodeOverview ?: m.overview ?: "No synopsis available.",

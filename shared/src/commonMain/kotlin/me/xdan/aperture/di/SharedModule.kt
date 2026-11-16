@@ -113,19 +113,22 @@ val sharedModule = module {
     viewModel { MainViewModel(get(), get(), get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) { get() } }
-    viewModel { MyListViewModel(get(), get(), get()) }
+    viewModel { MyListViewModel(get(), get(), get(), get()) }
     viewModel { AmbientViewModel(get(), get(), get()) }
-    viewModel { MediaDetailsViewModel(get(), get()) }
-    viewModel { SearchViewModel(get(), get(), get()) }
-    viewModel { LibraryViewModel(get(), get(), get(), get()) }
+    viewModel { MediaDetailsViewModel(get(), get(), get()) }
+    viewModel { SearchViewModel(get(), get(), get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }
     viewModel { MediaActionsViewModel(get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { CompanionViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
     single { me.xdan.aperture.domain.catalog.LibraryQueryStore(get()) }
+    single { me.xdan.aperture.domain.sidebar.SidebarRepository(get(), get()) }
+    single { me.xdan.aperture.domain.sidebar.HomeRowsRepository(get(), get()) }
+    single { me.xdan.aperture.domain.hybrid.HybridIndexSource(get(), get(), get(), get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryViewModel(params.get(), get(), get(), get()) }
-    viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel(get()) }
+    viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel(get(), get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsViewModel(params.get(), get()) }
 }
 

@@ -21,7 +21,8 @@ class LibraryViewModel constructor(
     repository: MediaRepository,
     preferences: UserPreferencesRepository,
     profiles: ProfileRepository,
-    private val queries: LibraryQueryStore
+    private val queries: LibraryQueryStore,
+    hybrid: me.xdan.aperture.domain.hybrid.HybridIndexSource
 ) : ViewModel() {
     private val content = LibraryContent(
         repository.getMediaByType("MOVIE"),
@@ -50,12 +51,25 @@ class LibraryViewModel constructor(
 
     private val progress = repository.getAllProgress().map { list -> list.associateBy { it.mediaId } }
 
-    val movieGrid: StateFlow<LocalGrid<MediaEntity>> = combine(movies, progress, movieQuery, seed) { all, p, q, s ->
-        LocalLibraryQuery.movies(all, p, q, s)
+    /**
+     * This device's films, plus in hybrid mode the server's films the device doesn't have. A
+     * title in both places shows once, as the local copy.
+     */
+    val movieGrid: StateFlow<LocalGrid<GridEntry<MediaEntity>>> = combine(movies, progress, movieQuery, seed, hybrid.index) { all, p, q, s, index ->
+        val images = me.xdan.aperture.domain.catalog.JellyfinImages(index.baseUrl)
+        val titles: List<GridTitle<GridEntry<MediaEntity>>> =
+            all.map { m -> LocalLibraryQuery.movieTitle(m, p).withValue(GridEntry.Local(m, "local:${m.id}")) } +
+                index.serverOnlyMovies.map { LocalLibraryQuery.remoteTitle(images.item(it), it.lastPlayedAt) }
+        LocalLibraryQuery.arrange(titles, q, s, LocalLibraryQuery.movieSorts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalGrid())
 
-    val showGrid: StateFlow<LocalGrid<ShowGroup>> = combine(showGroups, progress, showQuery, seed) { all, p, q, s ->
-        LocalLibraryQuery.shows(all, p, q, s)
+    /** The same for shows: local show groups, plus server series the device has no episodes of. */
+    val showGrid: StateFlow<LocalGrid<GridEntry<ShowGroup>>> = combine(showGroups, progress, showQuery, seed, hybrid.index) { all, p, q, s, index ->
+        val images = me.xdan.aperture.domain.catalog.JellyfinImages(index.baseUrl)
+        val titles: List<GridTitle<GridEntry<ShowGroup>>> =
+            all.map { g -> LocalLibraryQuery.showTitle(g, p).withValue(GridEntry.Local(g, "show:${g.title}")) } +
+                index.serverOnlyShows.map { LocalLibraryQuery.remoteTitle(images.item(it), it.lastPlayedAt) }
+        LocalLibraryQuery.arrange(titles, q, s, LocalLibraryQuery.showSorts)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalGrid())
 
     fun updateMovies(transform: (LibraryQuery) -> LibraryQuery) = update(movieQuery, MOVIES, transform)
