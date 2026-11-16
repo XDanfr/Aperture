@@ -123,6 +123,7 @@ val sharedModule = module {
     viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
     single { me.xdan.aperture.domain.catalog.LibraryQueryStore(get()) }
+    single { me.xdan.aperture.domain.sidebar.SidebarRepository(get(), get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryViewModel(params.get(), get(), get(), get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel(get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsViewModel(params.get(), get()) }
