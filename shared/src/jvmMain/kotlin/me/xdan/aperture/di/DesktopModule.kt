@@ -41,6 +41,7 @@ val desktopModule = module {
     single<AppDatabase> {
         Room.databaseBuilder<AppDatabase>(File(DesktopDirectories.data, AppDatabase.DATABASE_NAME).absolutePath)
             .setDriver(BundledSQLiteDriver())
+            .addMigrations(*me.xdan.aperture.data.local.DesktopMigrations.ALL_MIGRATIONS)
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }

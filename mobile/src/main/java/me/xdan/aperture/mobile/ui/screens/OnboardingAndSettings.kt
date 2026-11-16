@@ -196,7 +196,9 @@ fun SettingsScreen(
                     supportingContent = {
                         Text(
                             when (val c = connection) {
-                                ConnectionState.Connected -> "Connected · ${current.host}"
+                                ConnectionState.Connected -> tvState?.profileName
+                                    ?.let { "Connected · Watching as $it" }
+                                    ?: "Connected · ${current.host}"
                                 ConnectionState.Connecting -> "Connecting…"
                                 is ConnectionState.Offline -> "Offline · retrying in ${c.retryInSeconds}s"
                                 ConnectionState.Revoked -> "This phone was removed on the TV"

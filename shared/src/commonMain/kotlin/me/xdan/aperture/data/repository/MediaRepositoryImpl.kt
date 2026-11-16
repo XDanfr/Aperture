@@ -16,6 +16,10 @@ import me.xdan.aperture.data.local.dao.MediaDao
 import me.xdan.aperture.data.local.dao.PlaybackProgressDao
 import me.xdan.aperture.data.local.entity.MediaEntity
 import me.xdan.aperture.data.local.entity.PlaybackProgressEntity
+import me.xdan.aperture.data.local.entity.MediaRecord
+import me.xdan.aperture.domain.repository.ProfileRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import me.xdan.aperture.data.remote.api.TmdbApi
 import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.domain.repository.MediaFolder
@@ -36,8 +40,14 @@ class MediaRepositoryImpl constructor(
     private val tmdbApi: TmdbApi,
     private val artworkPrefetcher: ArtworkPrefetcher,
     private val source: MediaLibrarySource,
-    stores: KeyValueStores
+    stores: KeyValueStores,
+    private val profiles: ProfileRepository
 ) : MediaRepository {
+
+    private suspend fun profile(): Long = profiles.activeProfileId.first()
+
+    private fun <T> perProfile(query: (Long) -> Flow<T>): Flow<T> =
+        profiles.activeProfileId.flatMapLatest(query)
 
     private val scanMutex = Mutex()
     private val showMatchCache = ConcurrentHashMap<String, TmdbResult>()
@@ -47,11 +57,12 @@ class MediaRepositoryImpl constructor(
     private val _mediaFolders = MutableStateFlow(loadMediaFolders())
     override val mediaFolders: StateFlow<List<MediaFolder>> = _mediaFolders
 
-    override fun getAllMedia(): Flow<List<MediaEntity>> = mediaDao.getAllMedia()
+    override fun getAllMedia(): Flow<List<MediaEntity>> = perProfile(mediaDao::getAllMedia)
 
-    override fun getMediaByType(type: String): Flow<List<MediaEntity>> = mediaDao.getMediaByType(type)
+    override fun getMediaByType(type: String): Flow<List<MediaEntity>> =
+        perProfile { mediaDao.getMediaByType(it, type) }
 
-    override fun getFavoriteMedia(): Flow<List<MediaEntity>> = mediaDao.getFavoriteMedia().map { items ->
+    override fun getFavoriteMedia(): Flow<List<MediaEntity>> = perProfile(mediaDao::getFavoriteMedia).map { items ->
         val movies = items.filter { it.type != "EPISODE" }
         val shows = items.filter { it.type == "EPISODE" }.groupBy { it.title }.values.map { episodes ->
             val firstEpisode = episodes.minWith(
@@ -68,46 +79,50 @@ class MediaRepositoryImpl constructor(
         )
     }
 
-    override fun getHiddenMedia(): Flow<List<MediaEntity>> = mediaDao.getHiddenMedia()
+    override fun getHiddenMedia(): Flow<List<MediaEntity>> = perProfile(mediaDao::getHiddenMedia)
 
     override suspend fun getMediaById(id: Long): MediaEntity? {
-        val media = mediaDao.getMediaById(id) ?: return null
+        val profileId = profile()
+        val media = mediaDao.getMediaById(profileId, id) ?: return null
         if (media.type != "EPISODE") return media
-        val savedEpisode = mediaDao.getFavoriteEpisodeForShow(media.title)
+        val savedEpisode = mediaDao.getFavoriteEpisodeForShow(profileId, media.title)
         return media.copy(isFavorite = savedEpisode != null, favoriteAddedAt = savedEpisode?.favoriteAddedAt)
     }
 
     override suspend fun getEpisodesForShow(showTitle: String): List<MediaEntity> =
-        mediaDao.getEpisodesForShow(showTitle)
+        mediaDao.getEpisodesForShow(profile(), showTitle)
 
-    override suspend fun insertMedia(media: MediaEntity): Long = mediaDao.insertMedia(media)
+    override suspend fun insertMedia(media: MediaEntity): Long = mediaDao.insertMedia(media.toRecord())
 
-    override suspend fun updateMedia(media: MediaEntity) = mediaDao.updateMedia(media)
+    override suspend fun updateMedia(media: MediaEntity) = mediaDao.updateMedia(media.toRecord())
 
     override suspend fun setFavorite(mediaId: Long, isFavorite: Boolean) {
-        val media = mediaDao.getMediaById(mediaId) ?: return
+        val media = mediaDao.getRecordById(mediaId) ?: return
         val changedAt = System.currentTimeMillis()
         if (media.type == "EPISODE") {
-            mediaDao.setShowFavorite(media.title, isFavorite, changedAt)
+            mediaDao.setShowFavorite(profile(), media.title, isFavorite, changedAt)
         } else {
-            mediaDao.setFavorite(mediaId, isFavorite, changedAt)
+            mediaDao.setFavorite(profile(), mediaId, isFavorite, changedAt)
         }
     }
 
     override suspend fun setHidden(mediaId: Long, isHidden: Boolean) =
-        mediaDao.setHidden(mediaId, isHidden)
+        mediaDao.setHidden(profile(), mediaId, isHidden)
 
-    override suspend fun deleteMedia(media: MediaEntity) = mediaDao.deleteMedia(media)
+    override suspend fun deleteMedia(media: MediaEntity) = mediaDao.deleteMedia(media.id)
 
-    override fun searchMedia(query: String): Flow<List<MediaEntity>> = mediaDao.searchMedia(query)
+    override fun searchMedia(query: String): Flow<List<MediaEntity>> =
+        perProfile { mediaDao.searchMedia(it, query) }
 
-    override suspend fun getProgress(mediaId: Long): PlaybackProgressEntity? = progressDao.getProgressForMedia(mediaId)
+    override suspend fun getProgress(mediaId: Long): PlaybackProgressEntity? =
+        progressDao.getProgressForMedia(profile(), mediaId)
 
-    override fun getAllProgress(): Flow<List<PlaybackProgressEntity>> = progressDao.getAllProgress()
+    override fun getAllProgress(): Flow<List<PlaybackProgressEntity>> = perProfile(progressDao::getAllProgress)
 
-    override suspend fun saveProgress(progress: PlaybackProgressEntity) = progressDao.saveProgress(progress)
+    override suspend fun saveProgress(progress: PlaybackProgressEntity) =
+        progressDao.saveProgress(progress.copy(profileId = profile()))
 
-    override suspend fun clearProgress(mediaId: Long) = progressDao.deleteProgress(mediaId)
+    override suspend fun clearProgress(mediaId: Long) = progressDao.deleteProgress(profile(), mediaId)
 
     override suspend fun addMediaFolder(uri: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
@@ -119,10 +134,7 @@ class MediaRepositoryImpl constructor(
     }
 
     override suspend fun removeMediaFolder(uri: String) = withContext(Dispatchers.IO) {
-        mediaDao.getMediaFromSource(uri).forEach { media ->
-            progressDao.deleteProgress(media.id)
-        }
-        mediaDao.deleteMediaFromSource(uri)
+        mediaDao.getMediaFromSource(uri).forEach { media -> mediaDao.deleteMedia(media.id) }
         saveFolderUris(selectedFolderUris() - uri)
         runCatching { source.releaseFolder(uri) }
         refreshMediaFolders()
@@ -153,7 +165,7 @@ class MediaRepositoryImpl constructor(
 
                     refreshMediaFolders()
 
-                    prepareMetadata(mediaDao.getAllMediaOnce())
+                    prepareMetadata(mediaDao.getAllMediaOnce().map { it.toEntity() })
                 } catch (exception: Exception) {
                     exception.printStackTrace()
                     _preparationProgress.value = _preparationProgress.value.copy(
@@ -178,7 +190,7 @@ class MediaRepositoryImpl constructor(
         val existing = mediaDao.getMediaByPath(path)
         val cleanedInfo = FilenameParser.parse(name, parserPath)
         if (existing == null) {
-            val media = MediaEntity(
+            val media = MediaRecord(
                 filePath = path,
                 sourceRootUri = sourceRootUri,
                 parentDocumentUri = parentDocumentUri,
@@ -234,10 +246,7 @@ class MediaRepositoryImpl constructor(
         if (!readable) return
         mediaDao.getMediaFromSource(folderUri)
             .filterNot { it.filePath in seenUris }
-            .forEach { staleMedia ->
-                progressDao.deleteProgress(staleMedia.id)
-                mediaDao.deleteMedia(staleMedia)
-            }
+            .forEach { staleMedia -> mediaDao.deleteMedia(staleMedia.id) }
     }
 
     private fun selectedFolderUris(): Set<String> =
@@ -338,7 +347,7 @@ class MediaRepositoryImpl constructor(
         }
 
     override suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult) {
-        val media = mediaDao.getMediaById(mediaId) ?: return
+        val media = mediaDao.getRecordById(mediaId)?.toEntity() ?: return
         val showTitle = candidate.title ?: candidate.name ?: media.title
         var updated = media.copy(
             tmdbId = candidate.id,
@@ -353,7 +362,7 @@ class MediaRepositoryImpl constructor(
         if (media.type == "EPISODE") {
             updated = attachEpisodeMetadata(updated)
             // A manual show correction should correct every episode parsed under the old show title.
-            mediaDao.getEpisodesForShow(media.title)
+            mediaDao.getEpisodeRecordsForShow(media.title).map { it.toEntity() }
                 .filterNot { it.id == media.id }
                 .forEach { sibling ->
                     mediaDao.updateMedia(
@@ -368,11 +377,11 @@ class MediaRepositoryImpl constructor(
                                     ?.take(4)?.toIntOrNull() ?: sibling.year,
                                 metadataAttemptedAt = System.currentTimeMillis()
                             )
-                        )
+                        ).toRecord()
                     )
                 }
         }
-        mediaDao.updateMedia(updated)
+        mediaDao.updateMedia(updated.toRecord())
         artworkPrefetcher.prefetchBackdrop(updated.backdropPath)
     }
 
@@ -387,7 +396,7 @@ class MediaRepositoryImpl constructor(
             val updated = attachEpisodeMetadata(media).copy(
                 metadataAttemptedAt = System.currentTimeMillis()
             )
-            mediaDao.updateMedia(updated)
+            mediaDao.updateMedia(updated.toRecord())
             artworkPrefetcher.prefetchBackdrop(updated.backdropPath)
             onProgress(0.95f)
             return updated
@@ -419,7 +428,7 @@ class MediaRepositoryImpl constructor(
         if (result != null && updatedMedia.type == "EPISODE") {
             updatedMedia = attachEpisodeMetadata(updatedMedia)
         }
-        mediaDao.updateMedia(updatedMedia)
+        mediaDao.updateMedia(updatedMedia.toRecord())
         artworkPrefetcher.prefetchBackdrop(updatedMedia.backdropPath)
         onProgress(0.95f)
         return updatedMedia
