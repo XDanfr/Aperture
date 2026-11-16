@@ -58,6 +58,17 @@ class JellyfinCatalog(
         return dao.spotlightCandidates(account.id, count).map(images::item)
     }
 
+    fun favorites(account: JellyfinAccountEntity): Flow<List<CatalogItem>> {
+        val images = JellyfinImages(account.baseUrl)
+        return dao.favorites(account.id).map { rows -> rows.map(images::item) }
+    }
+
+    fun search(account: JellyfinAccountEntity, query: String, limit: Int = 200): Flow<List<CatalogItem>> {
+        val images = JellyfinImages(account.baseUrl)
+        val escaped = query.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return dao.search(account.id, escaped, limit).map { rows -> rows.map(images::item) }
+    }
+
     fun item(account: JellyfinAccountEntity, itemId: String): Flow<CatalogItem?> {
         val images = JellyfinImages(account.baseUrl)
         return dao.observeItem(account.id, itemId).map { it?.let(images::item) }

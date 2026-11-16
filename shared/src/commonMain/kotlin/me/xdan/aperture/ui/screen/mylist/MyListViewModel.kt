@@ -2,15 +2,38 @@ package me.xdan.aperture.ui.screen.mylist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import me.xdan.aperture.data.local.entity.MediaEntity
+import me.xdan.aperture.data.jellyfin.JellyfinCatalog
+import me.xdan.aperture.domain.catalog.BrowseEntry
 import me.xdan.aperture.domain.repository.MediaRepository
+import me.xdan.aperture.domain.repository.ProfileRepository
 
+/**
+ * My List: local favourites, the Jellyfin server's favourites, or both, by the profile's library
+ * mode. Local titles keep the order they were added in; server favourites follow, by title.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
 class MyListViewModel constructor(
-    repository: MediaRepository
+    repository: MediaRepository,
+    catalog: JellyfinCatalog,
+    profiles: ProfileRepository
 ) : ViewModel() {
-    val media: StateFlow<List<MediaEntity>> = repository.getFavoriteMedia()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val remote = catalog.activeAccount.flatMapLatest { account ->
+        if (account == null) flowOf(emptyList())
+        else catalog.favorites(account).map { items -> items.map { BrowseEntry.Remote(it) } }
+    }
+
+    val entries: StateFlow<List<BrowseEntry>> = profiles.activeLibraryMode.flatMapLatest { mode ->
+        combine(
+            if (mode.usesLocal) repository.getFavoriteMedia().map { list -> list.map { BrowseEntry.Local(it) } } else flowOf(emptyList()),
+            if (mode.usesJellyfin) remote else flowOf(emptyList())
+        ) { local, server -> local + server }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

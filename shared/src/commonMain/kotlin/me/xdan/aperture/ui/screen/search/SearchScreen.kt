@@ -31,6 +31,7 @@ fun SearchScreen(
     viewModel: SearchViewModel,
     onMediaClick: (Long, FocusRequester) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onRemoteClick: (me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester) -> Unit = { _, _ -> },
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit
@@ -43,6 +44,7 @@ fun SearchScreen(
         if (query != fieldValue.text) fieldValue = TextFieldValue(query, TextRange(query.length))
     }
     var fieldFocused by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
     // Focus Pull
     LaunchedEffect(results.isNotEmpty()) {
@@ -93,12 +95,17 @@ fun SearchScreen(
                         fieldFocused = it.isFocused
                         if (it.isFocused) onContentFocused(contentEntryFocusRequester)
                     }
+                    // Down leaves the field for the results, rather than the field keeping it.
+                    .onPreviewKeyEvent { event ->
+                        event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown &&
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                    }
                     .textInputFocusTracking()
                     .padding(16.dp),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
                 decorationBox = { innerTextField ->
                     if (query.isEmpty()) {
-                        Text("Search Movies and TV Shows...", color = Color.Gray)
+                        Text("Search movies and shows…", color = Color.Gray)
                     }
                     innerTextField()
                 }
@@ -114,20 +121,32 @@ fun SearchScreen(
             horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.medium),
             modifier = Modifier.fillMaxSize().graphicsLayer { clip = false }
         ) {
-            itemsIndexed(results, key = { _, media -> media.id }) { index, media ->
+            itemsIndexed(results, key = { _, result -> result.key }) { index, result ->
                 var isFocused by remember { mutableStateOf(false) }
                 Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                    MediaCard(
-                        media = media,
-                        onClick = { requester -> onMediaClick(media.id, requester) },
-                        modifier = Modifier.fillMaxWidth(),
-                        drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
-                        onFocused = {
-                            isFocused = true
-                            onContentFocused(it)
-                        },
-                        onLongClick = { requester, opensToRight -> onMediaLongClick(media, requester, false, opensToRight) }
-                    )
+                    when (result) {
+                        is me.xdan.aperture.domain.catalog.BrowseEntry.Local -> MediaCard(
+                            media = result.media,
+                            onClick = { requester -> onMediaClick(result.media.id, requester) },
+                            modifier = Modifier.fillMaxWidth(),
+                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                            onFocused = {
+                                isFocused = true
+                                onContentFocused(it)
+                            },
+                            onLongClick = { requester, opensToRight -> onMediaLongClick(result.media, requester, false, opensToRight) }
+                        )
+                        is me.xdan.aperture.domain.catalog.BrowseEntry.Remote -> me.xdan.aperture.ui.component.CatalogCard(
+                            item = result.item,
+                            onClick = { requester -> onRemoteClick(result.item, requester) },
+                            modifier = Modifier.fillMaxWidth(),
+                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                            onFocused = {
+                                isFocused = true
+                                onContentFocused(it)
+                            }
+                        )
+                    }
                 }
                 DisposableEffect(Unit) {
                     onDispose { isFocused = false }

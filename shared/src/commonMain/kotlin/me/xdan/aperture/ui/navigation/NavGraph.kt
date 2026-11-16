@@ -1029,17 +1029,15 @@ private fun NavContent(
             ) {
                 when (destination) {
                     is Destination.Home -> if (libraryMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN) {
-                        var details by remember { mutableStateOf<me.xdan.aperture.domain.catalog.CatalogItem?>(null) }
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeScreen(
                             viewModel = koinViewModel(),
-                            onItemClick = { item, _ -> details = item },
+                            onItemClick = { item, from -> details.open(item, from) },
                             drawerFocusRequester = drawerFocusRequester,
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        details?.let { item ->
-                            me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsDialog(item, onDismiss = { details = null })
-                        }
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
                     } else HomeScreen(
                         viewModel = homeViewModel,
                         browsingPaused = currentBrowsingPaused,
@@ -1053,22 +1051,32 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged,
                         onOpenLibrary = onOpenLibrary
                     )
-                    is Destination.Search -> SearchScreen(
-                        viewModel = koinViewModel(),
-                        onMediaClick = mediaClick,
-                        onMediaLongClick = mediaLongClick,
-                        drawerFocusRequester = drawerFocusRequester,
-                        contentEntryFocusRequester = contentEntryFocusRequester,
-                        onContentFocused = contentFocused
-                    )
-                    is Destination.MyList -> MyListScreen(
-                        viewModel = koinViewModel(),
-                        onMediaClick = mediaClick,
-                        onMediaLongClick = mediaLongClick,
-                        drawerFocusRequester = drawerFocusRequester,
-                        contentEntryFocusRequester = contentEntryFocusRequester,
-                        onContentFocused = contentFocused
-                    )
+                    is Destination.Search -> {
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
+                        SearchScreen(
+                            viewModel = koinViewModel(),
+                            onMediaClick = mediaClick,
+                            onMediaLongClick = mediaLongClick,
+                            onRemoteClick = { item, from -> details.open(item, from) },
+                            drawerFocusRequester = drawerFocusRequester,
+                            contentEntryFocusRequester = contentEntryFocusRequester,
+                            onContentFocused = contentFocused
+                        )
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                    }
+                    is Destination.MyList -> {
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
+                        MyListScreen(
+                            viewModel = koinViewModel(),
+                            onMediaClick = mediaClick,
+                            onMediaLongClick = mediaLongClick,
+                            onRemoteClick = { item, from -> details.open(item, from) },
+                            drawerFocusRequester = drawerFocusRequester,
+                            contentEntryFocusRequester = contentEntryFocusRequester,
+                            onContentFocused = contentFocused
+                        )
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                    }
                     is Destination.Movies -> MoviesScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
@@ -1101,19 +1109,17 @@ private fun NavContent(
                         onPreviewAmbientMode = onPreviewAmbientMode
                     )
                     is Destination.Library -> {
-                        var details by remember { mutableStateOf<me.xdan.aperture.domain.catalog.CatalogItem?>(null) }
+                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryScreen(
                             viewModel = koinViewModel(key = "library:${destination.libraryId}") {
                                 org.koin.core.parameter.parametersOf(destination.libraryId)
                             },
-                            onItemClick = { item, _ -> details = item },
+                            onItemClick = { item, from -> details.open(item, from) },
                             drawerFocusRequester = drawerFocusRequester,
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        details?.let { item ->
-                            me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsDialog(item, onDismiss = { details = null })
-                        }
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
                     }
                     is Destination.Player -> when (val media = destination.media) {
                         is MediaKey.Local -> PlayerScreen(

@@ -78,6 +78,28 @@ interface JellyfinDao {
     @Query("DELETE FROM remote_items WHERE accountId = :accountId AND syncGeneration != :generation")
     suspend fun deleteItemsNotIn(accountId: Long, generation: Long): Int
 
+    /** The server's favourites, which are My List for Jellyfin titles. */
+    @Query("""
+        SELECT * FROM remote_items
+        WHERE accountId = :accountId AND isFavorite = 1 AND type IN ('MOVIE', 'SERIES', 'VIDEO')
+        ORDER BY COALESCE(sortName, name) COLLATE NOCASE
+    """)
+    fun favorites(accountId: Long): Flow<List<RemoteItemEntity>>
+
+    /**
+     * Titles whose name matches, from typed libraries only: an untyped folder may be a JellyBridge
+     * Discover library, whose placeholders aren't things you have.
+     */
+    @Query("""
+        SELECT i.* FROM remote_items i
+        JOIN remote_libraries l ON l.accountId = i.accountId AND l.id = i.libraryId
+        WHERE i.accountId = :accountId AND i.type IN ('MOVIE', 'SERIES', 'VIDEO')
+            AND l.collectionType IN ('movies', 'tvshows', 'homevideos')
+            AND i.name LIKE '%' || :query || '%' ESCAPE '\'
+        ORDER BY COALESCE(i.sortName, i.name) COLLATE NOCASE LIMIT :limit
+    """)
+    fun search(accountId: Long, query: String, limit: Int): Flow<List<RemoteItemEntity>>
+
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND itemId = :itemId")
     suspend fun item(accountId: Long, itemId: String): RemoteItemEntity?
 

@@ -112,10 +112,10 @@ val sharedModule = module {
     viewModel { MainViewModel(get(), get(), get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) { get() } }
-    viewModel { MyListViewModel(get()) }
+    viewModel { MyListViewModel(get(), get(), get()) }
     viewModel { AmbientViewModel(get(), get(), get()) }
     viewModel { MediaDetailsViewModel(get(), get()) }
-    viewModel { SearchViewModel(get()) }
+    viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get()) }
     viewModel { MediaActionsViewModel(get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
