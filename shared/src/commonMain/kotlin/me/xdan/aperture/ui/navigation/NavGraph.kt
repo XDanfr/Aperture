@@ -21,6 +21,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Videocam
+import me.xdan.aperture.data.jellyfin.isDiscover
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
@@ -85,6 +88,7 @@ fun NavGraph(
         val available = sidebarCandidates(libraryMode, allJellyfinLibraries)
         val byKey = available.associateBy { it.key }
         sidebarLayout.arrange(available.map { it.key }).mapNotNull(byKey::get)
+            .map { entry -> SidebarIcons.byId(sidebarLayout.icons[entry.key])?.let { entry.copy(icon = it) } ?: entry }
     }
     val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
@@ -889,16 +893,17 @@ internal fun sidebarCandidates(
             .filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
             // In hybrid mode the server's films and shows are inside Movies and Shows already.
             .filterNot { mode.usesLocal && it.collectionType in setOf("movies", "tvshows") }
-            .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it.collectionType), Destination.Library(it.id))) }
+            .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it), Destination.Library(it.id))) }
     }
     add(SidebarEntry("my_list", "My List", Icons.AutoMirrored.Rounded.PlaylistAdd, Destination.MyList))
 }
 
-/** Sidebar icon for a Jellyfin library type. */
-private fun libraryIcon(collectionType: String?): androidx.compose.ui.graphics.vector.ImageVector = when (collectionType) {
-    "movies" -> Icons.Rounded.Movie
-    "tvshows" -> Icons.Rounded.Tv
-    "homevideos" -> Icons.Rounded.VideoLibrary
+/** A Jellyfin library's default sidebar icon, by its type; a profile can pick another. */
+private fun libraryIcon(library: me.xdan.aperture.data.local.entity.RemoteLibraryEntity): androidx.compose.ui.graphics.vector.ImageVector = when {
+    library.collectionType == "movies" -> Icons.Rounded.Movie
+    library.collectionType == "tvshows" -> Icons.Rounded.Tv
+    library.collectionType == "homevideos" -> Icons.Rounded.Videocam
+    library.isDiscover -> Icons.Rounded.Explore
     else -> Icons.Rounded.Folder
 }
 

@@ -40,4 +40,12 @@ class SidebarLayoutTest {
         assertEquals(SidebarLayout(), SidebarLayout.decode(null))
         assertEquals(SidebarLayout(order = listOf("search")), SidebarLayout.decode("search|"))
     }
+
+    @Test
+    fun keepsPickedIcons() {
+        val layout = SidebarLayout(order = listOf("search", "library:abc"), icons = mapOf("library:abc" to "explore", "my_list" to "star"))
+        assertEquals(layout, SidebarLayout.decode(layout.encode()))
+        // Layouts saved before icons existed still read.
+        assertEquals(emptyMap<String, String>(), SidebarLayout.decode("search|my_list").icons)
+    }
 }

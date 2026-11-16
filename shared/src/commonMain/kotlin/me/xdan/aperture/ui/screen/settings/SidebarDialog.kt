@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Visibility
@@ -52,7 +53,8 @@ fun SidebarDialog(onDismiss: () -> Unit) {
         hint = "Select an entry to move it. Home and Settings stay first and last.",
         items = items,
         repository = koinInject<SidebarRepository>(),
-        onDismiss = onDismiss
+        onDismiss = onDismiss,
+        iconPicking = true
     )
 }
 
@@ -95,7 +97,9 @@ fun ArrangeDialog(
     hint: String,
     items: List<ArrangeItem>,
     repository: me.xdan.aperture.domain.sidebar.ProfileLayoutRepository,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** Each entry also gets a button to pick its icon (the sidebar). */
+    iconPicking: Boolean = false
 ) {
     val saved by repository.layout.collectAsState(SidebarLayout())
     val scope = rememberCoroutineScope()
@@ -104,11 +108,13 @@ fun ArrangeDialog(
     // Edited locally and saved on each change, so the sidebar behind updates as you go.
     var order by remember(saved, candidates) { mutableStateOf(saved.arrangeAll(candidates.map { it.key })) }
     var hidden by remember(saved) { mutableStateOf(saved.hidden) }
+    var icons by remember(saved) { mutableStateOf(saved.icons) }
+    var pickingIconFor by remember { mutableStateOf<ArrangeItem?>(null) }
     var moving by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val first = remember { FocusRequester() }
 
-    fun save() = scope.launch { repository.save(SidebarLayout(order, hidden)) }
+    fun save() = scope.launch { repository.save(SidebarLayout(order, hidden, icons)) }
 
     Dialog(onDismissRequest = { if (moving != null) moving = null else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val windowInfo = LocalWindowInfo.current
@@ -151,7 +157,7 @@ fun ArrangeDialog(
                                         save()
                                     } else moving = key
                                 },
-                                leadingContent = { Icon(entry.icon, contentDescription = null) },
+                                leadingContent = { Icon(me.xdan.aperture.ui.navigation.SidebarIcons.byId(icons[key]) ?: entry.icon, contentDescription = null) },
                                 headlineContent = { Text(entry.label) },
                                 supportingContent = when {
                                     isMoving -> { { Text("Moving") } }
@@ -180,6 +186,12 @@ fun ArrangeDialog(
                                     }
                             )
                             Spacer(Modifier.width(8.dp))
+                            if (iconPicking) {
+                                IconButton(onClick = { pickingIconFor = entry }, enabled = !isMoving) {
+                                    Icon(Icons.Rounded.Palette, contentDescription = "Change icon for ${entry.label}")
+                                }
+                                Spacer(Modifier.width(8.dp))
+                            }
                             IconButton(
                                 onClick = {
                                     hidden = if (isHidden) hidden - key else hidden + key
@@ -210,6 +222,76 @@ fun ArrangeDialog(
                         onDismiss()
                     }) { Text("Done") }
                 }
+            }
+        }
+    }
+    pickingIconFor?.let { entry ->
+        IconPickerDialog(
+            label = entry.label,
+            current = icons[entry.key],
+            defaultIcon = entry.icon,
+            onPick = { id ->
+                icons = if (id == null) icons - entry.key else icons + (entry.key to id)
+                pickingIconFor = null
+                save()
+            },
+            onDismiss = { pickingIconFor = null }
+        )
+    }
+}
+
+/** A grid of the sidebar's icons; the first tile puts the entry's own icon back. */
+@Composable
+private fun IconPickerDialog(
+    label: String,
+    current: String?,
+    defaultIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val first = remember { FocusRequester() }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val windowInfo = LocalWindowInfo.current
+        LaunchedEffect(windowInfo.isWindowFocused) {
+            if (!windowInfo.isWindowFocused) return@LaunchedEffect
+            repeat(30) {
+                withFrameNanos { }
+                if (runCatching { first.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            }
+        }
+        Surface(
+            modifier = Modifier.width(620.dp),
+            shape = ApertureTheme.shapes.dialog,
+            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(Modifier.padding(ApertureTheme.spacing.extraLarge)) {
+                Text("Icon for $label", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(ApertureTheme.spacing.medium))
+                val choices = listOf<Pair<String?, androidx.compose.ui.graphics.vector.ImageVector>>(null to defaultIcon) +
+                    me.xdan.aperture.ui.navigation.SidebarIcons.all
+                choices.chunked(8).forEachIndexed { row, chunk ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        chunk.forEachIndexed { column, (id, icon) ->
+                            val selected = id == current
+                            IconButton(
+                                onClick = { onPick(id) },
+                                modifier = if (row == 0 && column == 0) Modifier.focusRequester(first) else Modifier,
+                                colors = if (selected) IconButtonDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ) else IconButtonDefaults.colors()
+                            ) {
+                                Icon(icon, contentDescription = if (id == null) "Default icon" else id.replace('_', ' '))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    "The first icon is the default.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
