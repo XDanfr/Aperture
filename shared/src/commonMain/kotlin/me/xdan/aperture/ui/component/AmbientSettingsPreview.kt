@@ -7,7 +7,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import me.xdan.aperture.ui.screen.ambient.toAmbientArtwork
 import androidx.compose.ui.draw.clip
 import me.xdan.aperture.ui.platform.rememberScreenWidthDp
 import androidx.compose.ui.platform.LocalDensity
@@ -29,7 +31,8 @@ internal fun AmbientSettingsPreview(
     media: List<MediaEntity>? = null
 ) {
     val ambientViewModel = if (media == null) org.koin.compose.viewmodel.koinViewModel<AmbientViewModel>() else null
-    val library = ambientViewModel?.media?.collectAsState()?.value ?: media.orEmpty()
+    val library = ambientViewModel?.artwork?.collectAsState()?.value
+        ?: remember(media) { media.orEmpty().map { it.toAmbientArtwork() } }
     val density = LocalDensity.current
     val screenWidth = rememberScreenWidthDp().coerceAtLeast(1)
     val caption = (if (settings.mode == AmbientModeType.CINEMATIC) "Cinematic" else "Poster wall") +

@@ -115,7 +115,7 @@ val sharedModule = module {
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) { get() } }
     viewModel { MyListViewModel(get(), get(), get(), get()) }
-    viewModel { AmbientViewModel(get(), get(), get()) }
+    viewModel { AmbientViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { MediaDetailsViewModel(get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }

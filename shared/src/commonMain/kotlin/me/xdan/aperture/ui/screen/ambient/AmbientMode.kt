@@ -84,7 +84,7 @@ private const val PosterRows = 3
 fun AmbientMode(
     viewModel: AmbientViewModel = koinViewModel()
 ) {
-    val allMedia by viewModel.media.collectAsState()
+    val allMedia by viewModel.artwork.collectAsState()
     val settings by viewModel.settings.collectAsState()
 
     AmbientScene(allMedia, settings, artworkAccent = viewModel::artworkAccent)
@@ -92,7 +92,7 @@ fun AmbientMode(
 
 @Composable
 internal fun AmbientScene(
-    allMedia: List<MediaEntity>,
+    allMedia: List<AmbientArtwork>,
     settings: AmbientSettings,
     animate: Boolean = true,
     artworkAccent: suspend (String) -> Int? = { null }
@@ -120,14 +120,14 @@ internal fun AmbientScene(
 
 @Composable
 private fun CinematicAmbientMode(
-    media: List<MediaEntity>,
+    media: List<AmbientArtwork>,
     showClock: Boolean,
     glassBackdrop: AmbientGlassBackdropState,
     artworkAccent: suspend (String) -> Int?,
     animate: Boolean
 ) {
     val themePalette = currentApertureBrandPalette()
-    val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.backdropPath}" } }
+    val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.backdrop}" } }
     var current by remember(mediaKey) { mutableStateOf(media.randomOrNull()) }
     var logoAccent by remember(mediaKey) { mutableStateOf<Color?>(null) }
     var transitionKey by remember(mediaKey) { mutableIntStateOf(0) }
@@ -140,11 +140,11 @@ private fun CinematicAmbientMode(
     LaunchedEffect(mediaKey, animate) {
         if (!animate) {
             artworkAlpha.snapTo(1f)
-            current?.backdropPath?.let { logoAccent = artworkAccent(it)?.let(::Color) }
+            current?.backdrop?.let { logoAccent = artworkAccent(it)?.let(::Color) }
             return@LaunchedEffect
         }
         artworkAlpha.snapTo(0f)
-        current?.backdropPath?.let { path ->
+        current?.backdrop?.let { path ->
             logoAccent = artworkAccent(path)?.let { Color(it) }
         }
         if (current != null) {
@@ -156,7 +156,7 @@ private fun CinematicAmbientMode(
         while (media.isNotEmpty()) {
             val alternatives = media.filterNot { it.id == current?.id }
             val next = (alternatives.ifEmpty { media }).random()
-            val nextAccent = next.backdropPath
+            val nextAccent = next.backdrop
                 ?.let { artworkAccent(it) }
                 ?.let { Color(it) }
             delay(CinematicHoldMillis)
@@ -204,13 +204,13 @@ private fun CinematicAmbientMode(
 
 @Composable
 private fun CinematicArtwork(
-    media: MediaEntity,
+    media: AmbientArtwork,
     animate: Boolean,
     modifier: Modifier = Modifier
 ) {
     val travel = remember(media.id) { Animatable(0f) }
     val travelDistance = with(LocalDensity.current) { 30.dp.toPx() }
-    val direction = if (media.id % 2L == 0L) 1f else -1f
+    val direction = if (media.driftsRight) 1f else -1f
     val screenMetrics = org.koin.compose.koinInject<me.xdan.aperture.util.ScreenMetrics>()
     val backdropSpec = remember(screenMetrics) {
         backdropImageSpec(screenMetrics, BackdropImageUsage.AMBIENT)
@@ -232,7 +232,7 @@ private fun CinematicArtwork(
     Box(modifier.fillMaxSize()) {
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)
-                .data(backdropImageUrl(media.backdropPath!!, backdropSpec))
+                .data(media.backdrop!!.let { if (it.isImageUrl()) it else backdropImageUrl(it, backdropSpec) })
                 .size(backdropSpec.widthPx, backdropSpec.heightPx)
                 .crossfade(false)
                 .build(),
@@ -275,7 +275,7 @@ private fun CinematicArtwork(
 
 @Composable
 private fun PosterWallAmbientMode(
-    media: List<MediaEntity>,
+    media: List<AmbientArtwork>,
     brandPlacement: AmbientBrandPlacement,
     showClock: Boolean,
     glassBackdrop: AmbientGlassBackdropState,
@@ -284,7 +284,7 @@ private fun PosterWallAmbientMode(
     val background = MaterialTheme.colorScheme.background
     val palette = currentApertureBrandPalette()
     val accent = palette.play
-    val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.posterPath}" } }
+    val mediaKey = remember(media) { media.joinToString("|") { "${it.id}:${it.poster}" } }
     var spinKey by remember(mediaKey, brandPlacement) { mutableIntStateOf(0) }
 
     LaunchedEffect(mediaKey, brandPlacement, animate) {
@@ -380,11 +380,11 @@ private fun PosterWallAmbientMode(
     }
 }
 
-private data class PosterFrame(val media: MediaEntity, val generation: Int)
+private data class PosterFrame(val media: AmbientArtwork, val generation: Int)
 
 @Composable
 private fun AmbientPosterSlot(
-    media: List<MediaEntity>,
+    media: List<AmbientArtwork>,
     mediaKey: String,
     index: Int,
     animate: Boolean,
@@ -431,7 +431,7 @@ private fun AmbientPosterSlot(
                 label = "ambientPoster$index"
             ) { posterFrame ->
                 AsyncImage(
-                    model = TmdbApi.IMAGE_BASE_URL + "w500" + posterFrame.media.posterPath,
+                    model = posterFrame.media.poster!!.let { if (it.isImageUrl()) it else TmdbApi.IMAGE_BASE_URL + "w500" + it },
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -558,18 +558,17 @@ private fun AmbientArtworkEmptyState() {
     }
 }
 
-private fun eligibleCinematicMedia(media: List<MediaEntity>): List<MediaEntity> = media
+// Episodes of one show share artwork, and a hybrid profile may have a film in both places.
+private fun eligibleCinematicMedia(media: List<AmbientArtwork>): List<AmbientArtwork> = media
     .asSequence()
-    .filterNot { it.isHidden }
-    .filter { !it.backdropPath.isNullOrBlank() }
-    .distinctBy { it.title.lowercase() to it.backdropPath }
+    .filter { !it.backdrop.isNullOrBlank() }
+    .distinctBy { it.title.lowercase() to it.year }
     .toList()
 
-private fun eligiblePosterMedia(media: List<MediaEntity>): List<MediaEntity> = media
+private fun eligiblePosterMedia(media: List<AmbientArtwork>): List<AmbientArtwork> = media
     .asSequence()
-    .filterNot { it.isHidden }
-    .filter { !it.posterPath.isNullOrBlank() }
-    .distinctBy { it.title.lowercase() to it.posterPath }
+    .filter { !it.poster.isNullOrBlank() }
+    .distinctBy { it.title.lowercase() to it.year }
     .toList()
 
 private fun <T> List<T>.randomOrNull(): T? = if (isEmpty()) null else random()
