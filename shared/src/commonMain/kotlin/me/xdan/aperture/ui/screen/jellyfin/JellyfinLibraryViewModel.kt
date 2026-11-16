@@ -2,6 +2,7 @@ package me.xdan.aperture.ui.screen.jellyfin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,22 +16,27 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.data.jellyfin.JellyfinCatalog
 import me.xdan.aperture.domain.catalog.CatalogItem
 import me.xdan.aperture.domain.catalog.LibraryQuery
+import me.xdan.aperture.domain.catalog.LibraryQueryStore
+import me.xdan.aperture.domain.catalog.letterIndex
 import me.xdan.aperture.domain.repository.ProfileRepository
+import me.xdan.aperture.ui.component.LibraryOptions
 
 /** One server library as a grid: sorted, filtered and remembered per profile. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class JellyfinLibraryViewModel(
     private val libraryId: String,
     private val catalog: JellyfinCatalog,
-    private val profiles: ProfileRepository
+    private val profiles: ProfileRepository,
+    private val queries: LibraryQueryStore
 ) : ViewModel() {
 
     data class State(
         val name: String = "",
         val items: List<CatalogItem>? = null,
         val query: LibraryQuery = LibraryQuery(),
-        /** First index for each letter, when sorted by title. "#" covers digits and symbols. */
+        /** First index for each letter, when sorted by title. */
         val letters: Map<Char, Int> = emptyMap(),
-        val genres: List<String> = emptyList()
+        val options: LibraryOptions = LibraryOptions()
     )
 
     private val query = MutableStateFlow(LibraryQuery())
@@ -41,7 +47,7 @@ class JellyfinLibraryViewModel(
     init {
         viewModelScope.launch {
             profileId = profiles.activeProfileId.first()
-            query.value = catalog.savedQuery(profileId, libraryId)
+            query.value = queries.load(profileId, libraryId)
         }
     }
 
@@ -50,20 +56,28 @@ class JellyfinLibraryViewModel(
             if (account == null) flowOf(emptyList()) else catalog.browse(account, libraryId, q, s)
         }
 
-    /** Genres come from the unfiltered library, so picking one doesn't hide the others. */
-    private val genres = catalog.activeAccount.flatMapLatest { account ->
-        if (account == null) flowOf(emptyList())
-        else catalog.browse(account, libraryId, LibraryQuery(), 0)
-            .map { all -> all.flatMap { it.genres }.distinct().sortedBy { it.lowercase() } }
+    /** Genres and decades come from the whole library, so picking one doesn't hide the others. */
+    private val options = combine(catalog.activeAccount, catalog.libraries) { account, libraries ->
+        account to libraries.firstOrNull { it.id == libraryId }?.collectionType
+    }.flatMapLatest { (account, type) ->
+        if (account == null) flowOf(LibraryOptions())
+        else catalog.browse(account, libraryId, LibraryQuery(), 0).map { all ->
+            LibraryOptions(
+                genres = all.flatMap { it.genres }.distinct().sortedBy { it.lowercase() },
+                decades = all.mapNotNull { it.year?.let { year -> year / 10 * 10 } }.distinct().sortedDescending(),
+                // Shows have no single file to measure.
+                offerUhd = type != "tvshows"
+            )
+        }
     }
 
-    val state: StateFlow<State> = combine(catalog.libraries, items, query, genres) { libraries, list, q, allGenres ->
+    val state: StateFlow<State> = combine(catalog.libraries, items, query, options) { libraries, list, q, opts ->
         State(
             name = libraries.firstOrNull { it.id == libraryId }?.name.orEmpty(),
             items = list,
             query = q,
-            letters = if (q.sort == LibraryQuery.Sort.TITLE) letterIndex(list, q.descending) else emptyMap(),
-            genres = allGenres
+            letters = if (q.sort == LibraryQuery.Sort.TITLE) letterIndex(list.map { it.title }, q.descending) else emptyMap(),
+            options = opts
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
@@ -71,29 +85,11 @@ class JellyfinLibraryViewModel(
         val updated = transform(query.value)
         if (updated.sort == LibraryQuery.Sort.RANDOM) seed.value = (System.nanoTime() % 65_536).toInt()
         query.value = updated
-        catalog.saveQuery(profileId, libraryId, updated)
+        queries.save(profileId, libraryId, updated)
     }
 
     /** Picking the current sort again flips its direction. */
     fun sortBy(sort: LibraryQuery.Sort) = update { q ->
         if (q.sort == sort) q.copy(descending = !q.descending) else q.copy(sort = sort, descending = sort.defaultDescending)
-    }
-
-    private fun letterIndex(items: List<CatalogItem>, descending: Boolean): Map<Char, Int> {
-        val index = LinkedHashMap<Char, Int>()
-        items.forEachIndexed { position, item ->
-            val letter = sortLetter(item.title)
-            if (letter !in index) index[letter] = position
-        }
-        return if (descending) index else index.toSortedMap(compareBy { if (it == '#') ' ' else it })
-    }
-
-    companion object {
-        /** The letter a title files under, ignoring a leading "The"/"A"/"An" like Jellyfin's sort names. */
-        fun sortLetter(title: String): Char {
-            val trimmed = title.trim().replace(Regex("^(the|a|an)\\s+", RegexOption.IGNORE_CASE), "")
-            val first = trimmed.firstOrNull()?.uppercaseChar() ?: return '#'
-            return if (first in 'A'..'Z') first else '#'
-        }
     }
 }

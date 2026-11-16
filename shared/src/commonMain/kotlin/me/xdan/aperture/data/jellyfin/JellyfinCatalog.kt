@@ -12,7 +12,6 @@ import me.xdan.aperture.data.local.entity.RemoteLibraryEntity
 import me.xdan.aperture.domain.catalog.CatalogItem
 import me.xdan.aperture.domain.catalog.JellyfinImages
 import me.xdan.aperture.domain.catalog.LibraryQuery
-import me.xdan.aperture.platform.KeyValueStores
 import me.xdan.aperture.domain.catalog.MediaInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,11 +25,8 @@ import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 /** Reads the active profile's Jellyfin index for the screens. */
 class JellyfinCatalog(
     private val dao: JellyfinDao,
-    private val accounts: JellyfinAccounts,
-    stores: KeyValueStores
+    private val accounts: JellyfinAccounts
 ) {
-    private val queries = stores.open(QUERY_STORE)
-
     val activeAccount: Flow<JellyfinAccountEntity?> = accounts.activeAccount
 
     /** Every library the user can see, in the server's order. */
@@ -138,7 +134,7 @@ class JellyfinCatalog(
                     s.width?.let { w -> s.height?.let { h -> MediaInfo.resolutionLabel(w, h) } },
                     s.codec?.uppercase(),
                     s.profile,
-                    s.videoRangeType.takeIf { it != VideoRangeType.UNKNOWN && it != VideoRangeType.SDR }?.serialName,
+                    rangeLabel(s.videoRangeType),
                     s.bitDepth?.let { "$it-bit" },
                     s.realFrameRate?.let { "${"%.3f".format(it).trimEnd('0').trimEnd('.')} fps" }
                 ).joinToString(" · ")
@@ -170,13 +166,6 @@ class JellyfinCatalog(
         }.getOrDefault(emptyList())
     }
 
-    fun savedQuery(profileId: Long, libraryId: String): LibraryQuery =
-        LibraryQuery.decode(queries.getString("$profileId:$libraryId", null))
-
-    fun saveQuery(profileId: Long, libraryId: String, query: LibraryQuery) {
-        queries.edit().putString("$profileId:$libraryId", query.encode()).apply()
-    }
-
     private fun sql(accountId: Long, libraryId: String, query: LibraryQuery, seed: Int): RoomRawQuery {
         val where = buildList {
             add("accountId = ?")
@@ -185,6 +174,8 @@ class JellyfinCatalog(
             if (query.unwatchedOnly) add("played = 0")
             if (query.favouritesOnly) add("isFavorite = 1")
             if (query.genre != null) add("instr('|' || COALESCE(genres, '') || '|', ?) > 0")
+            if (query.decade != null) add("year BETWEEN ? AND ?")
+            if (query.uhdOnly) add("(width >= 3800 OR height >= 2100)")
         }.joinToString(" AND ")
         val direction = if (query.descending) "DESC" else "ASC"
         val title = "COALESCE(sortName, name) COLLATE NOCASE"
@@ -204,12 +195,27 @@ class JellyfinCatalog(
             statement.bindLong(index++, accountId)
             statement.bindText(index++, libraryId)
             query.genre?.let { statement.bindText(index++, "|$it|") }
+            query.decade?.let {
+                statement.bindLong(index++, it.toLong())
+                statement.bindLong(index++, it + 9L)
+            }
             if (query.sort == LibraryQuery.Sort.RANDOM) statement.bindLong(index, (seed.toLong() and 0xFFFF) + 7919)
         }
     }
 
     companion object {
         const val ROW_LIMIT = 20
-        private const val QUERY_STORE = "library_queries"
+    }
+
+    /** HDR formats as people know them; SDR and unknown say nothing. */
+    private fun rangeLabel(type: VideoRangeType): String? = when (type) {
+        VideoRangeType.HDR10 -> "HDR10"
+        VideoRangeType.HDR10_PLUS -> "HDR10+"
+        VideoRangeType.HLG -> "HLG"
+        VideoRangeType.DOVI, VideoRangeType.DOVI_WITH_SDR, VideoRangeType.DOVI_WITH_EL, VideoRangeType.DOVI_INVALID -> "Dolby Vision"
+        VideoRangeType.DOVI_WITH_HDR10 -> "Dolby Vision · HDR10"
+        VideoRangeType.DOVI_WITH_HDR10_PLUS, VideoRangeType.DOVI_WITH_ELHDR10_PLUS -> "Dolby Vision · HDR10+"
+        VideoRangeType.DOVI_WITH_HLG -> "Dolby Vision · HLG"
+        else -> null
     }
 }
