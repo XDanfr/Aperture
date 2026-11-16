@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -387,6 +389,19 @@ fun MediaDetailsModal(
                                             Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
                                             Spacer(Modifier.width(8.dp))
                                             Text(if (m.isFavorite) "Remove from My List" else "My List")
+                                        }
+                                        // Watched, as on a Jellyfin title's panel.
+                                        val watched = hasBeenCompleted
+                                        IconButton(onClick = { viewModel.toggleWatched(m.id) }) {
+                                            Icon(
+                                                if (watched) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                                                contentDescription = when {
+                                                    m.type == "EPISODE" && watched -> "Mark episode unwatched"
+                                                    m.type == "EPISODE" -> "Mark episode watched"
+                                                    watched -> "Mark unwatched"
+                                                    else -> "Mark watched"
+                                                }
+                                            )
                                         }
                                         IconButton(
                                             onClick = {
