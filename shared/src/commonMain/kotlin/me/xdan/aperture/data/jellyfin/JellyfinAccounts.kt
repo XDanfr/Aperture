@@ -3,6 +3,8 @@ package me.xdan.aperture.data.jellyfin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.withContext
 import me.xdan.aperture.data.local.dao.JellyfinDao
 import me.xdan.aperture.data.local.entity.JellyfinAccountEntity
@@ -27,7 +29,62 @@ class JellyfinAccounts(
         class NotJellyfin : SignInError("That address isn't a Jellyfin server")
         class TooOld(val version: String) : SignInError("Jellyfin $version is too old. Aperture needs Jellyfin 12.0 or newer.")
         class Rejected : SignInError("The username or password is wrong")
+        class QuickConnectDisabled : SignInError("Quick Connect is turned off on this server")
+        class QuickConnectExpired : SignInError("The code expired. Try again for a new one.")
     }
+
+    /** A server found on the local network. */
+    data class DiscoveredServer(val id: String, val name: String, val address: String)
+
+    /** A Quick Connect code waiting to be approved from another device. */
+    data class QuickConnectSession(
+        val profileId: Long,
+        val baseUrl: String,
+        val serverName: String,
+        val code: String,
+        internal val secret: String,
+        internal val info: PublicSystemInfo
+    )
+
+    /** Jellyfin servers answering the local network broadcast, as they reply. */
+    fun discoverServers(): Flow<DiscoveredServer> = JellyfinDiscovery.discover()
+        .catch { me.xdan.aperture.platform.Log.w("JellyfinAccounts", "Discovery failed: ${it.message}") }
+
+    suspend fun startQuickConnect(profileId: Long, baseUrl: String): QuickConnectSession = withContext(Dispatchers.IO) {
+        val url = normalise(baseUrl)
+        val info = probe(url, profileId)
+        val api = clients.anonymous(url, profileId)
+        val enabled = runCatching { api.authenticationApi.getQuickConnectEnabled().content }.getOrDefault(false)
+        if (!enabled) throw SignInError.QuickConnectDisabled()
+        val result = try {
+            api.authenticationApi.initiateQuickConnect().content
+        } catch (e: org.jellyfin.sdk.api.client.exception.InvalidStatusException) {
+            if (e.status == 401 || e.status == 403) throw SignInError.QuickConnectDisabled() else throw SignInError.Unreachable(e)
+        }
+        QuickConnectSession(profileId, url, info.serverName ?: "Jellyfin", result.code, result.secret, info)
+    }
+
+    /**
+     * Waits until the code is approved, then signs in. Cancel the coroutine to give up; a code the
+     * server has forgotten (they expire after a few minutes) throws [SignInError.QuickConnectExpired].
+     */
+    suspend fun awaitQuickConnect(session: QuickConnectSession, pollMs: Long = 3_000): JellyfinAccountEntity =
+        withContext(Dispatchers.IO) {
+            val api = clients.anonymous(session.baseUrl, session.profileId)
+            while (true) {
+                val state = try {
+                    api.authenticationApi.getQuickConnectState(session.secret).content
+                } catch (e: org.jellyfin.sdk.api.client.exception.InvalidStatusException) {
+                    if (e.status == 404) throw SignInError.QuickConnectExpired() else throw SignInError.Unreachable(e)
+                }
+                if (state.authenticated) break
+                kotlinx.coroutines.delay(pollMs)
+            }
+            val result = api.authenticationApi
+                .authenticateWithQuickConnect(org.jellyfin.sdk.model.api.QuickConnectDto(secret = session.secret))
+                .content
+            complete(session.profileId, session.baseUrl, session.info, result)
+        }
 
     val activeAccount: Flow<JellyfinAccountEntity?> = profiles.activeProfileId.flatMapLatest(dao::accountForProfile)
 

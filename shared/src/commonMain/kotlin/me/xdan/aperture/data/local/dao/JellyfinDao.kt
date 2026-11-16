@@ -83,6 +83,9 @@ interface JellyfinDao {
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND type = :type ORDER BY COALESCE(sortName, name) COLLATE NOCASE")
     fun itemsOfType(accountId: Long, type: String): Flow<List<RemoteItemEntity>>
 
+    @Query("SELECT COUNT(*) FROM remote_items WHERE accountId = :accountId AND type IN ('MOVIE', 'SERIES')")
+    fun titleCount(accountId: Long): Flow<Int>
+
     @Query("SELECT COUNT(*) FROM remote_items WHERE accountId = :accountId AND type = :type")
     suspend fun countOfType(accountId: Long, type: String): Int
 

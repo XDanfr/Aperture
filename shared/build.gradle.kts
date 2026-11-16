@@ -76,10 +76,13 @@ kotlin {
             implementation(libs.logging.interceptor)
             implementation(libs.zxing.core)
             implementation(libs.jellyfin.sdk.core)
+            implementation(libs.kotlinx.serialization.json)
             // org.json ships with Android; desktop gets the same API from the reference library.
             compileOnly(libs.org.json)
         }
         androidMain.dependencies {
+            // kotlin-logging (used by the Jellyfin SDK) picks its SLF4J backend and crashes without it.
+            implementation(libs.slf4j.api)
             implementation(libs.koin.android)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.core.ktx)

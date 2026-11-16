@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jellyfin servers are usually reached over plain HTTP on the local network, by an address the
+     user types or discovers, which domain-config cannot express. Aperture's own services (TMDB,
+     OpenSubtitles, GitHub) are all HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
