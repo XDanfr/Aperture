@@ -95,6 +95,14 @@ fun JellyfinHomeScreen(
         }
         return
     }
+    // Home is where the app opens, so it takes focus itself once the rows are there, like the
+    // local Home; otherwise a remote has nothing to move from.
+    LaunchedEffect(Unit) {
+        repeat(30) {
+            withFrameNanos { }
+            if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+        }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 48.dp),

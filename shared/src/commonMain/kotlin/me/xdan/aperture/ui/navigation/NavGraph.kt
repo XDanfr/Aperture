@@ -79,10 +79,13 @@ fun NavGraph(
     val libraryMode by profileRepository.activeLibraryMode.collectAsState(me.xdan.aperture.domain.model.LibraryMode.LOCAL)
     val jellyfinCatalog: me.xdan.aperture.data.jellyfin.JellyfinCatalog = org.koin.compose.koinInject()
     val allJellyfinLibraries by jellyfinCatalog.libraries.collectAsState(emptyList())
-    // Until sidebar customisation: the indexed libraries (movies, shows, home videos, mixed folders).
-    val jellyfinLibraries = if (libraryMode.usesJellyfin) {
-        allJellyfinLibraries.filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
-    } else emptyList()
+    val sidebarRepository: me.xdan.aperture.domain.sidebar.SidebarRepository = org.koin.compose.koinInject()
+    val sidebarLayout by sidebarRepository.layout.collectAsState(me.xdan.aperture.domain.sidebar.SidebarLayout())
+    val sidebarEntries = remember(libraryMode, allJellyfinLibraries, sidebarLayout) {
+        val available = sidebarCandidates(libraryMode, allJellyfinLibraries)
+        val byKey = available.associateBy { it.key }
+        sidebarLayout.arrange(available.map { it.key }).mapNotNull(byKey::get)
+    }
     val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
     val currentDestination = backstack.last()
@@ -538,116 +541,30 @@ fun NavGraph(
                                         Text("Home")
                                     }
                                 }
-                                NavigationDrawerItem(
-                                    colors = drawerItemColors,
-                                    selected = currentDestination is Destination.Search,
-                                    onClick = { selectDrawerDestination(Destination.Search) },
-                                    modifier = Modifier
-                                        .then(focusMotion.item("search"))
-                                        .focusRequester(searchDrawerRequester)
-                                        .focusProperties {
-                                            canFocus = drawerCanReceiveFocus
-                                            right = drawerReturnFocusRequester ?: searchContentEntryRequester
-                                        },
-                                    leadingContent = {
-                                        DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
-                                            Icon(Icons.Rounded.Search, contentDescription = null)
-                                        }
-                                    }
-                                ) {
-                                    DrawerFocusForeground(focusMotion, "search", drawerValue == DrawerValue.Open) {
-                                        Text("Search")
-                                    }
-                                }
-                                if (libraryMode.usesLocal) {
-                                NavigationDrawerItem(
-                                    colors = drawerItemColors,
-                                    selected = currentDestination is Destination.Movies,
-                                    onClick = { selectDrawerDestination(Destination.Movies) },
-                                    modifier = Modifier
-                                        .then(focusMotion.item("movies"))
-                                        .focusRequester(moviesDrawerRequester)
-                                        .focusProperties {
-                                            canFocus = drawerCanReceiveFocus
-                                            right = drawerReturnFocusRequester ?: moviesContentEntryRequester
-                                        },
-                                    leadingContent = {
-                                        DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
-                                            Icon(Icons.Rounded.Movie, contentDescription = null)
-                                        }
-                                    }
-                                ) {
-                                    DrawerFocusForeground(focusMotion, "movies", drawerValue == DrawerValue.Open) {
-                                        Text("Movies")
-                                    }
-                                }
-                                NavigationDrawerItem(
-                                    colors = drawerItemColors,
-                                    selected = currentDestination is Destination.Shows,
-                                    onClick = { selectDrawerDestination(Destination.Shows) },
-                                    modifier = Modifier
-                                        .then(focusMotion.item("shows"))
-                                        .focusRequester(showsDrawerRequester)
-                                        .focusProperties {
-                                            canFocus = drawerCanReceiveFocus
-                                            right = drawerReturnFocusRequester ?: showsContentEntryRequester
-                                        },
-                                    leadingContent = {
-                                        DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
-                                            Icon(Icons.Rounded.Tv, contentDescription = null)
-                                        }
-                                    }
-                                ) {
-                                    DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
-                                        Text("Shows")
-                                    }
-                                }
-                                }
-                                jellyfinLibraries.forEach { library ->
-                                    val key = "library:${library.id}"
-                                    val drawerRequester = drawerRequesters.getOrPut(key) { FocusRequester() }
-                                    val contentRequester = contentEntryRequesters.getOrPut(key) { FocusRequester() }
+                                // Search, libraries and My List, as this profile arranged them in Settings › Sidebar.
+                                sidebarEntries.forEach { entry ->
+                                    val drawerRequester = drawerRequesters.getOrPut(entry.key) { FocusRequester() }
+                                    val contentRequester = contentEntryRequesters.getOrPut(entry.key) { FocusRequester() }
                                     NavigationDrawerItem(
                                         colors = drawerItemColors,
-                                        selected = (currentDestination as? Destination.Library)?.libraryId == library.id,
-                                        onClick = { selectDrawerDestination(Destination.Library(library.id)) },
+                                        selected = currentDestination == entry.destination,
+                                        onClick = { selectDrawerDestination(entry.destination) },
                                         modifier = Modifier
-                                            .then(focusMotion.item(key))
+                                            .then(focusMotion.item(entry.key))
                                             .focusRequester(drawerRequester)
                                             .focusProperties {
                                                 canFocus = drawerCanReceiveFocus
                                                 right = drawerReturnFocusRequester ?: contentRequester
                                             },
                                         leadingContent = {
-                                            DrawerFocusForeground(focusMotion, key, drawerValue == DrawerValue.Open) {
-                                                Icon(libraryIcon(library.collectionType), contentDescription = null)
+                                            DrawerFocusForeground(focusMotion, entry.key, drawerValue == DrawerValue.Open) {
+                                                Icon(entry.icon, contentDescription = null)
                                             }
                                         }
                                     ) {
-                                        DrawerFocusForeground(focusMotion, key, drawerValue == DrawerValue.Open) {
-                                            Text(library.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        DrawerFocusForeground(focusMotion, entry.key, drawerValue == DrawerValue.Open) {
+                                            Text(entry.label, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                         }
-                                    }
-                                }
-                                NavigationDrawerItem(
-                                    colors = drawerItemColors,
-                                    selected = currentDestination is Destination.MyList,
-                                    onClick = { selectDrawerDestination(Destination.MyList) },
-                                    modifier = Modifier
-                                        .then(focusMotion.item("my_list"))
-                                        .focusRequester(myListDrawerRequester)
-                                        .focusProperties {
-                                            canFocus = drawerCanReceiveFocus
-                                            right = drawerReturnFocusRequester ?: myListContentEntryRequester
-                                        },
-                                    leadingContent = {
-                                        DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
-                                            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)
-                                        }
-                                    }
-                                ) {
-                                    DrawerFocusForeground(focusMotion, "my_list", drawerValue == DrawerValue.Open) {
-                                        Text("My List")
                                     }
                                 }
                                 NavigationDrawerItem(
@@ -941,6 +858,35 @@ private fun Destination.focusKey(): String? = when (this) {
     Destination.Settings -> "settings"
     is Destination.Library -> "library:$libraryId"
     is Destination.Player -> null
+}
+
+/** A sidebar destination the profile can arrange. */
+internal data class SidebarEntry(
+    val key: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val destination: Destination
+)
+
+/**
+ * What the sidebar can offer between Home and Settings for a library mode, in default order:
+ * Search, this device's Movies and Shows, each indexed server library, then My List.
+ */
+internal fun sidebarCandidates(
+    mode: me.xdan.aperture.domain.model.LibraryMode,
+    libraries: List<me.xdan.aperture.data.local.entity.RemoteLibraryEntity>
+): List<SidebarEntry> = buildList {
+    add(SidebarEntry("search", "Search", Icons.Rounded.Search, Destination.Search))
+    if (mode.usesLocal) {
+        add(SidebarEntry("movies", "Movies", Icons.Rounded.Movie, Destination.Movies))
+        add(SidebarEntry("shows", "Shows", Icons.Rounded.Tv, Destination.Shows))
+    }
+    if (mode.usesJellyfin) {
+        libraries
+            .filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
+            .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it.collectionType), Destination.Library(it.id))) }
+    }
+    add(SidebarEntry("my_list", "My List", Icons.AutoMirrored.Rounded.PlaylistAdd, Destination.MyList))
 }
 
 /** Sidebar icon for a Jellyfin library type. */
