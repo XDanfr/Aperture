@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui.screens
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +78,7 @@ fun MoviesScreen(library: Library, contentPadding: PaddingValues, onOpen: (Libra
         title = "Movies",
         contentPadding = contentPadding,
         empty = movies.isEmpty(),
-        emptyMessage = "No movies yet. Movies the TV finds will appear here.",
+        emptyMessage = "No movies yet. Movies your ${LocalDeviceNoun.current} finds will appear here.",
         header = {
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MovieSort.entries.forEach {
@@ -104,7 +105,7 @@ fun ShowsScreen(library: Library, contentPadding: PaddingValues, onOpen: (Librar
         title = "TV shows",
         contentPadding = contentPadding,
         empty = library.shows.isEmpty(),
-        emptyMessage = "No shows yet. Episodes the TV finds will appear here, grouped by show."
+        emptyMessage = "No shows yet. Episodes your ${LocalDeviceNoun.current} finds will appear here, grouped by show."
     ) {
         items(library.shows, key = { it.key }) { show ->
             PosterCard(
@@ -172,7 +173,7 @@ fun SearchScreen(library: Library, contentPadding: PaddingValues, onOpen: (Libra
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         )
         when {
-            query.isBlank() -> EmptyState("Find something to watch", "Search movies, shows and episode titles on your TV.")
+            query.isBlank() -> EmptyState("Find something to watch", "Search movies, shows and episode titles on your ${LocalDeviceNoun.current}.")
             results.isEmpty() -> EmptyState("No matches", "Nothing in your library matches “$query”.")
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(PosterGridMinSize),

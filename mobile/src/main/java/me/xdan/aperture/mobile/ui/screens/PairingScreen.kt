@@ -85,7 +85,7 @@ fun PairingFlow(
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) pendingAction?.invoke()
-        else error = "Aperture Companion needs Nearby devices access to reach your TV on the local network."
+        else error = "Aperture Companion needs Nearby devices access to reach Aperture on your local network."
         pendingAction = null
     }
     /** Android 17 gates all LAN traffic behind ACCESS_LOCAL_NETWORK. */
@@ -116,14 +116,14 @@ fun PairingFlow(
             .addOnSuccessListener { barcode ->
                 val invite = barcode.rawValue?.let(viewModel::parseInvite)
                 if (invite == null) {
-                    error = "That isn't an Aperture pairing code. Open Settings › Paired phones on your TV."
+                    error = "That isn't an Aperture pairing code. Open Settings › Paired phones on your TV or computer."
                 } else {
                     busy = true
                     scope.launch { handle(viewModel.pairWithInvite(invite)) }
                 }
             }
             .addOnFailureListener {
-                error = "The scanner couldn't start. Try finding your TV on the network instead."
+                error = "The scanner couldn't start. Try finding it on the network instead."
             }
     }
 
@@ -132,7 +132,7 @@ fun PairingFlow(
             when (current) {
                 PairStep.Choose -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "On your TV, open Aperture and go to Settings › Paired phones (or Pair a phone during setup).",
+                        "On your TV or computer, open Aperture and go to Settings › Paired phones (or Pair a phone during setup).",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -144,7 +144,7 @@ fun PairingFlow(
                     ) {
                         Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, modifier = Modifier.size(ButtonDefaults.MediumIconSize))
                         Spacer(Modifier.width(8.dp))
-                        Text("Scan the code on your TV", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
+                        Text("Scan the code on screen", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
                     }
                     FilledTonalButton(
                         onClick = { withLocalNetwork { step = PairStep.Discover } },
@@ -153,12 +153,12 @@ fun PairingFlow(
                     ) {
                         Icon(Icons.Rounded.WifiFind, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Find TVs on this network")
+                        Text("Find devices on this network")
                     }
                     TextButton(onClick = { withLocalNetwork { step = PairStep.Manual } }, enabled = !busy) {
                         Icon(Icons.Rounded.Keyboard, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Enter the TV's address")
+                        Text("Enter its address")
                     }
                 }
 
@@ -206,7 +206,7 @@ fun PairingFlow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LoadingIndicator(Modifier.size(32.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Connecting to your TV…", style = MaterialTheme.typography.bodyMedium)
+                Text("Connecting…", style = MaterialTheme.typography.bodyMedium)
             }
         }
         error?.let {
@@ -233,13 +233,13 @@ private fun DiscoverStep(
     val flow = remember { runCatching { viewModel.discoverTvs() }.getOrDefault(emptyFlow()) }
     val tvs by flow.collectAsState(initial = emptyList())
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StepHeader("TVs on this network", onBack)
+        StepHeader("Devices on this network", onBack)
         if (tvs.isEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 16.dp)) {
                 LoadingIndicator(Modifier.size(40.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    "Looking for Aperture… Make sure it's open on your TV and both devices share a network.",
+                    "Looking for Aperture… Make sure it's open on your TV or computer and both are on the same network.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -305,9 +305,9 @@ private fun ManualStep(busy: Boolean, onBack: () -> Unit, onSubmit: (String, Int
     var code by remember { mutableStateOf("") }
     val valid = host.isNotBlank() && port.toIntOrNull() in 1..65_535 && code.length == CompanionProtocol.CODE_LENGTH
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        StepHeader("Enter the TV's address", onBack)
+        StepHeader("Enter its address", onBack)
         Text(
-            "Settings › Paired phones on the TV shows its address under the code.",
+            "Settings › Paired phones in Aperture shows its address under the code.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
