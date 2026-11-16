@@ -25,7 +25,7 @@ sealed interface Destination : NavKey {
 
     @Serializable
     data class Player(
-        val mediaId: Long,
+        val media: me.xdan.aperture.domain.model.MediaKey,
         val startFromBeginning: Boolean = false
     ) : Destination
 }

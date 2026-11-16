@@ -1,5 +1,7 @@
 package me.xdan.aperture.ui.navigation
 
+import me.xdan.aperture.domain.model.MediaKey
+
 import androidx.tv.material3.pointerFocusRegion
 import me.xdan.aperture.ui.platform.onMouseEnterExit
 import me.xdan.aperture.ui.platform.usesMouse
@@ -752,7 +754,7 @@ fun NavGraph(
                         selectedEpisodeOnly = contextEpisodeOnly
                         selectedMediaId = mediaId
                         playerOriginFocusKey = currentFocusKey
-                        onNavigate(Destination.Player(mediaId, true))
+                        onNavigate(Destination.Player(MediaKey.Local(mediaId), true))
                     },
                     onRemoveContinue = {
                         mediaActionsViewModel.clearProgress(mediaId)
@@ -784,7 +786,7 @@ fun NavGraph(
                 viewModel = koinViewModel(),
                 onPlay = { mediaId, startFromBeginning ->
                     playerOriginFocusKey = currentFocusKey
-                    onNavigate(Destination.Player(mediaId, startFromBeginning))
+                    onNavigate(Destination.Player(MediaKey.Local(mediaId), startFromBeginning))
                 },
                 onClose = {
                     detailsAwaitingFocusReturn = true
@@ -979,23 +981,27 @@ private fun NavContent(
                         onForceRescan = onForceRescan,
                         onPreviewAmbientMode = onPreviewAmbientMode
                     )
-                    is Destination.Player -> PlayerScreen(
-                        mediaId = destination.mediaId,
-                        startFromBeginning = destination.startFromBeginning,
-                        viewModel = koinViewModel(),
-                        onBack = onPlayerBack,
-                        onFinished = onPlayerBack,
-                        onPlaybackMediaChanged = onPlaybackMediaChanged,
-                        onLeavePlayerToOpenSubtitles = {
-                            onSettingsFocusKeyChanged("open_subtitles")
-
-                            if (backstack.size > 1) {
-                                backstack.removeAt(backstack.lastIndex)
+                    is Destination.Player -> when (val media = destination.media) {
+                        is MediaKey.Local -> PlayerScreen(
+                            mediaId = media.id,
+                            startFromBeginning = destination.startFromBeginning,
+                            viewModel = koinViewModel(),
+                            onBack = onPlayerBack,
+                            onFinished = onPlayerBack,
+                            onPlaybackMediaChanged = onPlaybackMediaChanged,
+                            onLeavePlayerToOpenSubtitles = {
+                                onSettingsFocusKeyChanged("open_subtitles")
+    
+                                if (backstack.size > 1) {
+                                    backstack.removeAt(backstack.lastIndex)
+                                }
+    
+                                backstack.add(Destination.Settings)
                             }
-
-                            backstack.add(Destination.Settings)
-                        }
-                    )
+                        )
+                        // Jellyfin playback arrives with the player work; nothing links here yet.
+                        is MediaKey.Jellyfin -> LaunchedEffect(media) { onPlayerBack() }
+                    }
                     else -> Box(modifier = Modifier.fillMaxSize()) {
                         Text("Coming Soon", modifier = Modifier.padding(32.dp))
                     }

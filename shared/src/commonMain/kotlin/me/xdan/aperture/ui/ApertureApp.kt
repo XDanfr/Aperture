@@ -202,7 +202,7 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                                     appState.isAmbientActive = false
                                     if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
                                     appState.isPlayerActive = true
-                                    backstack.add(Destination.Player(request.mediaId, request.fromStart))
+                                    backstack.add(Destination.Player(me.xdan.aperture.domain.model.MediaKey.Local(request.mediaId), request.fromStart))
                                 }
                                 me.xdan.aperture.companion.CompanionNavigation.ExitPlayer -> {
                                     if (backstack.size > 1 && backstack.lastOrNull() is Destination.Player) {
