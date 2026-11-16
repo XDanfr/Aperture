@@ -978,14 +978,18 @@ private fun NavContent(
                     delay(100.milliseconds)
                 }
             }
+            // One details panel and long-press menu per page, for its Jellyfin titles.
+            val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
             Box(
                 Modifier.fillMaxSize()
                     .onFocusChanged { pageHasFocus = it.hasFocus }
                     .focusGroup()
             ) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    me.xdan.aperture.ui.component.LocalCatalogLongClick provides details::openMenu
+                ) {
                 when (destination) {
                     is Destination.Home -> if (libraryMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN) {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeScreen(
                             viewModel = koinViewModel(),
                             onItemClick = { item, from -> details.open(item, from) },
@@ -1008,7 +1012,6 @@ private fun NavContent(
                         onOpenLibrary = onOpenLibrary
                     )
                     is Destination.Search -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         SearchScreen(
                             viewModel = koinViewModel(),
                             onMediaClick = mediaClick,
@@ -1021,7 +1024,6 @@ private fun NavContent(
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.MyList -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         MyListScreen(
                             viewModel = koinViewModel(),
                             onMediaClick = mediaClick,
@@ -1034,7 +1036,6 @@ private fun NavContent(
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Movies -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         MoviesScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
@@ -1048,7 +1049,6 @@ private fun NavContent(
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Shows -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         ShowsScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = episodeAwareMediaClick,
@@ -1075,7 +1075,6 @@ private fun NavContent(
                         onPreviewAmbientMode = onPreviewAmbientMode
                     )
                     is Destination.Library -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryScreen(
                             viewModel = koinViewModel(key = "library:${destination.libraryId}") {
                                 org.koin.core.parameter.parametersOf(destination.libraryId)
@@ -1117,6 +1116,7 @@ private fun NavContent(
                     else -> Box(modifier = Modifier.fillMaxSize()) {
                         Text("Coming Soon", modifier = Modifier.padding(32.dp))
                     }
+                }
                 }
             }
         }

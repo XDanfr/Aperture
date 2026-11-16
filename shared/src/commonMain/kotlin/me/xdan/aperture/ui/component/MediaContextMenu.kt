@@ -23,6 +23,9 @@ import androidx.tv.material3.*
 import kotlinx.coroutines.delay
 import me.xdan.aperture.ui.screen.actions.MediaActionState
 
+/** One entry in a title's long-press menu. */
+data class ContextMenuAction(val label: String, val icon: ImageVector, val onClick: () -> Unit)
+
 @Composable
 fun MediaContextMenu(
     state: MediaActionState,
@@ -38,9 +41,51 @@ fun MediaContextMenu(
     onRefreshAssets: () -> Unit
 ) {
     val media = state.media ?: return
+    TitleContextMenu(
+        title = media.title,
+        key = media.id,
+        opensToRight = opensToRight,
+        onDismiss = onDismiss,
+        actions = buildList {
+            if (fromContinueWatching) add(ContextMenuAction("Remove from Continue Watching", Icons.Rounded.RemoveCircle, onRemoveContinue))
+            else add(ContextMenuAction("Info", Icons.Rounded.Info, onInfo))
+            if (state.progress != null) add(ContextMenuAction("Play from beginning", Icons.Rounded.Replay, onPlayFromBeginning))
+            add(
+                ContextMenuAction(
+                    if (media.isFavorite) "Remove from My List" else "Add to My List",
+                    if (media.isFavorite) Icons.Rounded.PlaylistRemove else Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    onToggleList
+                )
+            )
+            add(
+                ContextMenuAction(
+                    if (state.progress?.isCompleted == true) "Mark as unwatched" else "Mark as watched",
+                    if (state.progress?.isCompleted == true) Icons.Rounded.RadioButtonUnchecked else Icons.Rounded.CheckCircle,
+                    onToggleWatched
+                )
+            )
+            add(ContextMenuAction("Refresh assets", Icons.Rounded.ImageSearch, onRefreshAssets))
+            if (fromContinueWatching) add(ContextMenuAction("Info", Icons.Rounded.Info, onInfo))
+            add(ContextMenuAction("Hide", Icons.Rounded.VisibilityOff, onHide))
+        }
+    )
+}
+
+/**
+ * The long-press menu beside a card, for local and Jellyfin titles alike. Ignores the Select that
+ * opened it until it's released, so holding doesn't also press the first entry.
+ */
+@Composable
+fun TitleContextMenu(
+    title: String,
+    key: Any,
+    opensToRight: Boolean,
+    onDismiss: () -> Unit,
+    actions: List<ContextMenuAction>
+) {
     val firstRequester = remember { FocusRequester() }
-    var waitingForOpeningKeyRelease by remember(media.id) { mutableStateOf(true) }
-    LaunchedEffect(media.id) { delay(100); runCatching { firstRequester.requestFocus() } }
+    var waitingForOpeningKeyRelease by remember(key) { mutableStateOf(true) }
+    LaunchedEffect(key) { delay(100); runCatching { firstRequester.requestFocus() } }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
@@ -72,27 +117,11 @@ fun MediaContextMenu(
                     Modifier.padding(22.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(media.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
+                    Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
                     Spacer(Modifier.height(4.dp))
-                    if (fromContinueWatching) {
-                        ContextAction("Remove from Continue Watching", Icons.Rounded.RemoveCircle, onRemoveContinue, Modifier.focusRequester(firstRequester))
-                    } else {
-                        ContextAction("Info", Icons.Rounded.Info, onInfo, Modifier.focusRequester(firstRequester))
+                    actions.forEachIndexed { index, action ->
+                        ContextAction(action.label, action.icon, action.onClick, if (index == 0) Modifier.focusRequester(firstRequester) else Modifier)
                     }
-                    if (state.progress != null) ContextAction("Play from beginning", Icons.Rounded.Replay, onPlayFromBeginning)
-                    ContextAction(
-                        if (media.isFavorite) "Remove from My List" else "Add to My List",
-                        if (media.isFavorite) Icons.Rounded.PlaylistRemove else Icons.AutoMirrored.Rounded.PlaylistAdd,
-                        onToggleList
-                    )
-                    ContextAction(
-                        if (state.progress?.isCompleted == true) "Mark as unwatched" else "Mark as watched",
-                        if (state.progress?.isCompleted == true) Icons.Rounded.RadioButtonUnchecked else Icons.Rounded.CheckCircle,
-                        onToggleWatched
-                    )
-                    ContextAction("Refresh assets", Icons.Rounded.ImageSearch, onRefreshAssets)
-                    if (fromContinueWatching) ContextAction("Info", Icons.Rounded.Info, onInfo)
-                    ContextAction("Hide", Icons.Rounded.VisibilityOff, onHide)
                 }
             }
         }
