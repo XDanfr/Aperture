@@ -35,7 +35,7 @@ class AmbientViewModel constructor(
 ) : ViewModel() {
 
     private val local: Flow<List<AmbientArtwork>> = mediaRepository.getAllMedia()
-        .map { media -> media.filterNot { it.isHidden }.map { it.toAmbientArtwork() } }
+        .map { media -> media.filterNot { it.isHidden || it.missingSince != null }.map { it.toAmbientArtwork() } }
 
     private val server: Flow<List<AmbientArtwork>> = combine(catalog.activeAccount, catalog.libraries) { account, libraries -> account to libraries }
         .flatMapLatest { (account, libraries) ->

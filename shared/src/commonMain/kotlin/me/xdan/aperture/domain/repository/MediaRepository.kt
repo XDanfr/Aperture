@@ -37,10 +37,16 @@ interface MediaRepository {
     suspend fun applyMetadataCandidate(mediaId: Long, candidate: TmdbResult)
 
     /**
-     * Removes [mediaId] from the library when its file has been deleted (not just on a drive that's
-     * unplugged). True when it was removed.
+     * Marks [mediaId] missing when its file has gone (not just on a drive that's unplugged). It
+     * stays in the library, greyed out, until it's found again or the user removes it.
      */
-    suspend fun removeIfGone(mediaId: Long): Boolean = false
+    suspend fun markMissingIfGone(mediaId: Long): Boolean = false
+
+    /** Titles whose files have gone, for Settings › Missing files. */
+    fun getMissingMedia(): Flow<List<MediaEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+
+    /** Takes a missing title out of the library, with its progress, My List entry and artwork. */
+    suspend fun removeMissing(mediaId: Long) {}
 }
 
 data class MediaFolder(

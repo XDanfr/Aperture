@@ -35,6 +35,8 @@ data class MediaRecord(
     val rating: Float? = null,
     /** The picture's height (2160 for 4K), from the file name or playback. */
     val videoHeight: Int? = null,
+    /** When the file was found missing (its folder there, the file not); null while it's there. */
+    val missingSince: Long? = null,
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     /** As a profile with nothing saved for it would see it. */
@@ -61,6 +63,7 @@ data class MediaRecord(
         genres = genres,
         rating = rating,
         videoHeight = videoHeight,
+        missingSince = missingSince,
         dateAdded = dateAdded
     )
 }
@@ -95,6 +98,8 @@ data class MediaEntity(
     val genres: String? = null,
     val rating: Float? = null,
     val videoHeight: Int? = null,
+    /** When the file was found missing (its folder there, the file not); null while it's there. */
+    val missingSince: Long? = null,
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     fun toRecord() = MediaRecord(
@@ -120,6 +125,7 @@ data class MediaEntity(
         genres = genres,
         rating = rating,
         videoHeight = videoHeight,
+        missingSince = missingSince,
         dateAdded = dateAdded
     )
 }

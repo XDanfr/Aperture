@@ -153,6 +153,8 @@ class MediaRepositoryImpl constructor(
                         stage = LibraryPreparationStage.DISCOVERING
                     )
 
+                    missingPool.clear()
+                    missingPool += mediaDao.getAllMediaOnce().filter { it.missingSince != null }
                     val systemSeen = mutableSetOf<String>()
                     runCatching {
                         source.discoverSystemMedia { file ->
@@ -160,7 +162,7 @@ class MediaRepositoryImpl constructor(
                             processFile(file.name, file.location, file.durationMs)
                         }
                         // Files the device's own index no longer lists, if they really are gone.
-                        removeRecords(
+                        markMissing(
                             mediaDao.getAllMediaOnce().filter {
                                 it.sourceRootUri == null && it.filePath !in systemSeen && source.isGone(it.filePath, it.parentDocumentUri)
                             }
@@ -198,7 +200,24 @@ class MediaRepositoryImpl constructor(
     ) {
         val existing = mediaDao.getMediaByPath(path)
         val cleanedInfo = FilenameParser.parse(name, parserPath)
+        // Back where it was (a drive plugged in again, a share reachable again): no longer missing.
+        if (existing?.missingSince != null) mediaDao.updateMedia(existing.copy(missingSince = null))
         if (existing == null) {
+            // A missing title that moved or was renamed: keep it (and its progress and My List)
+            // at the new location rather than adding the file as a new title.
+            val moved = relinkCandidate(name, cleanedInfo)
+            if (moved != null) {
+                missingPool.remove(moved)
+                mediaDao.updateMedia(
+                    moved.copy(
+                        filePath = path,
+                        sourceRootUri = sourceRootUri,
+                        parentDocumentUri = parentDocumentUri,
+                        missingSince = null
+                    )
+                )
+                return
+            }
             val media = MediaRecord(
                 filePath = path,
                 sourceRootUri = sourceRootUri,
@@ -254,7 +273,7 @@ class MediaRepositoryImpl constructor(
             )
         }
         if (!readable) return
-        removeRecords(mediaDao.getMediaFromSource(folderUri).filterNot { it.filePath in seenUris })
+        markMissing(mediaDao.getMediaFromSource(folderUri).filterNot { it.filePath in seenUris })
     }
 
     /** Takes titles out of the library, with the artwork only they used. */
@@ -266,11 +285,39 @@ class MediaRepositoryImpl constructor(
         runCatching { palettes?.forget(unused) }
     }
 
-    override suspend fun removeIfGone(mediaId: Long): Boolean = withContext(Dispatchers.IO) {
+    /**
+     * Titles whose files have gone stay in the library, marked missing: a moved or renamed file
+     * relinks to them on the next scan, keeping progress and My List. Only the user removes them.
+     */
+    private suspend fun markMissing(records: List<MediaRecord>) {
+        val now = System.currentTimeMillis()
+        records.filter { it.missingSince == null }.forEach { mediaDao.updateMedia(it.copy(missingSince = now)) }
+    }
+
+    /** Missing titles, gathered once per scan, that a newly found file might be. */
+    private val missingPool = mutableListOf<MediaRecord>()
+
+    private fun relinkCandidate(name: String, info: me.xdan.aperture.util.CleanedMediaInfo): MediaRecord? {
+        missingPool.firstOrNull { source.fileName(it.filePath).equals(name, ignoreCase = true) }?.let { return it }
+        return missingPool.firstOrNull { record ->
+            val was = FilenameParser.parse(source.fileName(record.filePath), source.parserPath(record.filePath))
+            was.title.equals(info.title, ignoreCase = true) && was.year == info.year &&
+                was.season == info.season && was.episode == info.episode
+        }
+    }
+
+    override suspend fun markMissingIfGone(mediaId: Long): Boolean = withContext(Dispatchers.IO) {
         val record = mediaDao.getRecordById(mediaId) ?: return@withContext false
         if (!source.isGone(record.filePath, record.parentDocumentUri)) return@withContext false
-        removeRecords(listOf(record))
+        markMissing(listOf(record))
         true
+    }
+
+    override fun getMissingMedia(): Flow<List<MediaEntity>> = getAllMedia().map { all -> all.filter { it.missingSince != null } }
+
+    override suspend fun removeMissing(mediaId: Long) = withContext(Dispatchers.IO) {
+        val record = mediaDao.getRecordById(mediaId) ?: return@withContext
+        if (record.missingSince != null) removeRecords(listOf(record))
     }
 
     private fun selectedFolderUris(): Set<String> =

@@ -54,7 +54,7 @@ class MainViewModel constructor(
     )
 
     val tutorialExampleMedia = mediaRepository.getAllMedia()
-        .map { it.firstOrNull() }
+        .map { all -> all.firstOrNull { it.missingSince == null } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val ambientSettings = combine(

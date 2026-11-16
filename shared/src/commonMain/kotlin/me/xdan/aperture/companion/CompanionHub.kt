@@ -542,7 +542,7 @@ class CompanionHub(
         if (!profiles.activeLibraryMode.first().usesLocal) return LibrarySnapshot(libraryRevision.value.toLong(), server, collections)
         val media = mediaRepository.getAllMedia().first()
         val progress = mediaRepository.getAllProgress().first().associateBy { it.mediaId }
-        val items = media.asSequence().filterNot { it.isHidden }.map { entity ->
+        val items = media.asSequence().filterNot { it.isHidden || it.missingSince != null }.map { entity ->
             val p = progress[entity.id]
             CompanionMedia(
                 id = entity.id,

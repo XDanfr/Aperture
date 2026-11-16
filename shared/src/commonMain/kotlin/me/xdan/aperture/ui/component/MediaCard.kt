@@ -75,7 +75,8 @@ fun MediaCard(
         artwork = artworkUrl(artworkPath, "w500"),
         title = fallbackTitle,
         onClick = onClick,
-        modifier = modifier,
+        // A title whose file has gone is greyed out until it's found again or removed.
+        modifier = if (media.missingSince != null) modifier.graphicsLayer { alpha = 0.38f } else modifier,
         focusRequester = focusRequester,
         aspectRatio = aspectRatio,
         progress = progress,
