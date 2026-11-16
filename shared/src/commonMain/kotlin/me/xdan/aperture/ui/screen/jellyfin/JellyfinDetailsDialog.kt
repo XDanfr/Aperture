@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.runtime.*
@@ -39,6 +41,7 @@ import androidx.tv.material3.*
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import me.xdan.aperture.domain.catalog.CatalogItem
+import me.xdan.aperture.data.jellyfin.isDiscover
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.component.MediaInfoDialog
 import me.xdan.aperture.ui.platform.Dialog
@@ -67,6 +70,9 @@ fun JellyfinDetailsDialog(
     val message by viewModel.message.collectAsState()
     // The index's copy once it loads, so toggles show at once; the clicked card until then.
     val shown = state.item ?: item
+    // Discover (request) titles aren't on the server yet: favouriting one asks for a download.
+    val libraries by org.koin.compose.koinInject<me.xdan.aperture.data.jellyfin.JellyfinCatalog>().libraries.collectAsState(emptyList())
+    val isDiscover = libraries.firstOrNull { it.id == (shown.libraryId ?: item.libraryId) }?.isDiscover == true
     val target = state.target ?: shown
     var showEpisodes by remember { mutableStateOf(false) }
     val firstAction = remember { FocusRequester() }
@@ -174,6 +180,24 @@ fun JellyfinDetailsDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            if (isDiscover) {
+                                Button(onClick = viewModel::toggleFavorite, modifier = Modifier.focusRequester(firstAction)) {
+                                    Icon(if (shown.isFavorite) Icons.Rounded.DownloadDone else Icons.Rounded.Download, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (shown.isFavorite) "Requested" else "Download")
+                                }
+                                if (shown.isFavorite) {
+                                    Text(
+                                        "Select again to cancel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                                IconButton(onClick = viewModel::loadInfo) {
+                                    Icon(Icons.Rounded.Info, contentDescription = "Info")
+                                }
+                                return@Row
+                            }
                             // A show plays its chosen episode; until the episodes load, there's nothing to play.
                             val playable = if (isShow) state.episode else target
                             val inProgress = (playable?.progress ?: 0f) > 0f
