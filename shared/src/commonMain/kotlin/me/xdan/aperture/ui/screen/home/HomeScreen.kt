@@ -86,8 +86,13 @@ fun HomeScreen(
                 ) {
                     Text("No media found on device.")
                     Spacer(Modifier.height(16.dp))
+                    // The content entry point, so the sidebar's Right and a fresh launch land here.
                     Button(
-                        onClick = { viewModel.softRefresh() },
+                        onClick = { viewModel.rescan() },
+                        modifier = Modifier
+                            .focusRequester(contentEntryFocusRequester)
+                            .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
+                            .onFocusChanged { if (it.isFocused) onContentFocused(contentEntryFocusRequester) },
                         colors = if (ApertureTheme.isMaterialTv) {
                             ButtonDefaults.colors()
                         } else {

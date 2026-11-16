@@ -121,6 +121,18 @@ interface JellyfinDao {
     """)
     suspend fun spotlightCandidates(accountId: Long, limit: Int): List<RemoteItemEntity>
 
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND itemId = :itemId")
+    fun observeItem(accountId: Long, itemId: String): Flow<RemoteItemEntity?>
+
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND seriesId = :seriesId AND type = 'EPISODE' ORDER BY seasonNumber, episodeNumber")
+    fun observeEpisodes(accountId: Long, seriesId: String): Flow<List<RemoteItemEntity>>
+
+    @Query("UPDATE remote_items SET isFavorite = :favorite WHERE accountId = :accountId AND itemId = :itemId")
+    suspend fun setFavorite(accountId: Long, itemId: String, favorite: Boolean)
+
+    @Query("UPDATE remote_items SET played = :played, playbackPositionMs = 0 WHERE accountId = :accountId AND itemId = :itemId")
+    suspend fun setPlayed(accountId: Long, itemId: String, played: Boolean)
+
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND seriesId = :seriesId ORDER BY seasonNumber, episodeNumber")
     suspend fun episodesOf(accountId: Long, seriesId: String): List<RemoteItemEntity>
 

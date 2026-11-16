@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.ImageSearch
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
@@ -80,6 +81,8 @@ fun MediaDetailsModal(
     val episodes by viewModel.episodes.collectAsState()
     val assetCandidates by viewModel.assetCandidates.collectAsState()
     val isLoadingAssets by viewModel.isLoadingAssets.collectAsState()
+    val info by viewModel.info.collectAsState()
+    val infoOpen by viewModel.infoOpen.collectAsState()
     val playButtonFocusRequester = remember { FocusRequester() }
     val episodeButtonFocusRequester = remember { FocusRequester() }
     var ignoreNextPlayFocus by remember { mutableStateOf(true) }
@@ -389,6 +392,9 @@ fun MediaDetailsModal(
                                         ) {
                                             Icon(Icons.Rounded.ImageSearch, contentDescription = "Select artwork")
                                         }
+                                        IconButton(onClick = viewModel::loadInfo) {
+                                            Icon(Icons.Rounded.Info, contentDescription = "Info")
+                                        }
                                     }
                                 }
                             }
@@ -407,6 +413,15 @@ fun MediaDetailsModal(
                         onQueryChange = viewModel::findAssetCandidates,
                         onDismiss = { showAssetPicker = false }
                     )
+                }
+                if (infoOpen) {
+                    displayedMedia?.let { m ->
+                        me.xdan.aperture.ui.component.MediaInfoDialog(
+                            title = if (m.type == "EPISODE") listOfNotNull(m.title, m.episodeTitle).joinToString(" · ") else m.title,
+                            info = info,
+                            onDismiss = viewModel::dismissInfo
+                        )
+                    }
                 }
                 if (showEpisodePicker && displayedMedia != null) {
                     EpisodePickerDialog(
