@@ -108,7 +108,17 @@ interface JellyfinDao {
     """)
     fun recentlyAdded(accountId: Long, libraryId: String, limit: Int): Flow<List<RemoteItemEntity>>
 
-    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND type = 'MOVIE' AND backdropImageTag IS NOT NULL AND played = 0 ORDER BY RANDOM() LIMIT :limit")
+    /**
+     * Unwatched films with a backdrop, only from movie libraries: mixed folders hold home clips typed
+     * as Movie, and a JellyBridge Discover library holds placeholders for titles that aren't there.
+     */
+    @Query("""
+        SELECT i.* FROM remote_items i
+        JOIN remote_libraries l ON l.accountId = i.accountId AND l.id = i.libraryId
+        WHERE i.accountId = :accountId AND i.type = 'MOVIE' AND i.backdropImageTag IS NOT NULL AND i.played = 0
+            AND l.collectionType = 'movies'
+        ORDER BY RANDOM() LIMIT :limit
+    """)
     suspend fun spotlightCandidates(accountId: Long, limit: Int): List<RemoteItemEntity>
 
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND seriesId = :seriesId ORDER BY seasonNumber, episodeNumber")

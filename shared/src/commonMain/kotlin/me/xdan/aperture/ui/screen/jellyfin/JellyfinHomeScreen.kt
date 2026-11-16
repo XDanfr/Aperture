@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import me.xdan.aperture.data.jellyfin.JellyfinCatalog
-import me.xdan.aperture.data.jellyfin.JellyfinSync
 import me.xdan.aperture.domain.catalog.CatalogItem
 import me.xdan.aperture.ui.component.CatalogCard
 import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
@@ -43,7 +42,9 @@ class JellyfinHomeViewModel(catalog: JellyfinCatalog) : ViewModel() {
     val state: StateFlow<State> = combine(catalog.activeAccount, catalog.libraries) { account, libraries -> account to libraries }
         .flatMapLatest { (account, libraries) ->
             if (account == null) return@flatMapLatest flowOf(State(rows = emptyList()))
-            val indexed = libraries.filter { it.collectionType in JellyfinSync.INDEXED_COLLECTIONS }
+            // Typed libraries only. Untyped (mixed) folders stay in the sidebar: a JellyBridge Discover
+            // library is one, and its requestable placeholders mustn't read as things you have.
+            val indexed = libraries.filter { it.collectionType in HOME_ROW_COLLECTIONS }
             val recent = indexed.map { library ->
                 catalog.recentlyAdded(account, library.id)
             }
@@ -64,6 +65,10 @@ class JellyfinHomeViewModel(catalog: JellyfinCatalog) : ViewModel() {
                 }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+
+    private companion object {
+        val HOME_ROW_COLLECTIONS = setOf("movies", "tvshows", "homevideos")
+    }
 }
 
 /** Home for a profile that uses Jellyfin: a spotlight backdrop, then rows from the server. */
