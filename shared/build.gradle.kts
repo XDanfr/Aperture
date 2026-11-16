@@ -75,6 +75,7 @@ kotlin {
             api(libs.okhttp)
             implementation(libs.logging.interceptor)
             implementation(libs.zxing.core)
+            implementation(libs.jellyfin.sdk.core)
             // org.json ships with Android; desktop gets the same API from the reference library.
             compileOnly(libs.org.json)
         }
@@ -118,6 +119,7 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.junit)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.okhttp.mockwebserver)
             implementation(kotlin("test"))
         }
     }
