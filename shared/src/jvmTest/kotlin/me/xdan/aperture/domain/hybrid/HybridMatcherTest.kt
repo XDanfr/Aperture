@@ -72,4 +72,22 @@ class HybridMatcherTest {
         assertEquals(null, show.tmdbId)
         assertEquals(2, show.localEpisodes.size)
     }
+
+    @Test
+    fun onlyEpisodesInBothPlacesAreDuplicates() {
+        // Season 1 is on this device; season 2 only on the server.
+        val index = HybridMatcher.match(
+            local = listOf(localEpisode(1, 1399, 1, 1, title = "Game of Thrones (2011)")),
+            remote = listOf(
+                remote("got", "SERIES", "tv", "1399"),
+                remote("e11", "EPISODE", "tv", series = "got", season = 1, number = 1),
+                remote("e21", "EPISODE", "tv", series = "got", season = 2, number = 1),
+                remote("m", "MOVIE", "films", "603")
+            ),
+            libraryTypes = libraries
+        )
+        assertEquals(setOf("e11"), index.duplicateRemoteItemIds)
+        // The server's other episodes list under the local show's title.
+        assertEquals(mapOf("got" to "Game of Thrones (2011)"), index.localTitleForSeries)
+    }
 }

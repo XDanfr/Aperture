@@ -35,6 +35,22 @@ data class HybridIndex(
         }
     }
 
+    /**
+     * Server films and episodes that are the same as a local file, item by item. Unlike
+     * [matchedRemoteIds] (whole series), a show's server-only episodes aren't in it.
+     */
+    val duplicateRemoteItemIds: Set<String> by lazy {
+        (movies.filter { it.local.isNotEmpty() }.flatMap { it.remote } +
+            shows.flatMap { it.episodeMatches.values.flatten() }).map { it.itemId }.toSet()
+    }
+
+    /** A matched server series' id to the show's local title, so its episodes list under one show. */
+    val localTitleForSeries: Map<String, String> by lazy {
+        shows.filter { it.localEpisodes.isNotEmpty() }
+            .flatMap { show -> show.remoteSeries.map { it.itemId to show.localEpisodes.first().title } }
+            .toMap()
+    }
+
     /** Server item ids that have a local copy, so a merged list can leave them out. */
     val matchedRemoteIds: Set<String> by lazy {
         (movies.filter { it.local.isNotEmpty() }.flatMap { it.remote } +

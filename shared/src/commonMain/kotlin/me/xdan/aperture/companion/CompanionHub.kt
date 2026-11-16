@@ -445,12 +445,14 @@ class CompanionHub(
         if (!profiles.activeLibraryMode.first().usesJellyfin) return emptyList()
         val account = jellyfin.activeAccount.first() ?: return emptyList()
         val discover = jellyfin.libraries.first().filter { it.isDiscover }.map { it.id }.toSet()
-        val alsoLocal = hybrid.index.first().matchedRemoteIds
+        // Only items that really are on this device too: a show's server-only episodes stay.
+        val hybridIndex = hybrid.index.first()
+        val alsoLocal = hybridIndex.duplicateRemoteItemIds
         val images = me.xdan.aperture.domain.catalog.JellyfinImages(account.baseUrl)
         // The phone describes a show with its episodes' overview field, so episodes carry the show's.
         val showOverviews = jellyfinDao.itemsOfType(account.id, "SERIES").first().associate { it.itemId to it.overview }
         return listOf("MOVIE", "EPISODE").flatMap { jellyfinDao.itemsOfType(account.id, it).first() }
-            .filter { it.libraryId !in discover && it.itemId !in alsoLocal && it.seriesId !in alsoLocal }
+            .filter { it.libraryId !in discover && it.itemId !in alsoLocal }
             .map { entity ->
                 val id = me.xdan.aperture.ui.screen.player.PlayerViewModel.jellyfinDisplayId(entity.itemId)
                 jellyfinIds[id] = me.xdan.aperture.domain.model.MediaKey.Jellyfin(account.id, entity.itemId)
@@ -459,7 +461,8 @@ class CompanionHub(
                 CompanionMedia(
                     id = id,
                     type = if (episode) CompanionMediaType.EPISODE else CompanionMediaType.MOVIE,
-                    title = if (episode) entity.seriesName ?: entity.name else entity.name,
+                    // A show this device has too goes under its local title, so the phone lists it once.
+                    title = if (episode) entity.seriesId?.let(hybridIndex.localTitleForSeries::get) ?: entity.seriesName ?: entity.name else entity.name,
                     year = entity.year,
                     overview = if (episode) entity.seriesId?.let(showOverviews::get) else entity.overview,
                     posterPath = images.titlePoster(entity) ?: catalog.poster,
