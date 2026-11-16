@@ -97,6 +97,23 @@ fun OnboardingScreen(
     val jellyfinAccount by jellyfinViewModel.account.collectAsState()
     val jellyfinSetup by jellyfinViewModel.setup.collectAsState()
     val jellyfinMode by jellyfinViewModel.libraryMode.collectAsState()
+    val jellyfinSync by jellyfinViewModel.syncState.collectAsState()
+    val jellyfinArtwork by jellyfinViewModel.artworkProgress.collectAsState()
+    val startedAt = remember { System.currentTimeMillis() }
+    // Signed in and a mode chosen: the server's library is syncing and its artwork downloading.
+    val jellyfinReady = !rescanMode && mediaSource != null && mediaSource != MediaSourceChoice.DEVICE &&
+        jellyfinAccount != null && jellyfinSetup == null && jellyfinMode.usesJellyfin
+    val serverProgress = jellyfinPreparation(jellyfinSync, jellyfinArtwork, startedAt)
+    // What the panel shows: this device, the server, or both together.
+    val shownProgress = when {
+        !jellyfinReady -> progress
+        jellyfinMode.usesLocal -> combinedPreparation(progress, serverProgress)
+        else -> serverProgress
+    }
+    val retry: () -> Unit = {
+        if (jellyfinReady) jellyfinViewModel.syncNow()
+        if (!jellyfinReady || jellyfinMode.usesLocal) onStartPreparation()
+    }
     val companionRequester = remember { FocusRequester() }
     val companionViewModel: me.xdan.aperture.ui.screen.companion.CompanionViewModel = org.koin.compose.viewmodel.koinViewModel()
     val pairedPhones by companionViewModel.hub.pairedPhones.collectAsState()
@@ -139,8 +156,9 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (rescanMode || hasLibraryAccess) {
-            PosterBackground(progress.posterPaths)
+        val jellyfinOnly = jellyfinReady && !jellyfinMode.usesLocal
+        if (rescanMode || hasLibraryAccess || jellyfinOnly) {
+            PosterBackground(shownProgress.posterPaths)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -170,11 +188,16 @@ fun OnboardingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     PreparationPanel(
-                        progress = progress,
-                        onRetry = onStartPreparation,
+                        progress = shownProgress,
+                        onRetry = retry,
                         onSkip = onSkip,
                         onComplete = onComplete,
                         onLearn = onLearn,
+                        source = when {
+                            !jellyfinReady -> PreparationSource.DEVICE
+                            jellyfinMode.usesLocal -> PreparationSource.BOTH
+                            else -> PreparationSource.JELLYFIN
+                        },
                         focusEnabled = !showThemePicker && !showAmbientSettings && !showCompanionPairing,
                         modifier = Modifier.weight(1.5f).heightIn(max = 480.dp)
                     )
@@ -261,18 +284,14 @@ fun OnboardingScreen(
     if (showJellyfin) {
         me.xdan.aperture.ui.screen.jellyfin.JellyfinDialog(
             jellyfinViewModel,
-            onDismiss = { showJellyfin = false }
+            onDismiss = { showJellyfin = false },
+            showPreparing = false
         )
     }
-    // Signed in for Jellyfin only: nothing local to scan, so onboarding is done.
-    LaunchedEffect(jellyfinAccount, jellyfinSetup, jellyfinMode, mediaSource) {
-        if (mediaSource != null && mediaSource != MediaSourceChoice.DEVICE && jellyfinAccount != null &&
-            jellyfinSetup == null && jellyfinMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN
-        ) {
-            showJellyfin = false
-            onComplete()
-        }
-        if (jellyfinMode == me.xdan.aperture.domain.model.LibraryMode.HYBRID && jellyfinSetup == null) showJellyfin = false
+    // Signed in and a mode chosen: the dialog closes, and this screen shows the library download
+    // with the same customising options as a local setup.
+    LaunchedEffect(jellyfinReady) {
+        if (jellyfinReady) showJellyfin = false
     }
     if (showThemePicker) {
         ThemePickerDialog(
@@ -403,6 +422,7 @@ private fun PreparationPanel(
     onLearn: () -> Unit,
     rescanMode: Boolean = false,
     focusEnabled: Boolean = true,
+    source: PreparationSource = PreparationSource.DEVICE,
     modifier: Modifier = Modifier
 ) {
     val isDiscovering = progress.stage == LibraryPreparationStage.IDLE ||
@@ -432,6 +452,7 @@ private fun PreparationPanel(
                 text = when {
                     isError -> "We hit a snag"
                     isComplete -> if (rescanMode) "Rescan complete" else "Your library is ready"
+                    isDiscovering && source == PreparationSource.JELLYFIN -> "Reading your library"
                     isDiscovering -> if (rescanMode) "Scanning your library" else "Finding your media"
                     else -> "Building your library"
                 },
@@ -444,6 +465,10 @@ private fun PreparationPanel(
                     isError -> progress.errorMessage ?: "Aperture could not finish matching metadata."
                     isComplete && progress.errorMessage != null -> if (rescanMode) "The library was updated, but some titles could not be matched yet." else "Your library is ready, but some titles could not be matched yet. Aperture can retry them later."
                     isComplete -> "Everything we found has been added."
+                    source == PreparationSource.JELLYFIN && isDiscovering -> "Fetching the titles on your Jellyfin server…"
+                    source == PreparationSource.JELLYFIN -> "Downloading posters and backgrounds from Jellyfin and picking each title's colours. You can skip and let this continue in the background."
+                    source == PreparationSource.BOTH && isDiscovering -> "Scanning local storage and fetching your Jellyfin library…"
+                    source == PreparationSource.BOTH -> "Matching your files with TMDB and downloading your Jellyfin artwork. You can skip and let this continue in the background."
                     isDiscovering -> "Scanning local storage before matching titles with TMDB…"
                     else -> "Matching artwork and information with TMDB. You can skip and let this continue in the background."
                 },
@@ -547,7 +572,7 @@ private fun PosterBackground(posterPaths: List<String>) {
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalPlatformContext.current)
-                        .data(TmdbApi.IMAGE_BASE_URL + "w342" + posterPath)
+                        .data(if (posterPath.startsWith("http")) posterPath else TmdbApi.IMAGE_BASE_URL + "w342" + posterPath)
                         .crossfade(100) // Coil 2's crossfade(true) duration
                         .build(),
                     contentDescription = null,
@@ -560,4 +585,61 @@ private fun PosterBackground(posterPaths: List<String>) {
             }
         }
     }
+}
+
+/** Where the library being prepared comes from, for the panel's wording. */
+internal enum class PreparationSource { DEVICE, JELLYFIN, BOTH }
+
+/**
+ * A Jellyfin library's preparation as the onboarding panel shows it: reading the library while it
+ * syncs, then a title count while artwork downloads. Only runs since [since] count, so an earlier
+ * download doesn't read as done.
+ */
+internal fun jellyfinPreparation(
+    sync: me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher.State,
+    artwork: me.xdan.aperture.data.jellyfin.JellyfinArtworkCache.Progress,
+    since: Long
+): LibraryPreparationProgress {
+    val finished = !artwork.running && (artwork.finishedAt ?: 0L) >= since
+    return when {
+        sync is me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher.State.Failed && !artwork.running && !finished ->
+            LibraryPreparationProgress(stage = LibraryPreparationStage.ERROR, errorMessage = "Couldn't reach the server: ${sync.message}")
+        finished -> LibraryPreparationProgress(
+            stage = LibraryPreparationStage.COMPLETE,
+            totalItems = artwork.total,
+            completedItems = artwork.total,
+            currentItemProgress = 1f,
+            posterPaths = artwork.recentPosters
+        )
+        artwork.running -> LibraryPreparationProgress(
+            stage = LibraryPreparationStage.MATCHING,
+            totalItems = artwork.total,
+            completedItems = artwork.done,
+            currentTitle = artwork.currentTitle,
+            currentItemProgress = 0f,
+            posterPaths = artwork.recentPosters
+        )
+        else -> LibraryPreparationProgress(stage = LibraryPreparationStage.DISCOVERING)
+    }
+}
+
+/** This device's scan and the server's download as one: ready only when both are. */
+internal fun combinedPreparation(local: LibraryPreparationProgress, server: LibraryPreparationProgress): LibraryPreparationProgress {
+    val stages = setOf(local.stage, server.stage)
+    val stage = when {
+        LibraryPreparationStage.ERROR in stages -> LibraryPreparationStage.ERROR
+        stages == setOf(LibraryPreparationStage.COMPLETE) -> LibraryPreparationStage.COMPLETE
+        LibraryPreparationStage.MATCHING in stages || LibraryPreparationStage.COMPLETE in stages -> LibraryPreparationStage.MATCHING
+        else -> LibraryPreparationStage.DISCOVERING
+    }
+    val active = if (local.stage == LibraryPreparationStage.MATCHING) local else server
+    return LibraryPreparationProgress(
+        stage = stage,
+        totalItems = local.totalItems + server.totalItems,
+        completedItems = local.completedItems + server.completedItems,
+        currentTitle = active.currentTitle,
+        currentItemProgress = active.currentItemProgress,
+        posterPaths = (local.posterPaths + server.posterPaths).takeLast(24),
+        errorMessage = local.errorMessage ?: server.errorMessage
+    )
 }
