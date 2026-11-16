@@ -27,7 +27,9 @@ class JellyfinLibraryWatcher(
     private val accounts: JellyfinAccounts,
     private val profiles: ProfileRepository,
     private val sync: JellyfinSync,
-    private val dao: JellyfinDao
+    private val dao: JellyfinDao,
+    /** Downloads artwork after each sync; left out where nothing is shown (tests). */
+    private val artwork: JellyfinArtworkCache? = null
 ) {
     sealed interface State {
         data object Idle : State
@@ -66,6 +68,7 @@ class JellyfinLibraryWatcher(
 
     private suspend fun watch(account: JellyfinAccountEntity) = coroutineScope {
         if (!syncOnce(account)) return@coroutineScope
+        launch { prepareArtwork(account) }
         val api = accounts.api(account) ?: return@coroutineScope
         launch {
             runCatching {
@@ -84,6 +87,7 @@ class JellyfinLibraryWatcher(
         while (true) {
             delay(INCREMENTAL_INTERVAL_MS)
             syncOnce(currentOf(account))
+            launch { prepareArtwork(account) }
         }
     }
 
@@ -107,6 +111,13 @@ class JellyfinLibraryWatcher(
             _state.value = State.Failed(e.message ?: "Couldn't reach the server")
             true
         }
+    }
+
+    /** New titles' artwork, after a sync; already-prepared titles are skipped. */
+    private suspend fun prepareArtwork(account: JellyfinAccountEntity) {
+        val cache = artwork ?: return
+        runCatching { cache.prepare(currentOf(account)) }
+            .onFailure { if (it is CancellationException) throw it else Log.w(TAG, "Artwork prefetch stopped: ${it.message}") }
     }
 
     private suspend fun currentOf(account: JellyfinAccountEntity) = dao.account(account.id) ?: account

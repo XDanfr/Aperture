@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -34,7 +35,9 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 @Composable
 fun JellyfinDialog(
     viewModel: JellyfinViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** False in onboarding, which shows the library download on its own screen. */
+    showPreparing: Boolean = true
 ) {
     val account by viewModel.account.collectAsState()
     val setup by viewModel.setup.collectAsState()
@@ -65,7 +68,8 @@ fun JellyfinDialog(
                     is JellyfinViewModel.Setup.Connecting -> Busy("Connecting to ${step.address}…", dismiss)
                     is JellyfinViewModel.Setup.QuickConnect -> QuickConnect(step, viewModel::usePassword, dismiss)
                     is JellyfinViewModel.Setup.Password -> PasswordSignIn(step, viewModel::signInWithPassword, viewModel::startSetup)
-                    is JellyfinViewModel.Setup.ChooseMode -> ChooseMode(step.account, viewModel::chooseMode)
+                    is JellyfinViewModel.Setup.ChooseMode -> ChooseMode(step.account) { viewModel.chooseMode(it, showPreparing) }
+                    is JellyfinViewModel.Setup.Preparing -> Preparing(step.account, sync, viewModel)
                     null -> account?.let { Connected(it, mode, sync, titles, viewModel, dismiss) }
                         ?: Busy("Looking for servers…", dismiss)
                 }
@@ -284,6 +288,80 @@ private fun ChooseMode(account: JellyfinAccountEntity, onChoose: (LibraryMode) -
     ModeOptions.filter { it.mode != LibraryMode.LOCAL }.forEachIndexed { index, option ->
         ModeCard(option, selected = false, onClick = { onChoose(option.mode) }, modifier = if (index == 0) Modifier.focusRequester(first) else Modifier)
         Spacer(Modifier.height(ApertureTheme.spacing.small))
+    }
+}
+
+/**
+ * After choosing a mode: the library syncs, then every title's artwork downloads and its colour is
+ * worked out. Closes itself when done; Continue leaves it running in the background.
+ */
+@Composable
+private fun ColumnScope.Preparing(account: JellyfinAccountEntity, sync: JellyfinLibraryWatcher.State, viewModel: JellyfinViewModel) {
+    val progress by viewModel.artworkProgress.collectAsState()
+    val continueButton = remember { FocusRequester() }
+    FocusOnShow(continueButton)
+    // Only this visit's run counts: an earlier one may have finished before the dialog opened.
+    val openedAt = remember { System.currentTimeMillis() }
+    val finished = progress.finishedAt?.let { it >= openedAt } == true && !progress.running
+    LaunchedEffect(finished) {
+        if (finished) {
+            kotlinx.coroutines.delay(600)
+            viewModel.finishPreparing()
+        }
+    }
+    val syncing = !progress.running && !finished
+    Heading(
+        "Getting ${account.serverName} ready",
+        "Aperture is downloading your library's posters and backgrounds and picking each title's colours, so everything shows straight away."
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ExpressiveLoadingIndicator(modifier = Modifier.size(40.dp))
+        Spacer(Modifier.width(ApertureTheme.spacing.large))
+        Column(Modifier.weight(1f)) {
+            Text(
+                when {
+                    sync is JellyfinLibraryWatcher.State.Failed -> "Couldn't reach the server: ${sync.message}"
+                    syncing -> "Reading your library…"
+                    finished -> "All done"
+                    else -> "Artwork for ${progress.done} of ${progress.total} titles"
+                },
+                style = MaterialTheme.typography.titleMedium
+            )
+            progress.currentTitle?.takeIf { progress.running }?.let {
+                Text(it, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), maxLines = 1)
+            }
+        }
+    }
+    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+    androidx.compose.material3.LinearProgressIndicator(
+        progress = { if (progress.running) progress.fraction else if (finished) 1f else 0f },
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primary,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant
+    )
+    if (progress.recentPosters.isNotEmpty()) {
+        Spacer(Modifier.height(ApertureTheme.spacing.large))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            progress.recentPosters.takeLast(7).forEach { poster ->
+                coil3.compose.AsyncImage(
+                    model = poster,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.width(72.dp).height(108.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(ApertureTheme.spacing.large))
+    Text(
+        "You can carry on now. This continues in the background, and new titles are fetched after each sync.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    )
+    Spacer(Modifier.height(ApertureTheme.spacing.medium))
+    Button(onClick = viewModel::finishPreparing, modifier = Modifier.align(Alignment.End).focusRequester(continueButton)) {
+        Text(if (finished) "Done" else "Continue")
     }
 }
 

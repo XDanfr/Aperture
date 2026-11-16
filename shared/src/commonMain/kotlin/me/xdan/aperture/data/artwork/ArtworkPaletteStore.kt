@@ -54,6 +54,10 @@ class ArtworkPaletteStore(
         it?.takeIf { palette -> palette.extractionVersion == ArtworkExtractionVersion }?.seedArgb
     }
 
+    /** Whether [path] already has a colour from the current extraction. */
+    suspend fun hasSeed(path: String): Boolean =
+        dao.get(path)?.extractionVersion == ArtworkExtractionVersion
+
     /** Disk-backed seeds survive restarts; caller cancellation does not discard useful precomputation. */
     suspend fun seed(path: String): Int? {
         dao.get(path)?.takeIf { it.extractionVersion == ArtworkExtractionVersion }?.let { return it.seedArgb }
@@ -63,12 +67,12 @@ class ArtworkPaletteStore(
         return compute(path, url, imageLoader(), null, true)
     }
 
+    private fun isFullUrl(path: String) = path.startsWith("http://") || path.startsWith("https://")
+
     fun artworkLoaded(url: String, result: SuccessResult, loader: ImageLoader) {
         val path = artworkPathFromUrl(url) ?: return
         scope.launch { compute(path, url, loader, result, false) }
     }
-    private fun isFullUrl(path: String) = path.startsWith("http://") || path.startsWith("https://")
-
 
     private suspend fun compute(
         path: String,

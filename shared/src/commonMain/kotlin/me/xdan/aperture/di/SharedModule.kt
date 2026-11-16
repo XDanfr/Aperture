@@ -100,7 +100,8 @@ val sharedModule = module {
     single { me.xdan.aperture.data.jellyfin.JellyfinClients(get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinAccounts(get(), get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinSync(get(), get()) }
-    single { me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher(get(), get(), get(), get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinArtworkCache(get(), get(), get()) { get() } }
+    single { me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher(get(), get(), get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinCatalog(get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinPlayback(get(), get(), get<me.xdan.aperture.data.jellyfin.JellyfinAccounts>().activeAccount) }
     single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
@@ -122,7 +123,7 @@ val sharedModule = module {
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { CompanionViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
-    viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
+    viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get(), get()) }
     single { me.xdan.aperture.domain.catalog.LibraryQueryStore(get()) }
     single { me.xdan.aperture.domain.sidebar.SidebarRepository(get(), get()) }
     single { me.xdan.aperture.domain.sidebar.HomeRowsRepository(get(), get()) }
