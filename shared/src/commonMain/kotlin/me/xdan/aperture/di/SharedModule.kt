@@ -101,7 +101,7 @@ val sharedModule = module {
     single { me.xdan.aperture.data.jellyfin.JellyfinAccounts(get(), get(), get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinSync(get(), get()) }
     single { me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher(get(), get(), get(), get()) }
-    single { me.xdan.aperture.data.jellyfin.JellyfinCatalog(get(), get(), get()) }
+    single { me.xdan.aperture.data.jellyfin.JellyfinCatalog(get(), get()) }
     single<MediaRepository> { MediaRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
     single { SponsorVerificationManager(get(), get()) }
     single { OpenSubtitlesSessionManager(get(), get()) }
@@ -116,13 +116,14 @@ val sharedModule = module {
     viewModel { AmbientViewModel(get(), get(), get()) }
     viewModel { MediaDetailsViewModel(get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }
-    viewModel { LibraryViewModel(get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { MediaActionsViewModel(get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { CompanionViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
-    viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryViewModel(params.get(), get(), get()) }
+    single { me.xdan.aperture.domain.catalog.LibraryQueryStore(get()) }
+    viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryViewModel(params.get(), get(), get(), get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel(get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsViewModel(params.get(), get()) }
 }

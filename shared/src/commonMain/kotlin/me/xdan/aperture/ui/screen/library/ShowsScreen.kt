@@ -1,5 +1,11 @@
 package me.xdan.aperture.ui.screen.library
 
+import androidx.compose.ui.focus.focusProperties
+
+import androidx.compose.ui.focus.focusRequester
+
+import androidx.compose.ui.Alignment
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -51,8 +57,11 @@ fun ShowsScreen(
             onActiveMediaChanged = onActiveMediaChanged
         )
     } else {
+        val grid by viewModel.showGrid.collectAsState()
         GroupedShowsGrid(
-            groups = groups,
+            grid = grid,
+            onSort = viewModel::sortShows,
+            onUpdate = viewModel::updateShows,
             onMediaClick = onMediaClick,
             onMediaLongClick = onMediaLongClick,
             drawerFocusRequester = drawerFocusRequester,
@@ -65,7 +74,9 @@ fun ShowsScreen(
 
 @Composable
 private fun GroupedShowsGrid(
-    groups: List<ShowGroup>,
+    grid: LocalGrid<ShowGroup>,
+    onSort: (me.xdan.aperture.domain.catalog.LibraryQuery.Sort) -> Unit,
+    onUpdate: ((me.xdan.aperture.domain.catalog.LibraryQuery) -> me.xdan.aperture.domain.catalog.LibraryQuery) -> Unit,
     onMediaClick: (Long, FocusRequester, Boolean) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean, Boolean) -> Unit,
     drawerFocusRequester: FocusRequester?,
@@ -73,43 +84,72 @@ private fun GroupedShowsGrid(
     onContentFocused: (FocusRequester) -> Unit,
     onActiveMediaChanged: (Long) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp).graphicsLayer { clip = false }) {
-        Text("TV Shows", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(ApertureTheme.spacing.large))
-        Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
-                contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
-                verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
-                horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
-            ) {
-                itemsIndexed(groups, key = { _, group -> group.title }) { index, group ->
-                    val media = group.representative
-                    var isFocused by remember { mutableStateOf(false) }
-                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                        AnimatedLibraryCard(media.id) {
-                            MediaCard(
-                                media = media,
-                                onClick = { onMediaClick(media.id, it, false) },
-                                modifier = Modifier.fillMaxWidth(),
-                                focusRequester = contentEntryFocusRequester.takeIf { index == 0 },
-                                drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
-                                onFocused = { requester ->
-                                    isFocused = true
-                                    onContentFocused(requester)
-                                    onActiveMediaChanged(media.id)
-                                },
-                                onLongClick = { requester, opensToRight ->
-                                    onMediaLongClick(media, requester, false, opensToRight, false)
-                                }
-                            )
+    val groups = grid.items
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    // A new sort or filter starts from the top; the grid would otherwise stay anchored to a title.
+    LaunchedEffect(grid.query) { gridState.scrollToItem(0) }
+    val jump = me.xdan.aperture.ui.component.rememberGridJump(gridState)
+    Row(Modifier.fillMaxSize().graphicsLayer { clip = false }) {
+        Column(Modifier.weight(1f).padding(start = 32.dp, end = 16.dp, top = 24.dp).graphicsLayer { clip = false }) {
+            Text("TV Shows", style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(ApertureTheme.spacing.medium))
+            me.xdan.aperture.ui.component.LibraryControlsRow(
+                query = grid.query,
+                options = grid.options,
+                onSort = onSort,
+                onUpdate = onUpdate,
+                firstModifier = Modifier
+                    .then(if (groups.isEmpty()) Modifier.focusRequester(contentEntryFocusRequester) else Modifier)
+                    .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
+            )
+            Spacer(Modifier.height(ApertureTheme.spacing.small))
+            if (groups.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Nothing matches these filters.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                return@Column
+            }
+            Box(Modifier.weight(1f).graphicsLayer { clip = false }) {
+                LazyVerticalGrid(
+                    state = gridState,
+                    columns = GridCells.Fixed(5),
+                    modifier = Modifier.fillMaxSize().graphicsLayer { clip = false },
+                    contentPadding = PaddingValues(top = ApertureTheme.spacing.large, bottom = ApertureTheme.spacing.large),
+                    verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
+                    horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
+                ) {
+                    itemsIndexed(groups, key = { _, group -> group.title }) { index, group ->
+                        val media = group.representative
+                        var isFocused by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                            AnimatedLibraryCard(media.id) {
+                                MediaCard(
+                                    media = media,
+                                    onClick = { onMediaClick(media.id, it, false) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    focusRequester = jump.requesterFor(index, contentEntryFocusRequester),
+                                    drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                                    onFocused = { requester ->
+                                        isFocused = true
+                                        onContentFocused(requester)
+                                        onActiveMediaChanged(media.id)
+                                    },
+                                    onLongClick = { requester, opensToRight ->
+                                        onMediaLongClick(media, requester, false, opensToRight, false)
+                                    }
+                                )
+                            }
+                        }
+                        DisposableEffect(Unit) {
+                            onDispose { isFocused = false }
                         }
                     }
-                    DisposableEffect(Unit) {
-                        onDispose { isFocused = false }
-                    }
                 }
+            }
+        }
+        if (grid.letters.size > 1 && groups.isNotEmpty()) {
+            Box(Modifier.padding(top = 24.dp, end = 8.dp)) {
+                me.xdan.aperture.ui.component.LetterRail(letters = grid.letters, onLetter = jump::jumpTo)
             }
         }
     }

@@ -29,6 +29,8 @@ import kotlinx.coroutines.launch
 import me.xdan.aperture.domain.catalog.CatalogItem
 import me.xdan.aperture.domain.catalog.LibraryQuery
 import me.xdan.aperture.ui.component.CatalogCard
+import me.xdan.aperture.ui.component.LetterRail
+import me.xdan.aperture.ui.component.LibraryControlsRow
 import me.xdan.aperture.ui.component.expressive.ExpressiveLoadingIndicator
 import me.xdan.aperture.ui.platform.Dialog
 import me.xdan.aperture.ui.theme.ApertureTheme
@@ -45,11 +47,10 @@ fun JellyfinLibraryScreen(
     val state by viewModel.state.collectAsState()
     val items = state.items
     val gridState = rememberLazyGridState()
+    // A new sort or filter starts from the top; the grid would otherwise stay anchored to a title.
+    LaunchedEffect(state.query) { gridState.scrollToItem(0) }
     val scope = rememberCoroutineScope()
     val cardRequesters = remember { mutableMapOf<Int, FocusRequester>() }
-    var showSort by remember { mutableStateOf(false) }
-    var showGenres by remember { mutableStateOf(false) }
-    val sortRequester = remember { FocusRequester() }
     // Where focus goes after a letter jump, once the target card has been composed.
     var pendingFocusIndex by remember { mutableStateOf<Int?>(null) }
 
@@ -81,36 +82,13 @@ fun JellyfinLibraryScreen(
                 }
             }
             Spacer(Modifier.height(ApertureTheme.spacing.medium))
-            Row(horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.small)) {
-                val q = state.query
-                OutlinedButton(
-                    onClick = { showSort = true },
-                    modifier = Modifier
-                        .focusRequester(sortRequester)
-                        .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
-                ) {
-                    Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(q.sort.label)
-                    if (q.sort != LibraryQuery.Sort.RANDOM) {
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            if (q.descending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
-                            contentDescription = if (q.descending) "Descending" else "Ascending",
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                FilterToggle("Unwatched", q.unwatchedOnly) { viewModel.update { it.copy(unwatchedOnly = !it.unwatchedOnly) } }
-                FilterToggle("Favourites", q.favouritesOnly) { viewModel.update { it.copy(favouritesOnly = !it.favouritesOnly) } }
-                if (state.genres.isNotEmpty()) {
-                    OutlinedButton(onClick = { showGenres = true }) {
-                        Icon(Icons.Rounded.FilterList, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(q.genre ?: "Genre")
-                    }
-                }
-            }
+            LibraryControlsRow(
+                query = state.query,
+                options = state.options,
+                onSort = viewModel::sortBy,
+                onUpdate = viewModel::update,
+                firstModifier = if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier
+            )
             Spacer(Modifier.height(ApertureTheme.spacing.medium))
 
             when {
@@ -160,152 +138,4 @@ fun JellyfinLibraryScreen(
         }
     }
 
-    if (showSort) {
-        SortDialog(
-            query = state.query,
-            onSort = viewModel::sortBy,
-            onDismiss = { showSort = false }
-        )
-    }
-    if (showGenres) {
-        GenreDialog(
-            genres = state.genres,
-            selected = state.query.genre,
-            onSelect = { genre ->
-                viewModel.update { it.copy(genre = genre) }
-                showGenres = false
-            },
-            onDismiss = { showGenres = false }
-        )
-    }
-}
-
-@Composable
-private fun FilterToggle(label: String, selected: Boolean, onClick: () -> Unit) {
-    if (selected) {
-        Button(onClick = onClick) {
-            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(label)
-        }
-    } else {
-        OutlinedButton(onClick = onClick) { Text(label) }
-    }
-}
-
-@Composable
-private fun LetterRail(letters: Map<Char, Int>, onLetter: (Int) -> Unit) {
-    LazyColumn(
-        modifier = Modifier.width(44.dp).fillMaxHeight(),
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        items(letters.entries.toList(), key = { it.key }) { (letter, index) ->
-            Surface(
-                onClick = { onLetter(index) },
-                shape = ClickableSurfaceDefaults.shape(CircleShape),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    focusedContainerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    focusedContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
-                modifier = Modifier.size(32.dp)
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(letter.toString(), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FocusFirst(requester: FocusRequester) {
-    val windowInfo = LocalWindowInfo.current
-    LaunchedEffect(windowInfo.isWindowFocused) {
-        if (!windowInfo.isWindowFocused) return@LaunchedEffect
-        repeat(30) {
-            withFrameNanos { }
-            if (runCatching { requester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-        }
-    }
-}
-
-@Composable
-private fun SortDialog(query: LibraryQuery, onSort: (LibraryQuery.Sort) -> Unit, onDismiss: () -> Unit) {
-    val current = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        FocusFirst(current)
-        Surface(
-            modifier = Modifier.width(460.dp),
-            shape = ApertureTheme.shapes.dialog,
-            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(Modifier.padding(ApertureTheme.spacing.extraLarge)) {
-                Text("Sort by", style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "Choose the current order again to reverse it.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(ApertureTheme.spacing.medium))
-                LibraryQuery.Sort.entries.forEach { sort ->
-                    val selected = sort == query.sort
-                    ListItem(
-                        selected = selected,
-                        onClick = { onSort(sort) },
-                        headlineContent = { Text(sort.label) },
-                        trailingContent = if (selected && sort != LibraryQuery.Sort.RANDOM) {
-                            {
-                                Icon(
-                                    if (query.descending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
-                                    contentDescription = if (query.descending) "Descending" else "Ascending"
-                                )
-                            }
-                        } else null,
-                        modifier = if (selected) Modifier.focusRequester(current) else Modifier
-                    )
-                }
-                Spacer(Modifier.height(ApertureTheme.spacing.medium))
-                Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text("Done") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GenreDialog(genres: List<String>, selected: String?, onSelect: (String?) -> Unit, onDismiss: () -> Unit) {
-    val first = remember { FocusRequester() }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        FocusFirst(first)
-        Surface(
-            modifier = Modifier.width(460.dp).heightIn(max = 600.dp),
-            shape = ApertureTheme.shapes.dialog,
-            colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(Modifier.padding(ApertureTheme.spacing.extraLarge)) {
-                Text("Genre", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(ApertureTheme.spacing.medium))
-                LazyColumn(Modifier.weight(1f, fill = false), contentPadding = PaddingValues(4.dp)) {
-                    item(key = "all") {
-                        ListItem(
-                            selected = selected == null,
-                            onClick = { onSelect(null) },
-                            headlineContent = { Text("All genres") },
-                            modifier = Modifier.focusRequester(first)
-                        )
-                    }
-                    items(genres, key = { it }) { genre ->
-                        ListItem(
-                            selected = genre == selected,
-                            onClick = { onSelect(genre) },
-                            headlineContent = { Text(genre) }
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
