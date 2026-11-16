@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile
 
+import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import android.os.Build
 import android.os.Bundle
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -129,7 +130,12 @@ class MainActivity : ComponentActivity() {
                     splashPrefs.edit().putString(KEY_SPLASH_PALETTE, paletteId).apply()
                 }
             }
+            val pairedTv by viewModel.pairedTv.collectAsState()
             CompanionTheme(paletteId) {
+              androidx.compose.runtime.CompositionLocalProvider(
+                  me.xdan.aperture.mobile.ui.components.LocalDeviceNoun provides
+                      (pairedTv?.noun ?: me.xdan.aperture.mobile.data.TvRepository.UNKNOWN_NOUN)
+              ) {
                 val onboarded by viewModel.onboardingDone.collectAsState()
                 Box(Modifier.fillMaxSize()) {
                     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
@@ -152,6 +158,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+              }
             }
         }
     }
@@ -228,7 +235,7 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
         // spotlight beneath it instead); the bottom padding stays inside lists so they
         // scroll behind the floating Now Playing bar.
         val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topInset = if (connectionMessage(connection) == null) statusBar else 0.dp
+        val topInset = if (connectionMessage(connection, LocalDeviceNoun.current) == null) statusBar else 0.dp
         val contentPadding = PaddingValues(top = 8.dp, bottom = padding.calculateBottomPadding())
         AnimatedContent(
             targetState = tab,
@@ -291,17 +298,17 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
     }
 }
 
-private fun connectionMessage(connection: ConnectionState): String? = when (connection) {
+private fun connectionMessage(connection: ConnectionState, noun: String): String? = when (connection) {
     ConnectionState.Connected, ConnectionState.NotPaired -> null
-    ConnectionState.Connecting -> "Connecting to your TV…"
-    is ConnectionState.Offline -> "Can't reach your TV · Is Aperture open on it?"
-    ConnectionState.Revoked -> "This phone was removed on the TV"
+    ConnectionState.Connecting -> "Connecting to your $noun…"
+    is ConnectionState.Offline -> "Can't reach your $noun · Is Aperture open on it?"
+    ConnectionState.Revoked -> "This phone was removed on the $noun"
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ConnectionBanner(connection: ConnectionState, onRetry: () -> Unit, onPair: () -> Unit) {
-    val message = connectionMessage(connection)
+    val message = connectionMessage(connection, LocalDeviceNoun.current)
     AnimatedVisibility(visible = message != null, enter = expandVertically(), exit = shrinkVertically()) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Row(
