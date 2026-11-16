@@ -47,11 +47,12 @@ fun MyListScreen(
     viewModel: MyListViewModel,
     onMediaClick: (Long, FocusRequester) -> Unit,
     onMediaLongClick: (MediaEntity, FocusRequester, Boolean, Boolean) -> Unit,
+    onRemoteClick: (me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester) -> Unit = { _, _ -> },
     drawerFocusRequester: FocusRequester?,
     contentEntryFocusRequester: FocusRequester,
     onContentFocused: (FocusRequester) -> Unit
 ) {
-    val media by viewModel.media.collectAsState()
+    val media by viewModel.entries.collectAsState()
 
     // Focus Pull
     LaunchedEffect(media.isNotEmpty()) {
@@ -92,27 +93,39 @@ fun MyListScreen(
             verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large),
             horizontalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
         ) {
-            itemsIndexed(media, key = { _, item -> item.id }) { index, item ->
-                var visible by remember(item.id) { mutableStateOf(false) }
+            itemsIndexed(media, key = { _, entry -> entry.key }) { index, entry ->
+                var visible by remember(entry.key) { mutableStateOf(false) }
                 var isFocused by remember { mutableStateOf(false) }
-                LaunchedEffect(item.id) { visible = true }
+                LaunchedEffect(entry.key) { visible = true }
+                val entryRequester = contentEntryFocusRequester.takeIf { entry.key == media.first().key }
+                val onFocused: (FocusRequester) -> Unit = {
+                    isFocused = true
+                    onContentFocused(it)
+                }
                 Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                     AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.94f)
                     ) {
-                        MediaCard(
-                            media = item,
-                            onClick = { requester -> onMediaClick(item.id, requester) },
-                            modifier = Modifier.fillMaxWidth(),
-                            focusRequester = contentEntryFocusRequester.takeIf { item.id == media.first().id },
-                            drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
-                            onFocused = {
-                                isFocused = true
-                                onContentFocused(it)
-                            },
-                            onLongClick = { requester, opensToRight -> onMediaLongClick(item, requester, false, opensToRight) }
-                        )
+                        when (entry) {
+                            is me.xdan.aperture.domain.catalog.BrowseEntry.Local -> MediaCard(
+                                media = entry.media,
+                                onClick = { requester -> onMediaClick(entry.media.id, requester) },
+                                modifier = Modifier.fillMaxWidth(),
+                                focusRequester = entryRequester,
+                                drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                                onFocused = onFocused,
+                                onLongClick = { requester, opensToRight -> onMediaLongClick(entry.media, requester, false, opensToRight) }
+                            )
+                            is me.xdan.aperture.domain.catalog.BrowseEntry.Remote -> me.xdan.aperture.ui.component.CatalogCard(
+                                item = entry.item,
+                                onClick = { requester -> onRemoteClick(entry.item, requester) },
+                                modifier = Modifier.fillMaxWidth(),
+                                focusRequester = entryRequester,
+                                drawerFocusRequester = drawerFocusRequester.takeIf { index % 5 == 0 },
+                                onFocused = onFocused
+                            )
+                        }
                     }
                 }
                 DisposableEffect(Unit) {
