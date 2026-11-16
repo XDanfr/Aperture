@@ -92,23 +92,68 @@ private fun RequestInitialFocus(requester: FocusRequester, key: Any? = Unit) {
     }
 }
 
-/** "Who's watching?" at launch when more than one profile exists. */
+/**
+ * "Who's watching?": at launch when there's more than one profile, and from the sidebar's profile
+ * entry. Profiles can be added and edited here as well as in Settings.
+ */
 @Composable
 fun ProfilePickerScreen(
     profiles: List<ProfileEntity>,
     lastProfileId: Long,
-    onSelect: (Long) -> Unit
+    onSelect: (Long) -> Unit,
+    onCreate: (name: String, colorId: String) -> Unit,
+    onUpdate: (id: Long, name: String, colorId: String) -> Unit,
+    onDelete: (Long) -> Unit,
+    /** Set when opened from the sidebar: Back leaves without switching. */
+    onDismiss: (() -> Unit)? = null
 ) {
-    val initialRequester = remember { FocusRequester() }
-    val initialId = profiles.firstOrNull { it.id == lastProfileId }?.id ?: profiles.firstOrNull()?.id
-    if (profiles.isNotEmpty()) RequestInitialFocus(initialRequester, initialId)
+    var editing by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf<ProfileEntity?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    val tileRequesters = remember { mutableMapOf<Long, FocusRequester>() }
+    val addRequester = remember { FocusRequester() }
+    val editButtonRequester = remember { FocusRequester() }
+    // Where focus goes when the screen (or a dialog over it) settles.
+    var focusTarget by remember { mutableStateOf<Long?>(profiles.firstOrNull { it.id == lastProfileId }?.id ?: profiles.firstOrNull()?.id) }
+    val countBeforeAdding = remember { mutableIntStateOf(profiles.size) }
 
-    Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Who's watching?", style = MaterialTheme.typography.displaySmall)
+    // A newly added profile takes focus once it appears.
+    LaunchedEffect(profiles.size) {
+        if (profiles.size > countBeforeAdding.intValue) {
+            focusTarget = profiles.maxByOrNull { it.createdAt }?.id
+            countBeforeAdding.intValue = profiles.size
+        }
+    }
+    val target = focusTarget?.let { id -> tileRequesters.getOrPut(id) { FocusRequester() } }
+    if (target != null && editingProfile == null && !adding) RequestInitialFocus(target, focusTarget to editing)
+
+    me.xdan.aperture.ui.platform.BackHandler(enabled = editing || onDismiss != null) {
+        if (editing) editing = false else onDismiss?.invoke()
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            me.xdan.aperture.ui.component.ApertureBrandMark(modifier = Modifier.size(40.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "Aperture",
+                style = MaterialTheme.typography.headlineSmall,
+                fontFamily = me.xdan.aperture.ui.theme.ApertureBrandFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Column(
+            Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                if (editing) "Choose a profile to edit" else "Who's watching?",
+                style = MaterialTheme.typography.displaySmall
+            )
             Spacer(Modifier.height(48.dp))
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(36.dp),
@@ -117,48 +162,145 @@ fun ProfilePickerScreen(
                 items(profiles, key = { it.id }) { profile ->
                     ProfileTile(
                         profile = profile,
-                        onClick = { onSelect(profile.id) },
-                        modifier = if (profile.id == initialId) Modifier.focusRequester(initialRequester) else Modifier
+                        editing = editing,
+                        onClick = {
+                            focusTarget = profile.id
+                            if (editing) editingProfile = profile else onSelect(profile.id)
+                        },
+                        modifier = Modifier.focusRequester(tileRequesters.getOrPut(profile.id) { FocusRequester() })
+                    )
+                }
+                item(key = "add") {
+                    AddProfileTile(
+                        onClick = {
+                            countBeforeAdding.intValue = profiles.size
+                            adding = true
+                        },
+                        modifier = Modifier.focusRequester(addRequester)
                     )
                 }
             }
+            Spacer(Modifier.height(40.dp))
+            OutlinedButton(
+                onClick = { editing = !editing },
+                modifier = Modifier.focusRequester(editButtonRequester)
+            ) {
+                Icon(
+                    if (editing) Icons.Rounded.Check else Icons.Rounded.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(if (editing) "Done" else "Edit profiles")
+            }
         }
+    }
+
+    if (adding) {
+        ProfileEditorDialog(
+            title = "Add profile",
+            initialName = "",
+            initialColorId = nextProfileColor(profiles),
+            onSave = { name, color -> onCreate(name, color); adding = false },
+            onDelete = null,
+            onDismiss = { adding = false }
+        )
+    }
+    editingProfile?.let { profile ->
+        ProfileEditorDialog(
+            title = "Edit profile",
+            initialName = profile.name,
+            initialColorId = profile.colorId,
+            onSave = { name, color -> onUpdate(profile.id, name, color); editingProfile = null },
+            onDelete = if (profiles.size > 1) {
+                {
+                    onDelete(profile.id)
+                    focusTarget = profiles.firstOrNull { it.id != profile.id }?.id
+                    editingProfile = null
+                }
+            } else null,
+            onDismiss = { editingProfile = null }
+        )
     }
 }
 
 @Composable
-private fun ProfileTile(profile: ProfileEntity, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ProfileTile(profile: ProfileEntity, editing: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(172.dp)) {
-        Surface(
-            onClick = onClick,
-            modifier = modifier.onFocusChanged { focused = it.isFocused },
-            shape = ClickableSurfaceDefaults.shape(CircleShape),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent
-            ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f, pressedScale = 0.96f),
-            border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(
-                    border = BorderStroke(4.dp, MaterialTheme.colorScheme.onSurface),
-                    inset = 6.dp,
-                    shape = CircleShape
-                )
-            )
-        ) {
-            ProfileAvatar(profile.name, profile.colorId, 148.dp, Modifier.padding(10.dp))
+        TileCircle(onClick = onClick, modifier = modifier, onFocusChanged = { focused = it }) {
+            Box(contentAlignment = Alignment.Center) {
+                ProfileAvatar(profile.name, profile.colorId, 148.dp, Modifier.padding(10.dp))
+                if (editing) {
+                    // A dimmed avatar with a pencil, so it's clear what pressing it will do.
+                    Box(
+                        Modifier.size(148.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.62f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Rounded.Edit, contentDescription = "Edit ${profile.name}", tint = Color.White, modifier = Modifier.size(44.dp))
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(14.dp))
-        Text(
-            profile.name,
-            style = MaterialTheme.typography.titleLarge,
-            color = if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
+        TileLabel(profile.name, focused)
     }
+}
+
+@Composable
+private fun AddProfileTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(172.dp)) {
+        TileCircle(onClick = onClick, modifier = modifier, onFocusChanged = { focused = it }) {
+            Box(
+                Modifier.padding(10.dp).size(148.dp).clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(56.dp))
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        TileLabel("Add profile", focused)
+    }
+}
+
+@Composable
+private fun TileCircle(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    onFocusChanged: (Boolean) -> Unit,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.onFocusChanged { onFocusChanged(it.isFocused) },
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f, pressedScale = 0.96f),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(4.dp, MaterialTheme.colorScheme.onSurface),
+                inset = 6.dp,
+                shape = CircleShape
+            )
+        )
+    ) { content() }
+}
+
+@Composable
+private fun TileLabel(text: String, focused: Boolean) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleLarge,
+        color = if (focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center
+    )
 }
 
 /** Settings › Profiles: switch, add and edit. */

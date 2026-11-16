@@ -104,7 +104,10 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
     // Keeps the active profile's Jellyfin index current while the app is open.
     val jellyfinWatcher: me.xdan.aperture.data.jellyfin.JellyfinLibraryWatcher = koinInject()
     LaunchedEffect(jellyfinWatcher) { jellyfinWatcher.run() }
-    val choosingProfile = onboardingCompleted == true && !profileChosen && profiles.size > 1
+    val pickerRequested by profileRepository.pickerRequested.collectAsState()
+    // At launch only with several profiles; from the sidebar always, so a first extra profile can be added.
+    val choosingProfile = onboardingCompleted == true && !profileChosen &&
+        (profiles.size > 1 || pickerRequested) && profiles.isNotEmpty()
     // Read from long-lived effects (the companion collector), which would otherwise keep the first value.
     val choosingProfileNow by rememberUpdatedState(choosingProfile)
     val sponsorVerified by sponsorVerificationManager.isVerified.collectAsState()
@@ -254,7 +257,11 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                         me.xdan.aperture.ui.screen.profiles.ProfilePickerScreen(
                             profiles = profiles,
                             lastProfileId = activeProfileId,
-                            onSelect = profilesViewModel::select
+                            onSelect = profilesViewModel::select,
+                            onCreate = { name, color -> profilesViewModel.create(name, color) },
+                            onUpdate = profilesViewModel::update,
+                            onDelete = profilesViewModel::delete,
+                            onDismiss = if (pickerRequested) profileRepository::dismissPicker else null
                         )
                     } else if (appState.isAmbientActive) {
                         BackHandler {

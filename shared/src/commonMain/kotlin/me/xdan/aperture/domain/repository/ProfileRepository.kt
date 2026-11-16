@@ -15,6 +15,15 @@ interface ProfileRepository {
     /** True once someone has picked a profile since launch, or when there's only one to pick. */
     val profileChosen: StateFlow<Boolean>
 
+    /** True while Who's watching was opened on purpose (from the sidebar), even with one profile. */
+    val pickerRequested: StateFlow<Boolean>
+
+    /** Shows Who's watching again, e.g. to switch or add a profile. */
+    fun openPicker()
+
+    /** Leaves a picker opened with [openPicker] without changing profile. */
+    fun dismissPicker()
+
     /** Run at launch: makes sure a profile is active, and skips the picker when there's only one. */
     suspend fun resolveLaunchChoice()
 
