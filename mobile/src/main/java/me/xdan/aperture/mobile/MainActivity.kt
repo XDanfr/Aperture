@@ -41,6 +41,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -77,15 +81,14 @@ import me.xdan.aperture.mobile.ui.CompanionViewModel
 import me.xdan.aperture.mobile.ui.screens.DetailsSheet
 import me.xdan.aperture.mobile.ui.screens.HomeScreen
 import me.xdan.aperture.mobile.ui.screens.LibraryLoading
-import me.xdan.aperture.mobile.ui.screens.MoviesScreen
+import me.xdan.aperture.mobile.ui.screens.LibraryScreen
 import me.xdan.aperture.mobile.ui.screens.NotPairedPrompt
 import me.xdan.aperture.mobile.ui.screens.NowPlayingBar
 import me.xdan.aperture.mobile.ui.screens.NowPlayingSheet
 import me.xdan.aperture.mobile.ui.screens.OnboardingScreen
 import me.xdan.aperture.mobile.ui.screens.PairingPage
-import me.xdan.aperture.mobile.ui.screens.SearchScreen
 import me.xdan.aperture.mobile.ui.screens.SettingsScreen
-import me.xdan.aperture.mobile.ui.screens.ShowsScreen
+import me.xdan.aperture.mobile.ui.screens.DiscoverScreen
 import me.xdan.aperture.mobile.ui.theme.CompanionTheme
 
 class MainActivity : ComponentActivity() {
@@ -176,9 +179,9 @@ class MainActivity : ComponentActivity() {
 
 private enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME("Home", Icons.Outlined.Home, Icons.Rounded.Home),
-    SEARCH("Search", Icons.Outlined.Search, Icons.Rounded.Search),
-    MOVIES("Movies", Icons.Outlined.Movie, Icons.Rounded.Movie),
-    SHOWS("TV shows", Icons.Outlined.Tv, Icons.Rounded.Tv),
+    /** Only when the TV's server has a Discover library. */
+    DISCOVER("Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
+    LIBRARY("Library", Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
     SETTINGS("Settings", Icons.Outlined.Settings, Icons.Rounded.Settings)
 }
 
@@ -199,6 +202,8 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val tvState by viewModel.tvState.collectAsState()
     val canControl = connection == ConnectionState.Connected
+    // Discover goes when the TV's profile has none; don't leave the tab showing.
+    if (tab == Tab.DISCOVER && library?.hasDiscover == false) tab = Tab.HOME
 
     if (pairing) {
         PairingPage(viewModel, onDone = { pairing = false })
@@ -219,7 +224,7 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
                     }
                 }
                 ShortNavigationBar {
-                    Tab.entries.forEach { item ->
+                    Tab.entries.filter { it != Tab.DISCOVER || library?.hasDiscover == true }.forEach { item ->
                         ShortNavigationBarItem(
                             selected = tab == item,
                             onClick = { tab = item },
@@ -265,9 +270,8 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
                     NotPairedPrompt(onPair = { pairing = true })
                 }
                 lib == null -> LibraryLoading(Modifier.padding(contentPadding))
-                current == Tab.SEARCH -> SearchScreen(lib, contentPadding, onOpen)
-                current == Tab.MOVIES -> MoviesScreen(lib, contentPadding, onOpen)
-                else -> ShowsScreen(lib, contentPadding, onOpen)
+                current == Tab.DISCOVER -> DiscoverScreen(lib, contentPadding, onOpen)
+                else -> LibraryScreen(lib, contentPadding, onOpen)
             } }
         }
     }
@@ -284,6 +288,7 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
         DetailsSheet(
             entry = entry,
             canControlTv = canControl,
+            isDiscover = (entry as? LibraryEntry.Movie)?.media?.let { library?.isDiscover(it) } == true,
             onDismiss = { openEntry = null },
             onPlay = { media, fromStart ->
                 viewModel.playOnTv(media.id, fromStart)
