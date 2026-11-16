@@ -1,5 +1,5 @@
 # Project-specific R8 / ProGuard rules for Aperture.
 
-# The Jellyfin SDK logs through kotlin-logging, whose optional SLF4J bridge is unused on Android
-# (it falls back to android.util.Log when SLF4J isn't there).
--dontwarn org.slf4j.**
+# The Jellyfin SDK logs through kotlin-logging's SLF4J backend; slf4j-api is bundled and, with no
+# binding, logs nowhere. Its optional binding classes aren't present.
+-dontwarn org.slf4j.impl.**

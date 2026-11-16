@@ -120,6 +120,7 @@ val sharedModule = module {
     viewModel { PlayerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { CompanionViewModel(get()) }
     viewModel { me.xdan.aperture.ui.screen.profiles.ProfilesViewModel(get()) }
+    viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
 }
 
 /** Platform-specific image loader setup (disk cache location, decoders). */

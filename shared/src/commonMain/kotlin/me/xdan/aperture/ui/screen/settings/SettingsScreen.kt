@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Favorite
@@ -137,6 +138,10 @@ fun SettingsScreen(
     var showSponsorVerification by remember { mutableStateOf(false) }
     var showCompanionPairing by remember { mutableStateOf(false) }
     var showProfiles by remember { mutableStateOf(false) }
+    var showJellyfin by remember { mutableStateOf(false) }
+    val jellyfinViewModel: me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel = org.koin.compose.viewmodel.koinViewModel()
+    val jellyfinAccount by jellyfinViewModel.account.collectAsState()
+    val jellyfinMode by jellyfinViewModel.libraryMode.collectAsState()
     val profilesViewModel: me.xdan.aperture.ui.screen.profiles.ProfilesViewModel = org.koin.compose.viewmodel.koinViewModel()
     val profiles by profilesViewModel.profiles.collectAsState()
     val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
@@ -157,24 +162,25 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         val restoreIndex = when (restoreFocusKey) {
-            SETTINGS_THEME_FOCUS_KEY -> 5
-            SETTINGS_AMBIENT_FOCUS_KEY -> 6
-            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 7
-            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 8
-            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 9
-            SETTINGS_LANGUAGE_FOCUS_KEY -> 13
-            SETTINGS_HIDDEN_FOCUS_KEY -> 15
-            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 16
-            SETTINGS_RESCAN_FOCUS_KEY -> 17
-            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 18
-            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 20
-            SETTINGS_SUBTITLES_FOCUS_KEY -> 21
-            SETTINGS_LICENCES_FOCUS_KEY -> 24
-            SETTINGS_UPDATE_FOCUS_KEY -> 25
-            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 26 else 25
-            SETTINGS_DONATE_FOCUS_KEY -> 27
-            SETTINGS_COMPANION_FOCUS_KEY -> 3
+            SETTINGS_THEME_FOCUS_KEY -> 7
+            SETTINGS_AMBIENT_FOCUS_KEY -> 8
+            SETTINGS_SHOW_LAYOUT_FOCUS_KEY -> 9
+            SETTINGS_SPOTLIGHT_TOGGLE_FOCUS_KEY -> 10
+            SETTINGS_SPOTLIGHT_DAYS_FOCUS_KEY -> 11
+            SETTINGS_LANGUAGE_FOCUS_KEY -> 15
+            SETTINGS_HIDDEN_FOCUS_KEY -> 17
+            SETTINGS_MEDIA_FOLDERS_FOCUS_KEY -> 18
+            SETTINGS_RESCAN_FOCUS_KEY -> 19
+            SETTINGS_CLEAR_CACHE_FOCUS_KEY -> 20
+            SETTINGS_OPEN_SUBTITLES_FOCUS_KEY -> 22
+            SETTINGS_SUBTITLES_FOCUS_KEY -> 23
+            SETTINGS_LICENCES_FOCUS_KEY -> 26
+            SETTINGS_UPDATE_FOCUS_KEY -> 27
+            SETTINGS_TMDB_FOCUS_KEY -> if (me.xdan.aperture.platform.AppBuild.SIDELOAD_UPDATES_ENABLED) 28 else 27
+            SETTINGS_DONATE_FOCUS_KEY -> 29
+            SETTINGS_COMPANION_FOCUS_KEY -> 5
             SETTINGS_PROFILES_FOCUS_KEY -> 1
+            SETTINGS_JELLYFIN_FOCUS_KEY -> 3
             else -> 0
         }
         if (restoreIndex > 0) listState.scrollToItem(restoreIndex)
@@ -231,6 +237,34 @@ fun SettingsScreen(
                         onContentFocused(requester)
                     },
                     onClick = { showProfiles = true }
+                )
+            }
+
+            item {
+                SettingsCategoryHeader(
+                    title = "Jellyfin",
+                    description = "Use a Jellyfin server for this profile's library"
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Jellyfin server",
+                    subtitle = jellyfinAccount?.let { "${it.userName} on ${it.serverName} · " + when (jellyfinMode) {
+                        me.xdan.aperture.domain.model.LibraryMode.JELLYFIN -> "Jellyfin only"
+                        me.xdan.aperture.domain.model.LibraryMode.HYBRID -> "Jellyfin and this device"
+                        me.xdan.aperture.domain.model.LibraryMode.LOCAL -> "This device only"
+                    } } ?: "Not connected · Sign in to browse and play a server's library",
+                    icon = Icons.Rounded.Dns,
+                    drawerFocusRequester = drawerFocusRequester,
+                    focusRequester = contentEntryFocusRequester.takeIf {
+                        restoreFocusKey == SETTINGS_JELLYFIN_FOCUS_KEY
+                    },
+                    onFocused = { requester ->
+                        onFocusKeyChanged(SETTINGS_JELLYFIN_FOCUS_KEY)
+                        onContentFocused(requester)
+                    },
+                    onClick = { showJellyfin = true }
                 )
             }
 
@@ -679,6 +713,9 @@ fun SettingsScreen(
     if (showCompanionPairing) {
         me.xdan.aperture.ui.screen.companion.CompanionPairingDialog(onDismiss = { showCompanionPairing = false })
     }
+    if (showJellyfin) {
+        me.xdan.aperture.ui.screen.jellyfin.JellyfinDialog(jellyfinViewModel, onDismiss = { showJellyfin = false })
+    }
     if (showProfiles) {
         me.xdan.aperture.ui.screen.profiles.ProfilesDialog(
             profiles = profiles,
@@ -853,6 +890,7 @@ fun SettingsScreen(
 private const val SETTINGS_LANGUAGE_FOCUS_KEY = "language"
 private const val SETTINGS_COMPANION_FOCUS_KEY = "companion"
 private const val SETTINGS_PROFILES_FOCUS_KEY = "profiles"
+private const val SETTINGS_JELLYFIN_FOCUS_KEY = "jellyfin"
 private const val SETTINGS_THEME_FOCUS_KEY = "theme"
 private const val SETTINGS_AMBIENT_FOCUS_KEY = "ambient"
 private const val SETTINGS_SHOW_LAYOUT_FOCUS_KEY = "show_layout"
