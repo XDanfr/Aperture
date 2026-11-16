@@ -17,6 +17,10 @@ data class CatalogItem(
     val backdrop: String? = null,
     val thumb: String? = null,
     val seriesTitle: String? = null,
+    /** The episode's own name; [title] is the show's for episodes, so rows read by show. */
+    val episodeTitle: String? = null,
+    /** The show an episode belongs to, as the server's item id. */
+    val seriesId: String? = null,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val runtimeMs: Long? = null,
@@ -67,6 +71,8 @@ class JellyfinImages(private val baseUrl: String) {
             thumb = image(entity.itemId, if (kind == CatalogItem.Kind.EPISODE) "Primary" else "Thumb",
                 if (kind == CatalogItem.Kind.EPISODE) entity.primaryImageTag else entity.thumbImageTag, BACKDROP_WIDTH),
             seriesTitle = entity.seriesName,
+            episodeTitle = if (kind == CatalogItem.Kind.EPISODE) entity.name else null,
+            seriesId = entity.seriesId,
             seasonNumber = entity.seasonNumber,
             episodeNumber = entity.episodeNumber,
             runtimeMs = runtime,

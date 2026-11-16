@@ -15,8 +15,15 @@ import me.xdan.aperture.domain.repository.MediaRepository
 import me.xdan.aperture.data.remote.dto.TmdbResult
 
 class MediaDetailsViewModel constructor(
-    private val repository: MediaRepository
+    private val repository: MediaRepository,
+    private val context: coil3.PlatformContext
 ) : ViewModel() {
+
+    /** The Info dialog: null when closed, an empty [MediaInfo] never; [infoLoading] while probing. */
+    private val _info = MutableStateFlow<me.xdan.aperture.domain.catalog.MediaInfo?>(null)
+    val info: StateFlow<me.xdan.aperture.domain.catalog.MediaInfo?> = _info
+    private val _infoOpen = MutableStateFlow(false)
+    val infoOpen: StateFlow<Boolean> = _infoOpen
 
     private val _media = MutableStateFlow<MediaEntity?>(null)
     val media: StateFlow<MediaEntity?> = _media
@@ -70,6 +77,24 @@ class MediaDetailsViewModel constructor(
             repository.setFavorite(mediaId, !current.isFavorite)
             _media.value = repository.getMediaById(mediaId)
         }
+    }
+
+    /** Reads the file's size and tracks on IO, then shows them. */
+    fun loadInfo() {
+        val current = _media.value ?: return
+        _info.value = null
+        _infoOpen.value = true
+        viewModelScope.launch {
+            val probe = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                me.xdan.aperture.platform.probeLocalMedia(context, current.filePath)
+            }
+            _info.value = me.xdan.aperture.platform.localMediaInfo(current.filePath, current.duration, current.dateAdded, probe)
+        }
+    }
+
+    fun dismissInfo() {
+        _infoOpen.value = false
+        _info.value = null
     }
 
     fun findAssetCandidates(query: String? = null) {

@@ -114,7 +114,7 @@ val sharedModule = module {
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) { get() } }
     viewModel { MyListViewModel(get()) }
     viewModel { AmbientViewModel(get(), get(), get()) }
-    viewModel { MediaDetailsViewModel(get()) }
+    viewModel { MediaDetailsViewModel(get(), get()) }
     viewModel { SearchViewModel(get()) }
     viewModel { LibraryViewModel(get(), get()) }
     viewModel { MediaActionsViewModel(get()) }
@@ -124,6 +124,7 @@ val sharedModule = module {
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinViewModel(get(), get(), get(), get(), get()) }
     viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryViewModel(params.get(), get(), get()) }
     viewModel { me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeViewModel(get()) }
+    viewModel { params -> me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsViewModel(params.get(), get()) }
 }
 
 /** Platform-specific image loader setup (disk cache location, decoders). */

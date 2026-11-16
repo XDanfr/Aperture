@@ -58,6 +58,11 @@ class HomeViewModel constructor(
     }
 
     fun softRefresh() = regenerateSuggestions()
+
+    /** Looks for new files on the device, e.g. from the empty Home's Rescan button. */
+    fun rescan() {
+        viewModelScope.launch { repository.scanLocalFiles() }
+    }
 }
 
 private fun buildHomeState(
