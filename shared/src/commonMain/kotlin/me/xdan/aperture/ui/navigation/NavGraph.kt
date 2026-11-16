@@ -7,6 +7,8 @@ import me.xdan.aperture.ui.platform.onMouseEnterExit
 import me.xdan.aperture.ui.platform.usesMouse
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 import me.xdan.aperture.ui.platform.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -74,6 +76,13 @@ fun NavGraph(
     val profiles by profilesViewModel.profiles.collectAsState()
     val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
     val profileRepository: me.xdan.aperture.domain.repository.ProfileRepository = org.koin.compose.koinInject()
+    val libraryMode by profileRepository.activeLibraryMode.collectAsState(me.xdan.aperture.domain.model.LibraryMode.LOCAL)
+    val jellyfinCatalog: me.xdan.aperture.data.jellyfin.JellyfinCatalog = org.koin.compose.koinInject()
+    val allJellyfinLibraries by jellyfinCatalog.libraries.collectAsState(emptyList())
+    // Until sidebar customisation: the indexed libraries (movies, shows, home videos, mixed folders).
+    val jellyfinLibraries = if (libraryMode.usesJellyfin) {
+        allJellyfinLibraries.filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
+    } else emptyList()
     val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
     val currentDestination = backstack.last()
@@ -110,8 +119,9 @@ fun NavGraph(
     val myListContentEntryRequester = remember { FocusRequester() }
     val moviesContentEntryRequester = remember { FocusRequester() }
     val showsContentEntryRequester = remember { FocusRequester() }
+    // Mutable: each Jellyfin library adds its own entry ("library:<id>").
     val drawerRequesters = remember {
-        mapOf(
+        mutableMapOf(
             "home" to homeDrawerRequester,
             "search" to searchDrawerRequester,
             "movies" to moviesDrawerRequester,
@@ -121,7 +131,7 @@ fun NavGraph(
         )
     }
     val contentEntryRequesters = remember {
-        mapOf(
+        mutableMapOf(
             "home" to homeContentEntryRequester,
             "search" to searchContentEntryRequester,
             "movies" to moviesContentEntryRequester,
@@ -221,6 +231,9 @@ fun NavGraph(
         if (destination is Destination.Settings) {
             lastFocusedRequesters.remove("settings")
             settingsRestoreFocusKey = null
+        }
+        if (destination is Destination.Library) {
+            lastFocusedRequesters.remove(destination.focusKey())
         }
         while (backstack.size > 1) backstack.removeAt(backstack.lastIndex)
         if (destination !is Destination.Home) backstack.add(destination)
@@ -486,6 +499,11 @@ fun NavGraph(
                                     }
                                 }
 
+                                // Destinations scroll between the pinned logo and profile, since a server can add many libraries.
+                                Column(
+                                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Home,
@@ -541,6 +559,7 @@ fun NavGraph(
                                         Text("Search")
                                     }
                                 }
+                                if (libraryMode.usesLocal) {
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Movies,
@@ -581,6 +600,33 @@ fun NavGraph(
                                 ) {
                                     DrawerFocusForeground(focusMotion, "shows", drawerValue == DrawerValue.Open) {
                                         Text("Shows")
+                                    }
+                                }
+                                }
+                                jellyfinLibraries.forEach { library ->
+                                    val key = "library:${library.id}"
+                                    val drawerRequester = drawerRequesters.getOrPut(key) { FocusRequester() }
+                                    val contentRequester = contentEntryRequesters.getOrPut(key) { FocusRequester() }
+                                    NavigationDrawerItem(
+                                        colors = drawerItemColors,
+                                        selected = (currentDestination as? Destination.Library)?.libraryId == library.id,
+                                        onClick = { selectDrawerDestination(Destination.Library(library.id)) },
+                                        modifier = Modifier
+                                            .then(focusMotion.item(key))
+                                            .focusRequester(drawerRequester)
+                                            .focusProperties {
+                                                canFocus = drawerCanReceiveFocus
+                                                right = drawerReturnFocusRequester ?: contentRequester
+                                            },
+                                        leadingContent = {
+                                            DrawerFocusForeground(focusMotion, key, drawerValue == DrawerValue.Open) {
+                                                Icon(libraryIcon(library.collectionType), contentDescription = null)
+                                            }
+                                        }
+                                    ) {
+                                        DrawerFocusForeground(focusMotion, key, drawerValue == DrawerValue.Open) {
+                                            Text(library.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                        }
                                     }
                                 }
                                 NavigationDrawerItem(
@@ -627,7 +673,7 @@ fun NavGraph(
                                 }
 
                                 // Who's watching, apart from the destinations at the bottom of the rail.
-                                Spacer(Modifier.weight(1f))
+                                }
                                 val activeProfile = profiles.firstOrNull { it.id == activeProfileId }
                                 if (activeProfile != null) {
                                     NavigationDrawerItem(
@@ -893,7 +939,16 @@ private fun Destination.focusKey(): String? = when (this) {
     Destination.Shows -> "shows"
     Destination.MyList -> "my_list"
     Destination.Settings -> "settings"
+    is Destination.Library -> "library:$libraryId"
     is Destination.Player -> null
+}
+
+/** Sidebar icon for a Jellyfin library type. */
+private fun libraryIcon(collectionType: String?): androidx.compose.ui.graphics.vector.ImageVector = when (collectionType) {
+    "movies" -> Icons.Rounded.Movie
+    "tvshows" -> Icons.Rounded.Tv
+    "homevideos" -> Icons.Rounded.VideoLibrary
+    else -> Icons.Rounded.Folder
 }
 
 @Composable
@@ -922,6 +977,8 @@ private fun NavContent(
     // NavDisplay caches entries while their destination keys stay unchanged.
     // The browsing stack deliberately stays unchanged underneath Player.
     val currentBrowsingPaused by rememberUpdatedState(browsingPaused)
+    val libraryMode by org.koin.compose.koinInject<me.xdan.aperture.domain.repository.ProfileRepository>()
+        .activeLibraryMode.collectAsState(me.xdan.aperture.domain.model.LibraryMode.LOCAL)
     val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
     NavDisplay(
         backStack = displayedDestinations
@@ -971,7 +1028,19 @@ private fun NavContent(
                     .focusGroup()
             ) {
                 when (destination) {
-                    is Destination.Home -> HomeScreen(
+                    is Destination.Home -> if (libraryMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN) {
+                        var details by remember { mutableStateOf<me.xdan.aperture.domain.catalog.CatalogItem?>(null) }
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeScreen(
+                            viewModel = koinViewModel(),
+                            onItemClick = { item, _ -> details = item },
+                            drawerFocusRequester = drawerFocusRequester,
+                            contentEntryFocusRequester = contentEntryFocusRequester,
+                            onContentFocused = contentFocused
+                        )
+                        details?.let { item ->
+                            me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsDialog(item, onDismiss = { details = null })
+                        }
+                    } else HomeScreen(
                         viewModel = homeViewModel,
                         browsingPaused = currentBrowsingPaused,
                         onMediaClick = episodeAwareMediaClick,
@@ -1031,6 +1100,21 @@ private fun NavContent(
                         onForceRescan = onForceRescan,
                         onPreviewAmbientMode = onPreviewAmbientMode
                     )
+                    is Destination.Library -> {
+                        var details by remember { mutableStateOf<me.xdan.aperture.domain.catalog.CatalogItem?>(null) }
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryScreen(
+                            viewModel = koinViewModel(key = "library:${destination.libraryId}") {
+                                org.koin.core.parameter.parametersOf(destination.libraryId)
+                            },
+                            onItemClick = { item, _ -> details = item },
+                            drawerFocusRequester = drawerFocusRequester,
+                            contentEntryFocusRequester = contentEntryFocusRequester,
+                            onContentFocused = contentFocused
+                        )
+                        details?.let { item ->
+                            me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsDialog(item, onDismiss = { details = null })
+                        }
+                    }
                     is Destination.Player -> when (val media = destination.media) {
                         is MediaKey.Local -> PlayerScreen(
                             mediaId = media.id,

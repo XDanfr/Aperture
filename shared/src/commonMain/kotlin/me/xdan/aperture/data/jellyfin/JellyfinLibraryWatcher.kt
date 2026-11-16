@@ -41,8 +41,11 @@ class JellyfinLibraryWatcher(
     private val _state = MutableStateFlow<State>(State.Idle)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    /** Runs until cancelled; the app calls it from its top-level composition. */
-    suspend fun run() {
+    /**
+     * Runs until cancelled; the app calls it from its top-level composition. Everything runs on IO:
+     * the SDK closes responses on the coroutine's own thread when a call is cancelled.
+     */
+    suspend fun run() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         combine(accounts.activeAccount, profiles.activeLibraryMode) { account, mode ->
             account?.takeIf { mode.usesJellyfin }
         }

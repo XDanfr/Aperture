@@ -23,6 +23,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Settings : Destination
 
+    /** A Jellyfin library for the active profile's account. */
+    @Serializable
+    data class Library(val libraryId: String) : Destination
+
     @Serializable
     data class Player(
         val media: me.xdan.aperture.domain.model.MediaKey,
