@@ -11,7 +11,10 @@ data class ProfileEntity(
     /** An [me.xdan.aperture.ui.theme.ApertureThemeOptions] id for the avatar. */
     val colorId: String,
     val createdAt: Long = System.currentTimeMillis(),
-    val lastUsedAt: Long = System.currentTimeMillis()
+    val lastUsedAt: Long = System.currentTimeMillis(),
+    /** A [me.xdan.aperture.domain.model.LibraryMode] name. */
+    @androidx.room.ColumnInfo(defaultValue = "LOCAL")
+    val libraryMode: String = "LOCAL"
 ) {
     companion object {
         const val DEFAULT_ID = 1L

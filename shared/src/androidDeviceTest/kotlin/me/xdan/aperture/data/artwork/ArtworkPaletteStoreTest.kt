@@ -130,7 +130,7 @@ class ArtworkPaletteStoreTest {
             it.version = 7
         }
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9).build()
+            .addMigrations(DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9, DatabaseMigrations.MIGRATION_9_10).build()
         try {
             assertEquals("Saved library title", migrated.mediaDao().getMediaById(1, 1)!!.title)
             migrated.artworkPaletteDao().put(ArtworkPaletteEntity("/new.jpg", 42, ArtworkExtractionVersion))

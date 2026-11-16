@@ -56,6 +56,12 @@ val androidModule = module {
     single<PlayerEngine> { PlayerEngineManager(get(), get()) }
     single<PlaybackPlatform> { AndroidPlaybackPlatform(androidContext()) }
     single<CompanionPlatform> { AndroidCompanionPlatform(androidContext()) }
+    single<org.jellyfin.sdk.Jellyfin> {
+        org.jellyfin.sdk.createJellyfin {
+            clientInfo = org.jellyfin.sdk.model.ClientInfo(name = "Aperture", version = AppBuild.VERSION_NAME)
+            context = androidContext()
+        }
+    }
     single<UpdateManager> {
         if (AppBuild.SIDELOAD_UPDATES_ENABLED) GitHubApkUpdateManager(get(), androidContext()) else NoUpdateManager()
     }

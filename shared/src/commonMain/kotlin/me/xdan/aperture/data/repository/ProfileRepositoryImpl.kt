@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import me.xdan.aperture.domain.model.LibraryMode
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.xdan.aperture.data.local.ProfileMigration
@@ -16,7 +19,9 @@ import me.xdan.aperture.domain.repository.UserPreferencesRepository
 
 class ProfileRepositoryImpl(
     private val profileDao: ProfileDao,
-    private val preferences: UserPreferencesRepository
+    private val preferences: UserPreferencesRepository,
+    private val jellyfinDao: me.xdan.aperture.data.local.dao.JellyfinDao,
+    private val jellyfinCredentials: me.xdan.aperture.data.jellyfin.JellyfinCredentials
 ) : ProfileRepository {
 
     private val defaultMutex = Mutex()
@@ -45,6 +50,10 @@ class ProfileRepositoryImpl(
     override val activeProfile: Flow<ProfileEntity?> = combine(profiles, activeProfileId) { all, id ->
         all.firstOrNull { it.id == id } ?: all.firstOrNull()
     }
+
+    override val activeLibraryMode: Flow<LibraryMode> = activeProfile
+        .map { LibraryMode.fromStored(it?.libraryMode) }
+        .distinctUntilChanged()
 
     private val _profileChosen = MutableStateFlow(false)
     override val profileChosen: StateFlow<Boolean> = _profileChosen
@@ -77,13 +86,19 @@ class ProfileRepositoryImpl(
         profileDao.updateProfile(profile.copy(name = name.trim().ifBlank { profile.name }, colorId = colorId))
     }
 
+    override suspend fun setLibraryMode(profileId: Long, mode: LibraryMode) {
+        profileDao.setLibraryMode(profileId, mode.name)
+    }
+
     override suspend fun deleteProfile(profileId: Long) {
         val all = profileDao.getProfilesOnce()
         if (all.size <= 1 || all.none { it.id == profileId }) return
         if (preferences.activeProfileId.first() == profileId) {
             preferences.setActiveProfileId(all.first { it.id != profileId }.id)
         }
+        val jellyfinAccount = jellyfinDao.accountForProfileOnce(profileId)
         profileDao.deleteProfile(profileId)
+        jellyfinAccount?.let { jellyfinCredentials.forget(it.id) }
         preferences.clearProfilePreferences(profileId)
     }
 }

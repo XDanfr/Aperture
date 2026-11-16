@@ -99,7 +99,10 @@ class ProfileMigrationTest {
         val preferences = UserPreferencesRepositoryImpl(
             PreferenceDataStoreFactory.createWithPath { File(temp.root, "prefs.preferences_pb").toOkioPath() }
         )
-        val profiles = ProfileRepositoryImpl(database.profileDao(), preferences)
+        val profiles = ProfileRepositoryImpl(
+            database.profileDao(), preferences, database.jellyfinDao(),
+            me.xdan.aperture.data.jellyfin.JellyfinCredentials(me.xdan.aperture.platform.PropertiesStores(File(temp.root, "credentials")))
+        )
         try {
             val second = profiles.createProfile("Sam", "green")
             assertEquals("green", preferences.themeIdFor(second).first())
@@ -128,8 +131,23 @@ class ProfileMigrationTest {
             assertEquals(second, preferences.activeProfileId.first())
             assertEquals("green", preferences.themeId.first())
 
+            // A new profile starts local, and its mode is its own.
+            assertEquals(me.xdan.aperture.domain.model.LibraryMode.LOCAL, profiles.activeLibraryMode.first())
+            profiles.setLibraryMode(second, me.xdan.aperture.domain.model.LibraryMode.JELLYFIN)
+            assertEquals(me.xdan.aperture.domain.model.LibraryMode.JELLYFIN, profiles.activeLibraryMode.first())
+            val account = database.jellyfinDao().insertAccount(
+                me.xdan.aperture.data.local.entity.JellyfinAccountEntity(
+                    profileId = second, serverId = "s", serverName = "S", baseUrl = "http://s", userId = "u", userName = "U"
+                )
+            )
+            database.jellyfinDao().upsertItems(listOf(
+                me.xdan.aperture.data.local.entity.RemoteItemEntity(accountId = account, itemId = "i", type = "MOVIE", name = "M")
+            ))
+
             // Deleting the profile takes its state with it and falls back to another profile.
             profiles.deleteProfile(second)
+            assertNull(database.jellyfinDao().account(account))
+            assertNull(database.jellyfinDao().item(account, "i"))
             assertEquals(1L, preferences.activeProfileId.first())
             assertEquals("red", preferences.themeId.first())
             assertNull(database.playbackProgressDao().getProgressForMedia(second, 3))
@@ -171,7 +189,10 @@ class ProfileMigrationTest {
         val preferences = UserPreferencesRepositoryImpl(
             PreferenceDataStoreFactory.createWithPath { File(temp.root, "fresh.preferences_pb").toOkioPath() }
         )
-        val profiles = ProfileRepositoryImpl(database.profileDao(), preferences)
+        val profiles = ProfileRepositoryImpl(
+            database.profileDao(), preferences, database.jellyfinDao(),
+            me.xdan.aperture.data.jellyfin.JellyfinCredentials(me.xdan.aperture.platform.PropertiesStores(File(temp.root, "credentials")))
+        )
         try {
             assertEquals(listOf(1L), profiles.profiles.first().map { it.id })
             profiles.resolveLaunchChoice()

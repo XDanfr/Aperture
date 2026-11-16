@@ -12,5 +12,11 @@ object DesktopMigrations {
         }
     }
 
-    val ALL_MIGRATIONS = arrayOf(MIGRATION_8_9)
+    val MIGRATION_9_10 = object : Migration(JellyfinMigration.FROM, JellyfinMigration.TO) {
+        override fun migrate(connection: SQLiteConnection) {
+            JellyfinMigration.statements.forEach(connection::execSQL)
+        }
+    }
+
+    val ALL_MIGRATIONS = arrayOf(MIGRATION_8_9, MIGRATION_9_10)
 }
