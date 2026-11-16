@@ -121,6 +121,7 @@ fun SettingsScreen(
     val subtitleAppearance by viewModel.subtitleAppearance.collectAsState()
     val ambientSettings by viewModel.ambientSettings.collectAsState()
     val tunnelingEnabled by viewModel.tunnelingEnabled.collectAsState()
+    val losslessPassthrough by viewModel.losslessPassthrough.collectAsState()
     val softwareVideoDecoding by viewModel.softwareVideoDecoding.collectAsState()
     val playbackEngine by viewModel.playbackEngine.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
@@ -466,6 +467,24 @@ fun SettingsScreen(
                         trailingContent = {
                             ExpressiveToggle(
                                 checked = tunnelingEnabled,
+                                onCheckedChange = null,
+                                isFocused = false
+                            )
+                        }
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        title = "DTS and TrueHD passthrough",
+                        subtitle = if (losslessPassthrough) "On · Sent undecoded, for a receiver that decodes them. No sound if the TV can't" else "Off · Decoded on this device, so they play on any TV",
+                        icon = Icons.Rounded.Refresh,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setLosslessPassthrough(!losslessPassthrough) },
+                        trailingContent = {
+                            ExpressiveToggle(
+                                checked = losslessPassthrough,
                                 onCheckedChange = null,
                                 isFocused = false
                             )
