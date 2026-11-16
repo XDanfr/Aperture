@@ -58,6 +58,20 @@ class ProfileRepositoryImpl(
     private val _profileChosen = MutableStateFlow(false)
     override val profileChosen: StateFlow<Boolean> = _profileChosen
 
+    private val _pickerRequested = MutableStateFlow(false)
+    override val pickerRequested: StateFlow<Boolean> = _pickerRequested
+
+    override fun openPicker() {
+        _pickerRequested.value = true
+        _profileChosen.value = false
+    }
+
+    override fun dismissPicker() {
+        if (!_pickerRequested.value) return
+        _pickerRequested.value = false
+        _profileChosen.value = true
+    }
+
     override suspend fun resolveLaunchChoice() {
         ensureDefaultProfile()
         val all = profileDao.getProfilesOnce()
@@ -71,6 +85,7 @@ class ProfileRepositoryImpl(
         if (profileDao.getProfile(profileId) == null) return
         preferences.setActiveProfileId(profileId)
         profileDao.markUsed(profileId, System.currentTimeMillis())
+        _pickerRequested.value = false
         _profileChosen.value = true
     }
 

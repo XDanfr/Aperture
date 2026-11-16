@@ -6,6 +6,7 @@ import androidx.tv.material3.pointerFocusRegion
 import me.xdan.aperture.ui.platform.onMouseEnterExit
 import me.xdan.aperture.ui.platform.usesMouse
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.material.icons.rounded.ExpandMore
 
 import me.xdan.aperture.ui.platform.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -69,6 +70,10 @@ fun NavGraph(
     onPreviewAmbientMode: () -> Unit = {}
 ) {
     val homeViewModel: HomeViewModel = koinViewModel()
+    val profilesViewModel: me.xdan.aperture.ui.screen.profiles.ProfilesViewModel = koinViewModel()
+    val profiles by profilesViewModel.profiles.collectAsState()
+    val activeProfileId by profilesViewModel.activeProfileId.collectAsState()
+    val profileRepository: me.xdan.aperture.domain.repository.ProfileRepository = org.koin.compose.koinInject()
     val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
     val currentDestination = backstack.last()
@@ -618,6 +623,51 @@ fun NavGraph(
                                 ) {
                                     DrawerFocusForeground(focusMotion, "settings", drawerValue == DrawerValue.Open) {
                                         Text("Settings")
+                                    }
+                                }
+
+                                // Who's watching, apart from the destinations at the bottom of the rail.
+                                Spacer(Modifier.weight(1f))
+                                val activeProfile = profiles.firstOrNull { it.id == activeProfileId }
+                                if (activeProfile != null) {
+                                    NavigationDrawerItem(
+                                        colors = drawerItemColors,
+                                        selected = false,
+                                        onClick = {
+                                            closeDrawerAndRestoreFocus()
+                                            profileRepository.openPicker()
+                                        },
+                                        modifier = Modifier
+                                            .then(focusMotion.item("profile"))
+                                            .focusProperties {
+                                                canFocus = drawerCanReceiveFocus
+                                                drawerReturnFocusRequester?.let { right = it }
+                                            },
+                                        leadingContent = {
+                                            me.xdan.aperture.ui.screen.profiles.ProfileAvatar(
+                                                activeProfile.name, activeProfile.colorId, 28.dp
+                                            )
+                                        },
+                                        supportingContent = {
+                                            DrawerFocusForeground(focusMotion, "profile", drawerValue == DrawerValue.Open) {
+                                                Text("Switch profiles", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        },
+                                        trailingContent = {
+                                            DrawerFocusForeground(focusMotion, "profile", drawerValue == DrawerValue.Open) {
+                                                Icon(Icons.Rounded.ExpandMore, contentDescription = null)
+                                            }
+                                        }
+                                    ) {
+                                        DrawerFocusForeground(focusMotion, "profile", drawerValue == DrawerValue.Open) {
+                                            // Two lines have to fit the drawer's fixed 56dp two-line item.
+                                            Text(
+                                                activeProfile.name,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.titleSmall
+                                            )
+                                        }
                                     }
                                 }
                                 }
