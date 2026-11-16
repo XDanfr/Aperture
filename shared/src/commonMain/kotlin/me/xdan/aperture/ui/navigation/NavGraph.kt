@@ -1044,7 +1044,7 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged,
                             onRemoteClick = { item, from -> details.open(item, from) }
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Shows -> {
                         val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
@@ -1062,7 +1062,7 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged,
                             onRemoteClick = { item, from -> details.open(item, from) }
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Settings -> SettingsScreen(
                         drawerFocusRequester = drawerFocusRequester,
