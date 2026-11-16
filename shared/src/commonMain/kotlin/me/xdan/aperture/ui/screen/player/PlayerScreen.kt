@@ -194,6 +194,8 @@ fun PlayerScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            // Ends a Jellyfin session while the player still knows the position.
+            viewModel.onPlayerClosed()
             player.stop()
         }
     }
