@@ -17,8 +17,8 @@ android {
         targetSdk = 37
         // version codes must be unique across every bundle in the listing. the companion
         // uses 2,000,000+ so it never collides with the TV app's codes.
-        versionCode = 2_000_001
-        versionName = "v0.1.0-pre-alpha"
+        versionCode = 2_000_002
+        versionName = "v0.5.0-alpha"
     }
 
     signingConfigs {
