@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isPrimaryPressed
@@ -33,11 +34,13 @@ fun Modifier.seekBarPointerInput(
         awaitPointerEventScope {
             var dragging = false
             while (true) {
-                val event = awaitPointerEvent()
+                // The Initial pass sees the press before the bar's children: the hover preview
+                // card overlaps the top of the bar and would otherwise take the click.
+                val event = awaitPointerEvent(PointerEventPass.Initial)
                 val change = event.changes.firstOrNull() ?: continue
                 val fraction = if (size.width > 0) (change.position.x / size.width).coerceIn(0f, 1f) else 0f
                 when (event.type) {
-                    PointerEventType.Press -> if (event.buttons.isPrimaryPressed && !change.isConsumed) {
+                    PointerEventType.Press -> if (event.buttons.isPrimaryPressed) {
                         dragging = true
                         hover(null)
                         start(fraction)
