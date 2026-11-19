@@ -97,6 +97,32 @@ class MediaDetailsViewModel constructor(
         }
     }
 
+    /** Takes a missing title out of the library (only the user does this). */
+    fun removeMissing(mediaId: Long) {
+        viewModelScope.launch { repository.removeMissing(mediaId) }
+    }
+
+    /** The same toggle as the long-press menu: finished, or back to not started. */
+    fun toggleWatched(mediaId: Long) {
+        viewModelScope.launch {
+            val media = repository.getMediaById(mediaId) ?: return@launch
+            val current = repository.getProgress(mediaId)
+            if (current?.isCompleted == true) {
+                repository.clearProgress(mediaId)
+            } else {
+                val duration = (current?.duration ?: media.duration ?: 1L).coerceAtLeast(1L)
+                val now = System.currentTimeMillis()
+                repository.saveProgress(
+                    PlaybackProgressEntity(
+                        mediaId = mediaId, position = duration, duration = duration,
+                        lastUpdated = now, isCompleted = true, completedAt = now
+                    )
+                )
+            }
+            _progress.value = repository.getProgress(mediaId)
+        }
+    }
+
     /** Reads the file's size and tracks on IO, then shows them. */
     fun loadInfo() {
         val current = _media.value ?: return

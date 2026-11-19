@@ -18,5 +18,17 @@ object DesktopMigrations {
         }
     }
 
-    val ALL_MIGRATIONS = arrayOf(MIGRATION_8_9, MIGRATION_9_10)
+    val MIGRATION_10_11 = object : Migration(LocalMetadataMigration.FROM, LocalMetadataMigration.TO) {
+        override fun migrate(connection: SQLiteConnection) {
+            LocalMetadataMigration.statements.forEach(connection::execSQL)
+        }
+    }
+
+    val MIGRATION_11_12 = object : Migration(MissingFilesMigration.FROM, MissingFilesMigration.TO) {
+        override fun migrate(connection: SQLiteConnection) {
+            MissingFilesMigration.statements.forEach(connection::execSQL)
+        }
+    }
+
+    val ALL_MIGRATIONS = arrayOf(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
 }

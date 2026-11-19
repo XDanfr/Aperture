@@ -33,7 +33,8 @@ class HomeViewModel constructor(
         viewModelScope.launch {
             combine(
                 combine(repository.getAllMedia(), repository.getAllProgress()) { media, progress ->
-                    media to progress
+                    // Missing files stay out of Home: rows, spotlight and suggestions.
+                    media.filter { it.missingSince == null } to progress
                 },
                 combine(
                     userPreferencesRepository.hideFinishedFromSpotlight,

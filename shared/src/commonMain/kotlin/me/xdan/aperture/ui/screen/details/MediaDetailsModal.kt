@@ -27,6 +27,9 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -321,11 +324,34 @@ fun MediaDetailsModal(
                                         Spacer(Modifier.height(10.dp))
                                     }
 
+                                    if (m.missingSince != null) {
+                                        Text(
+                                            "This file is missing. If it was moved or renamed, Aperture finds it again on the next scan.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(Modifier.height(10.dp))
+                                    }
                                     Row(
                                         modifier = Modifier.heightIn(min = 52.dp),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        // A missing file can't play: its one action is removing it.
+                                        if (m.missingSince != null) {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.removeMissing(m.id)
+                                                    closeModal()
+                                                },
+                                                modifier = Modifier.focusRequester(playButtonFocusRequester)
+                                            ) {
+                                                Icon(Icons.Rounded.Delete, null)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("Remove from library")
+                                            }
+                                            return@Row
+                                        }
                                         Button(
                                             onClick = { onPlay(m.id, false) },
                                             modifier = Modifier
@@ -387,6 +413,19 @@ fun MediaDetailsModal(
                                             Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null)
                                             Spacer(Modifier.width(8.dp))
                                             Text(if (m.isFavorite) "Remove from My List" else "My List")
+                                        }
+                                        // Watched, as on a Jellyfin title's panel.
+                                        val watched = hasBeenCompleted
+                                        IconButton(onClick = { viewModel.toggleWatched(m.id) }) {
+                                            Icon(
+                                                if (watched) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                                                contentDescription = when {
+                                                    m.type == "EPISODE" && watched -> "Mark episode unwatched"
+                                                    m.type == "EPISODE" -> "Mark episode watched"
+                                                    watched -> "Mark unwatched"
+                                                    else -> "Mark watched"
+                                                }
+                                            )
                                         }
                                         IconButton(
                                             onClick = {

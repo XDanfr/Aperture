@@ -69,7 +69,7 @@ class JellyfinSyncTest {
         )
         credentials.saveToken(id, "token")
         account = database.jellyfinDao().account(id)!!
-        sync = JellyfinSync(database.jellyfinDao(), clients) { now }
+        sync = JellyfinSync(database.jellyfinDao(), clients, clock = { now })
     }
 
     @After

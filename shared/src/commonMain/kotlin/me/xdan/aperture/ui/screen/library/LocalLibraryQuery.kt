@@ -37,20 +37,23 @@ internal data class GridTitle<out T>(
     val runtime: Long?,
     val lastPlayed: Long?,
     val watched: Boolean,
-    val favourite: Boolean
+    val favourite: Boolean,
+    val genres: List<String> = emptyList(),
+    val rating: Float? = null,
+    val uhd: Boolean = false
 ) {
-    fun <R> withValue(value: R): GridTitle<R> = GridTitle(value, title, year, added, runtime, lastPlayed, watched, favourite)
+    fun <R> withValue(value: R): GridTitle<R> = GridTitle(value, title, year, added, runtime, lastPlayed, watched, favourite, genres, rating, uhd)
 }
 
 /**
- * Sorting and filtering for local grids, and for hybrid grids that add the server's titles.
- * Local titles have no ratings or genres, so those aren't offered; shows sort by their newest
- * episode and count as unwatched while any episode is.
+ * Sorting and filtering for local grids, and for hybrid grids that add the server's titles: the
+ * same sorts and filters as a Jellyfin library. Genres and ratings come from TMDB, 4K from the
+ * file name; shows sort by their newest episode and count as unwatched while any episode is.
  */
 internal object LocalLibraryQuery {
     val movieSorts = listOf(
         LibraryQuery.Sort.TITLE, LibraryQuery.Sort.DATE_ADDED, LibraryQuery.Sort.RELEASED,
-        LibraryQuery.Sort.RUNTIME, LibraryQuery.Sort.LAST_PLAYED, LibraryQuery.Sort.RANDOM
+        LibraryQuery.Sort.RATING, LibraryQuery.Sort.RUNTIME, LibraryQuery.Sort.LAST_PLAYED, LibraryQuery.Sort.RANDOM
     )
     val showSorts = movieSorts - LibraryQuery.Sort.RUNTIME
 
@@ -59,8 +62,11 @@ internal object LocalLibraryQuery {
 
     fun movieTitle(media: MediaEntity, progress: Map<Long, PlaybackProgressEntity>) = GridTitle(
         media, media.title, media.year, media.dateAdded, media.duration?.takeIf { it > 0 },
-        progress[media.id]?.lastUpdated, watched(progress[media.id]), media.isFavorite
+        progress[media.id]?.lastUpdated, watched(progress[media.id]), media.isFavorite,
+        genresOf(media.genres), media.rating, (media.videoHeight ?: 0) >= 2000
     )
+
+    private fun genresOf(value: String?): List<String> = value?.split('|')?.filter { it.isNotBlank() }.orEmpty()
 
     fun showTitle(group: ShowGroup, progress: Map<Long, PlaybackProgressEntity>) = GridTitle(
         group, group.title,
@@ -69,12 +75,14 @@ internal object LocalLibraryQuery {
         null,
         group.episodes.mapNotNull { progress[it.id]?.lastUpdated }.maxOrNull(),
         group.episodes.none { !watched(progress[it.id]) },
-        group.episodes.any { it.isFavorite }
+        group.episodes.any { it.isFavorite },
+        group.episodes.firstNotNullOfOrNull { it.genres }.let(::genresOf),
+        group.episodes.firstNotNullOfOrNull { it.rating }
     )
 
     fun remoteTitle(item: me.xdan.aperture.domain.catalog.CatalogItem, lastPlayed: Long?) = GridTitle<GridEntry<Nothing>>(
         GridEntry.Remote(item), item.title, item.year, item.dateAdded, item.runtimeMs?.takeIf { it > 0 },
-        lastPlayed, item.played, item.isFavorite
+        lastPlayed, item.played, item.isFavorite, item.genres, item.rating
     )
 
     fun movies(all: List<MediaEntity>, progress: Map<Long, PlaybackProgressEntity>, query: LibraryQuery, seed: Int): LocalGrid<MediaEntity> =
@@ -88,7 +96,9 @@ internal object LocalLibraryQuery {
         val filtered = all.filter { t ->
             (!query.unwatchedOnly || !t.watched) &&
                 (!query.favouritesOnly || t.favourite) &&
-                (query.decade == null || t.year?.let { it in query.decade..query.decade + 9 } == true)
+                (query.decade == null || t.year?.let { it in query.decade..query.decade + 9 } == true) &&
+                (query.genre == null || query.genre in t.genres) &&
+                (!query.uhdOnly || t.uhd)
         }
         val items = ordered(filtered, query, seed) { t ->
             when (query.sort) {
@@ -96,6 +106,7 @@ internal object LocalLibraryQuery {
                 LibraryQuery.Sort.RELEASED -> t.year?.toLong()
                 LibraryQuery.Sort.RUNTIME -> t.runtime
                 LibraryQuery.Sort.LAST_PLAYED -> t.lastPlayed
+                LibraryQuery.Sort.RATING -> t.rating?.let { (it * 100).toLong() }
                 else -> null
             }
         }
@@ -104,7 +115,12 @@ internal object LocalLibraryQuery {
             total = all.size,
             query = query,
             letters = if (query.sort == LibraryQuery.Sort.TITLE) letterIndex(items.map { it.title }, query.descending) else emptyMap(),
-            options = LibraryOptions(sorts = sorts, decades = all.mapNotNull { it.year }.map { it / 10 * 10 }.distinct().sortedDescending())
+            options = LibraryOptions(
+                sorts = sorts,
+                genres = all.flatMap { it.genres }.distinct().sortedBy { it.lowercase() },
+                decades = all.mapNotNull { it.year }.map { it / 10 * 10 }.distinct().sortedDescending(),
+                offerUhd = all.any { it.uhd }
+            )
         )
     }
 
@@ -113,7 +129,7 @@ internal object LocalLibraryQuery {
         val byTitle = compareBy<GridTitle<T>> { sortableTitle(it.title) }
         return when (query.sort) {
             LibraryQuery.Sort.RANDOM -> items.sortedWith(byTitle).shuffled(Random(seed))
-            LibraryQuery.Sort.TITLE, LibraryQuery.Sort.RATING -> items.sortedWith(if (query.descending) byTitle.reversed() else byTitle)
+            LibraryQuery.Sort.TITLE -> items.sortedWith(if (query.descending) byTitle.reversed() else byTitle)
             else -> {
                 val (known, unknown) = items.partition { key(it) != null }
                 val byKey = compareBy<GridTitle<T>> { key(it) }

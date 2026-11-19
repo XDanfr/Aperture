@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import me.xdan.aperture.data.jellyfin.JellyfinAccounts
 import me.xdan.aperture.data.local.dao.JellyfinDao
 import me.xdan.aperture.domain.model.LibraryMode
@@ -26,7 +27,8 @@ class HybridIndexSource(
     }.flatMapLatest { account ->
         if (account == null) flowOf(HybridIndex(emptyList(), emptyList()))
         else combine(
-            media.getAllMedia(),
+            // A missing local copy shouldn't hide the server's.
+            media.getAllMedia().map { all -> all.filter { it.missingSince == null } },
             dao.itemsOfType(account.id, "MOVIE"),
             dao.itemsOfType(account.id, "SERIES"),
             dao.itemsOfType(account.id, "EPISODE"),

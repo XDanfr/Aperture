@@ -8,6 +8,12 @@ interface PlaybackPlatform {
     /** Whether the display can show HDR. */
     val isDisplayHdrCapable: Boolean
 
+    /**
+     * Video codecs this device can play, in Jellyfin's names (h264, hevc, vp9, av1, …). A server
+     * transcodes anything else.
+     */
+    val decodableVideoCodecs: Set<String>
+
     /** Where downloaded subtitles are cached. */
     val cacheDir: File
 

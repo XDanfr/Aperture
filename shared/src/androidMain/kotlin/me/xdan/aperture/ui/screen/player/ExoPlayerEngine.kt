@@ -139,7 +139,7 @@ class ExoPlayerEngine(
     }
 
     override fun setMedia(uri: String, subtitles: List<ExternalSubtitle>) {
-        Log.i("ExoPlayerEngine", "Setting media: $uri")
+        Log.i("ExoPlayerEngine", "Setting media: ${me.xdan.aperture.util.redactUrl(uri)}")
         _videoDecoderName.value = null
         _audioDecoderName.value = null
         exoPlayer.stop()

@@ -38,6 +38,7 @@ class UserPreferencesRepositoryImpl(
     private val CLASSIC_PLAYER_CONTROLS = ProfileKey("classic_player_controls", ::booleanPreferencesKey)
     private val SHOULD_SHOW_COMPATIBILITY_WARNING = booleanPreferencesKey("should_show_compatibility_warning")
     private val TUNNELING_ENABLED = booleanPreferencesKey("tunneling_enabled")
+    private val LOSSLESS_PASSTHROUGH = booleanPreferencesKey("lossless_passthrough")
     private val SOFTWARE_VIDEO_DECODING = booleanPreferencesKey("software_video_decoding")
     private val PLAYBACK_ENGINE = stringPreferencesKey("playback_engine")
     private val ACTIVE_PROFILE_ID = longPreferencesKey("active_profile_id")
@@ -132,6 +133,9 @@ class UserPreferencesRepositoryImpl(
     override val shouldShowCompatibilityWarning: Flow<Boolean> = dataStore.data
         .map { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] ?: true }
 
+    override val losslessPassthrough: Flow<Boolean> = dataStore.data
+        .map { it[LOSSLESS_PASSTHROUGH] ?: false }
+
     override val tunnelingEnabled: Flow<Boolean> = dataStore.data
         .map { it[TUNNELING_ENABLED] ?: true }
 
@@ -211,6 +215,10 @@ class UserPreferencesRepositoryImpl(
 
     override suspend fun setShouldShowCompatibilityWarning(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] = enabled }
+    }
+
+    override suspend fun setLosslessPassthrough(enabled: Boolean) {
+        dataStore.edit { it[LOSSLESS_PASSTHROUGH] = enabled }
     }
 
     override suspend fun setTunnelingEnabled(enabled: Boolean) {

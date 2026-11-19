@@ -15,9 +15,11 @@ internal fun dynamicArtworkSeeds(
     activeMediaId: Flow<Long?>,
     media: Flow<List<MediaEntity>>,
     themeId: Flow<String>,
+    /** Artwork a screen named directly (Jellyfin titles, by image URL); wins over [activeMediaId]. */
+    activeArtwork: Flow<String?> = kotlinx.coroutines.flow.flowOf(null),
     seed: (String) -> Flow<Int?>
-): Flow<Int?> = combine(activeMediaId, media, themeId) { id, items, theme ->
-    if (theme != "dynamic") null else items.firstOrNull { it.id == id }
+): Flow<Int?> = combine(activeMediaId, media, themeId, activeArtwork) { id, items, theme, artwork ->
+    if (theme != "dynamic") null else artwork?.takeIf(String::isNotBlank) ?: items.firstOrNull { it.id == id }
         ?.let { it.backdropPath?.takeIf(String::isNotBlank) ?: it.posterPath?.takeIf(String::isNotBlank) }
 }.distinctUntilChanged().transformLatest { path ->
     if (path == null) {

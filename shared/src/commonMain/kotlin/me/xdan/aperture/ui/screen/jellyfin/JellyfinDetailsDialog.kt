@@ -14,9 +14,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.runtime.*
@@ -36,6 +41,7 @@ import androidx.tv.material3.*
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import me.xdan.aperture.domain.catalog.CatalogItem
+import me.xdan.aperture.data.jellyfin.isDiscover
 import me.xdan.aperture.ui.component.ArtworkFallback
 import me.xdan.aperture.ui.component.MediaInfoDialog
 import me.xdan.aperture.ui.platform.Dialog
@@ -50,7 +56,12 @@ import org.koin.core.parameter.parametersOf
  * My List and Watched change the server's state. Playback arrives with the player step.
  */
 @Composable
-fun JellyfinDetailsDialog(item: CatalogItem, onDismiss: () -> Unit) {
+fun JellyfinDetailsDialog(
+    item: CatalogItem,
+    onDismiss: () -> Unit,
+    /** Plays the title (or a show's chosen episode); true starts from the beginning. */
+    onPlay: (me.xdan.aperture.domain.model.MediaKey.Jellyfin, Boolean) -> Unit
+) {
     val viewModel: JellyfinDetailsViewModel = koinViewModel(key = "details:${item.key.stableId}") {
         parametersOf(item.jellyfinId)
     }
@@ -59,6 +70,9 @@ fun JellyfinDetailsDialog(item: CatalogItem, onDismiss: () -> Unit) {
     val message by viewModel.message.collectAsState()
     // The index's copy once it loads, so toggles show at once; the clicked card until then.
     val shown = state.item ?: item
+    // Discover (request) titles aren't on the server yet: favouriting one asks for a download.
+    val libraries by org.koin.compose.koinInject<me.xdan.aperture.data.jellyfin.JellyfinCatalog>().libraries.collectAsState(emptyList())
+    val isDiscover = libraries.firstOrNull { it.id == (shown.libraryId ?: item.libraryId) }?.isDiscover == true
     val target = state.target ?: shown
     var showEpisodes by remember { mutableStateOf(false) }
     val firstAction = remember { FocusRequester() }
@@ -157,21 +171,61 @@ fun JellyfinDetailsDialog(item: CatalogItem, onDismiss: () -> Unit) {
                             Spacer(Modifier.height(10.dp))
                         }
 
-                        Text(
-                            message ?: "Playing Jellyfin titles arrives with the player update.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (message != null) MaterialTheme.colorScheme.error else Color.Gray
-                        )
-                        Spacer(Modifier.height(8.dp))
+                        message?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Row(
                             modifier = Modifier.heightIn(min = 52.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(onClick = viewModel::toggleFavorite, modifier = Modifier.focusRequester(firstAction)) {
-                                Icon(if (shown.isFavorite) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.PlaylistAdd, null)
+                            if (isDiscover) {
+                                Button(onClick = viewModel::toggleFavorite, modifier = Modifier.focusRequester(firstAction)) {
+                                    Icon(if (shown.isFavorite) Icons.Rounded.DownloadDone else Icons.Rounded.Download, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (shown.isFavorite) "Requested" else "Download")
+                                }
+                                if (shown.isFavorite) {
+                                    Text(
+                                        "Select again to cancel",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                                IconButton(onClick = viewModel::loadInfo) {
+                                    Icon(Icons.Rounded.Info, contentDescription = "Info")
+                                }
+                                return@Row
+                            }
+                            // A show plays its chosen episode; until the episodes load, there's nothing to play.
+                            val playable = if (isShow) state.episode else target
+                            val inProgress = (playable?.progress ?: 0f) > 0f
+                            Button(
+                                onClick = { playable?.let { onPlay(it.key as me.xdan.aperture.domain.model.MediaKey.Jellyfin, false) } },
+                                enabled = playable != null,
+                                modifier = Modifier.focusRequester(firstAction)
+                            ) {
+                                Icon(if (playable?.played == true && !inProgress) Icons.Rounded.Replay else Icons.Rounded.PlayArrow, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (shown.isFavorite) "Remove from My List" else "My List")
+                                Text(
+                                    when {
+                                        inProgress -> "Continue"
+                                        playable?.played == true -> "Rewatch"
+                                        else -> "Play"
+                                    }
+                                )
+                            }
+                            if (inProgress) {
+                                IconButton(onClick = { playable?.let { onPlay(it.key as me.xdan.aperture.domain.model.MediaKey.Jellyfin, true) } }) {
+                                    Icon(Icons.Rounded.Replay, contentDescription = "Play from the beginning")
+                                }
+                            }
+                            IconButton(onClick = viewModel::toggleFavorite) {
+                                Icon(
+                                    if (shown.isFavorite) Icons.AutoMirrored.Rounded.PlaylistAddCheck else Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                    contentDescription = if (shown.isFavorite) "Remove from My List" else "Add to My List"
+                                )
                             }
                             val watchedLabel = when {
                                 isShow && target.played -> "Mark episode unwatched"
@@ -236,7 +290,11 @@ private fun subheading(item: CatalogItem): String = listOfNotNull(
 
 private fun runtimeLabel(ms: Long): String {
     val minutes = ms / 60_000
-    return if (minutes >= 60) "${minutes / 60} hr ${minutes % 60} min" else "$minutes min"
+    return when {
+        minutes >= 60 -> "${minutes / 60} hr ${minutes % 60} min"
+        minutes == 0L -> "Under 1 min"
+        else -> "$minutes min"
+    }
 }
 
 @Composable

@@ -30,7 +30,15 @@ internal val PaletteOnlyRequest = Extras.Key(default = false)
 
 private val TmdbArtworkUrl = Regex("^https://image\\.tmdb\\.org/t/p/(?:w[0-9]+|original)(/[^?#]+)(?:[?#].*)?$")
 
-internal fun artworkPathFromUrl(url: String): String? = TmdbArtworkUrl.matchEntire(url)?.groupValues?.get(1)
+/** Jellyfin artwork: `<server>/Items/<id>/Images/<type>?tag=…`. The tag changes when the image does. */
+private val JellyfinArtworkUrl = Regex("^https?://[^?#]+/Items/[^/]+/Images/[A-Za-z]+\\?(?:[^#]*&)?tag=[^&#]+.*$")
+
+/**
+ * The key a seed is saved under: the TMDB path, or for Jellyfin the image URL itself, which is
+ * also how screens name Jellyfin artwork.
+ */
+internal fun artworkPathFromUrl(url: String): String? =
+    TmdbArtworkUrl.matchEntire(url)?.groupValues?.get(1) ?: url.takeIf { JellyfinArtworkUrl.matches(it) }
 
 class ArtworkPaletteStore(
     private val context: PlatformContext,
@@ -46,13 +54,36 @@ class ArtworkPaletteStore(
         it?.takeIf { palette -> palette.extractionVersion == ArtworkExtractionVersion }?.seedArgb
     }
 
+    /** Whether [path] already has a colour from the current extraction. */
+    suspend fun hasSeed(path: String): Boolean =
+        dao.get(path)?.extractionVersion == ArtworkExtractionVersion
+
     /** Disk-backed seeds survive restarts; caller cancellation does not discard useful precomputation. */
     suspend fun seed(path: String): Int? {
         dao.get(path)?.takeIf { it.extractionVersion == ArtworkExtractionVersion }?.let { return it.seedArgb }
         val pending = synchronized(inFlight) { inFlight[path] }
         pending?.await()?.let { return it }
-        val url = backdropImageUrl(path, backdropImageSpec(screen, BackdropImageUsage.AMBIENT))
+        val url = if (isFullUrl(path)) path else backdropImageUrl(path, backdropImageSpec(screen, BackdropImageUsage.AMBIENT))
         return compute(path, url, imageLoader(), null, true)
+    }
+
+    private fun isFullUrl(path: String) = path.startsWith("http://") || path.startsWith("https://")
+
+    /**
+     * Drops artwork a removed title no longer needs: its colours and the cached images. Takes
+     * TMDB paths (removed at each size the app loads) or full image URLs.
+     */
+    suspend fun forget(paths: Collection<String>) {
+        if (paths.isEmpty()) return
+        dao.delete(paths.toList())
+        val loader = imageLoader()
+        val urls = paths.flatMap { path ->
+            if (isFullUrl(path)) listOf(path)
+            else TMDB_SIZES.map { size -> me.xdan.aperture.data.remote.api.TmdbApi.IMAGE_BASE_URL + size + path } +
+                BackdropImageUsage.entries.map { backdropImageUrl(path, backdropImageSpec(screen, it)) }
+        }.toSet()
+        urls.forEach { url -> loader.diskCache?.remove(url) }
+        loader.memoryCache?.let { cache -> cache.keys.filter { it.key in urls }.forEach { cache.remove(it) } }
     }
 
     fun artworkLoaded(url: String, result: SuccessResult, loader: ImageLoader) {
@@ -109,3 +140,6 @@ class ArtworkPaletteStore(
         return work.await()
     }
 }
+
+/** The TMDB poster and still sizes the app loads, besides backdrops (which follow the screen). */
+private val TMDB_SIZES = listOf("w185", "w342", "w500", "w780", "original")

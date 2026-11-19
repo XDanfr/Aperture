@@ -75,6 +75,12 @@ interface JellyfinDao {
     suspend fun deleteItems(accountId: Long, itemIds: List<String>)
 
     /** After a full sync: drops whatever the server no longer has. */
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND syncGeneration != :generation")
+    suspend fun itemsNotIn(accountId: Long, generation: Long): List<RemoteItemEntity>
+
+    @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND itemId IN (:itemIds)")
+    suspend fun itemsById(accountId: Long, itemIds: List<String>): List<RemoteItemEntity>
+
     @Query("DELETE FROM remote_items WHERE accountId = :accountId AND syncGeneration != :generation")
     suspend fun deleteItemsNotIn(accountId: Long, generation: Long): Int
 
@@ -148,6 +154,14 @@ interface JellyfinDao {
 
     @Query("SELECT * FROM remote_items WHERE accountId = :accountId AND seriesId = :seriesId AND type = 'EPISODE' ORDER BY seasonNumber, episodeNumber")
     fun observeEpisodes(accountId: Long, seriesId: String): Flow<List<RemoteItemEntity>>
+
+    /** After playing: the resume point, watched state and when, as the server will now have them. */
+    @Query("""
+        UPDATE remote_items SET playbackPositionMs = :positionMs, played = (played OR :played),
+            playCount = playCount + (CASE WHEN :played THEN 1 ELSE 0 END), lastPlayedAt = :lastPlayedAt
+        WHERE accountId = :accountId AND itemId = :itemId
+    """)
+    suspend fun updatePlayback(accountId: Long, itemId: String, positionMs: Long, played: Boolean, lastPlayedAt: Long)
 
     @Query("UPDATE remote_items SET isFavorite = :favorite WHERE accountId = :accountId AND itemId = :itemId")
     suspend fun setFavorite(accountId: Long, itemId: String, favorite: Boolean)

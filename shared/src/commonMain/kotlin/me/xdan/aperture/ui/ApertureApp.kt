@@ -129,6 +129,23 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
     val updateDialogVisible = AppBuild.SIDELOAD_UPDATES_ENABLED && launchFinished && !legacyCleanupRequired &&
         offeredUpdate != null &&
         offeredUpdate.version != dismissedUpdateVersion
+    // These prompts are windows of their own. When the last one closes, nothing on the screen
+    // underneath has focus, and a remote can't move from nowhere; put it on the first item.
+    val appPromptVisible = updateDialogVisible || showSponsorPrompt || showSponsorQr || showSponsorVerification
+    var appPromptWasVisible by remember { mutableStateOf(false) }
+    val promptFocusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(appPromptVisible) {
+        if (appPromptVisible) {
+            appPromptWasVisible = true
+            return@LaunchedEffect
+        }
+        if (!appPromptWasVisible) return@LaunchedEffect
+        appPromptWasVisible = false
+        repeat(30) {
+            withFrameNanos { }
+            if (promptFocusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)) return@LaunchedEffect
+        }
+    }
     val updateBlocksSponsorPrompt = when (updateState) {
         UpdateCheckState.Checking,
         is UpdateCheckState.PermissionRequired,
@@ -209,6 +226,13 @@ fun ApertureApp(appState: ApertureAppState, onExit: () -> Unit) {
                                     if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
                                     appState.isPlayerActive = true
                                     backstack.add(Destination.Player(me.xdan.aperture.domain.model.MediaKey.Local(request.mediaId), request.fromStart))
+                                }
+                                is me.xdan.aperture.companion.CompanionNavigation.PlayJellyfin -> {
+                                    if (onboardingCompleted != true || legacyCleanupRequired || choosingProfileNow) return@collect
+                                    appState.isAmbientActive = false
+                                    if (backstack.lastOrNull() is Destination.Player) backstack.removeAt(backstack.lastIndex)
+                                    appState.isPlayerActive = true
+                                    backstack.add(Destination.Player(request.key, request.fromStart))
                                 }
                                 me.xdan.aperture.companion.CompanionNavigation.ExitPlayer -> {
                                     if (backstack.size > 1 && backstack.lastOrNull() is Destination.Player) {

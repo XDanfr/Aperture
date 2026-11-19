@@ -20,6 +20,17 @@ object FilenameParser {
     
     private val NOISE_REGEX = Regex("(?i)[. _-](1080p|720p|4k|2160p|x264|x265|h264|h265|web-dl|bluray|brrip|dvdrip|multi|dual-audio|hc|sub|eng|ita|fre|ger|spa|rus|chi|kor|jpn|hevc|aac|ac3|dts|dd5\\.1|xvid|divx|repack|proper|internal|readnfo|nfofix|complete|unrated|extended|directors.cut|theatrical|limited|remastered|criterion)(?=[. _-]|$).*")
 
+    private val HEIGHT_TAGS = listOf(
+        Regex("(?i)(?<![a-z0-9])(2160p|4k|uhd)(?![a-z0-9])") to 2160,
+        Regex("(?i)(?<![a-z0-9])1440p(?![a-z0-9])") to 1440,
+        Regex("(?i)(?<![a-z0-9])1080[pi](?![a-z0-9])") to 1080,
+        Regex("(?i)(?<![a-z0-9])720p(?![a-z0-9])") to 720,
+        Regex("(?i)(?<![a-z0-9])(576p|480p|dvdrip)(?![a-z0-9])") to 480
+    )
+
+    /** The picture height a release name states (2160 for "2160p", "4K" or "UHD"), if any. */
+    fun videoHeight(filename: String): Int? = HEIGHT_TAGS.firstOrNull { (tag, _) -> tag.containsMatchIn(filename) }?.second
+
     fun parse(filename: String, filePath: String? = null): CleanedMediaInfo {
         // Strip extension
         val nameWithoutExtension = filename.substringBeforeLast(".")

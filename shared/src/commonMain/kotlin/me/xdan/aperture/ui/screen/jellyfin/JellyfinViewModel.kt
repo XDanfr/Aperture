@@ -26,7 +26,8 @@ class JellyfinViewModel(
     private val profiles: ProfileRepository,
     private val watcher: JellyfinLibraryWatcher,
     private val dao: JellyfinDao,
-    private val platform: me.xdan.aperture.companion.CompanionPlatform
+    private val platform: me.xdan.aperture.companion.CompanionPlatform,
+    private val artwork: me.xdan.aperture.data.jellyfin.JellyfinArtworkCache
 ) : ViewModel() {
 
     sealed interface Setup {
@@ -43,7 +44,11 @@ class JellyfinViewModel(
         data class Password(val address: String, val serverName: String, val error: String? = null, val busy: Boolean = false) : Setup
         /** Signed in: how should this profile's library work? */
         data class ChooseMode(val account: JellyfinAccountEntity) : Setup
+        /** The library syncs and its artwork downloads, so Home opens with everything in place. */
+        data class Preparing(val account: JellyfinAccountEntity) : Setup
     }
+
+    val artworkProgress: StateFlow<me.xdan.aperture.data.jellyfin.JellyfinArtworkCache.Progress> = artwork.progress
 
     val account: StateFlow<JellyfinAccountEntity?> = accounts.activeAccount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -164,11 +169,19 @@ class JellyfinViewModel(
         _setup.value = Setup.ChooseMode(account)
     }
 
-    fun chooseMode(mode: LibraryMode) {
+    /** [showPreparing] false when the caller shows the download itself (onboarding). */
+    fun chooseMode(mode: LibraryMode, showPreparing: Boolean = true) {
         viewModelScope.launch {
             profiles.setLibraryMode(profiles.activeProfileId.first(), mode)
-            _setup.value = null
+            // Choosing a Jellyfin mode starts the watcher's sync and then the artwork download.
+            val account = (_setup.value as? Setup.ChooseMode)?.account
+            _setup.value = if (showPreparing && mode.usesJellyfin && account != null) Setup.Preparing(account) else null
         }
+    }
+
+    /** Leaves the preparation step; it carries on in the background. */
+    fun finishPreparing() {
+        if (_setup.value is Setup.Preparing) _setup.value = null
     }
 
     fun setLibraryMode(mode: LibraryMode) {

@@ -84,6 +84,8 @@ import java.util.Locale
 fun PlayerScreen(
     mediaId: Long,
     startFromBeginning: Boolean = false,
+    /** Set to play a Jellyfin title; [mediaId] is then its display id. */
+    jellyfinItemId: String? = null,
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
     onFinished: () -> Unit = {},
@@ -134,7 +136,8 @@ fun PlayerScreen(
         advancingEpisode = false
         val loadedId = media?.id
         if (loadedId == mediaId) entryMediaLoaded = true
-        if (entryMediaLoaded && loadedId != null) currentOnPlaybackMediaChanged(loadedId)
+        // Jellyfin titles use negative display ids, which aren't local rows to return focus to.
+        if (entryMediaLoaded && loadedId != null && loadedId > 0) currentOnPlaybackMediaChanged(loadedId)
     }
     LaunchedEffect(player, media?.id) {
         while (isActive) {
@@ -163,8 +166,9 @@ fun PlayerScreen(
     }
     var pendingScrubDirection by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(mediaId) {
-        viewModel.loadMedia(mediaId, startFromBeginning)
+    LaunchedEffect(mediaId, jellyfinItemId) {
+        if (jellyfinItemId != null) viewModel.loadJellyfin(jellyfinItemId, startFromBeginning)
+        else viewModel.loadMedia(mediaId, startFromBeginning)
     }
 
     DisposableEffect(player) {
@@ -190,6 +194,8 @@ fun PlayerScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            // Ends a Jellyfin session while the player still knows the position.
+            viewModel.onPlayerClosed()
             player.stop()
         }
     }
@@ -489,7 +495,7 @@ private fun BufferingOverlay(media: MediaEntity?) {
     val context = LocalPlatformContext.current
     val artworkPath = media?.backdropPath ?: media?.posterPath
     val artworkModel = artworkPath?.let { path ->
-        ImageRequest.Builder(context).data(TmdbApi.IMAGE_BASE_URL + (if (media?.backdropPath != null) "w1280" else "w780") + path).crossfade(100).build()
+        ImageRequest.Builder(context).data(me.xdan.aperture.ui.component.artworkUrl(path, if (media?.backdropPath != null) "w1280" else "w780")).crossfade(100).build()
     }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         artworkModel?.let { model ->

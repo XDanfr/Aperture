@@ -103,6 +103,22 @@ class JellyfinCatalog(
         ok
     }
 
+    /** Takes a title out of Continue Watching: its resume point goes back to the start. */
+    suspend fun clearResume(account: JellyfinAccountEntity, itemId: String): Boolean = withContext(Dispatchers.IO) {
+        val before = dao.observeItem(account.id, itemId).first() ?: return@withContext false
+        dao.upsertItems(listOf(before.copy(playbackPositionMs = 0)))
+        val ok = runCatching {
+            val api = accounts.api(account) ?: error("Not signed in")
+            val id = itemId.toUUIDOrNull() ?: error("Bad id")
+            api.userDataApi.updateItemUserData(
+                itemId = id,
+                data = org.jellyfin.sdk.model.api.UpdateUserItemDataDto(playbackPositionTicks = 0)
+            )
+        }.isSuccess
+        if (!ok) dao.upsertItems(listOf(before))
+        ok
+    }
+
     /** The Info dialog for a server item: where it is, the file, and its tracks. Null when unreachable. */
     suspend fun mediaInfo(account: JellyfinAccountEntity, itemId: String, libraryName: String?): MediaInfo? = withContext(Dispatchers.IO) {
         val api = accounts.api(account) ?: return@withContext null
@@ -219,3 +235,10 @@ class JellyfinCatalog(
         else -> null
     }
 }
+
+/**
+ * A request library (JellyBridge and the like): an untyped folder named Discover, whose titles are
+ * placeholders. Favouriting one asks the server to download it.
+ */
+val me.xdan.aperture.data.local.entity.RemoteLibraryEntity.isDiscover: Boolean
+    get() = (collectionType == null || collectionType == "mixed") && name.contains("discover", ignoreCase = true)

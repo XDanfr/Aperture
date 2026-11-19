@@ -29,6 +29,14 @@ data class MediaRecord(
     val stillPath: String? = null,
     val duration: Long? = null,
     val lastPlayedPosition: Long? = null,
+    /** TMDB genres, "|"-separated. */
+    val genres: String? = null,
+    /** TMDB's average rating, 0–10. */
+    val rating: Float? = null,
+    /** The picture's height (2160 for 4K), from the file name or playback. */
+    val videoHeight: Int? = null,
+    /** When the file was found missing (its folder there, the file not); null while it's there. */
+    val missingSince: Long? = null,
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     /** As a profile with nothing saved for it would see it. */
@@ -52,6 +60,10 @@ data class MediaRecord(
         stillPath = stillPath,
         duration = duration,
         lastPlayedPosition = lastPlayedPosition,
+        genres = genres,
+        rating = rating,
+        videoHeight = videoHeight,
+        missingSince = missingSince,
         dateAdded = dateAdded
     )
 }
@@ -83,6 +95,11 @@ data class MediaEntity(
     val isFavorite: Boolean = false,
     val favoriteAddedAt: Long? = null,
     val isHidden: Boolean = false,
+    val genres: String? = null,
+    val rating: Float? = null,
+    val videoHeight: Int? = null,
+    /** When the file was found missing (its folder there, the file not); null while it's there. */
+    val missingSince: Long? = null,
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     fun toRecord() = MediaRecord(
@@ -105,6 +122,10 @@ data class MediaEntity(
         stillPath = stillPath,
         duration = duration,
         lastPlayedPosition = lastPlayedPosition,
+        genres = genres,
+        rating = rating,
+        videoHeight = videoHeight,
+        missingSince = missingSince,
         dateAdded = dateAdded
     )
 }

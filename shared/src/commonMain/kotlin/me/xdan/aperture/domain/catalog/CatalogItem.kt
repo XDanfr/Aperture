@@ -46,6 +46,11 @@ class JellyfinImages(private val baseUrl: String) {
     fun image(itemId: String, type: String, tag: String?, maxWidth: Int): String? =
         tag?.let { "$baseUrl/Items/$itemId/Images/$type?tag=$it&maxWidth=$maxWidth&quality=90" }
 
+    /** An episode's show poster (its own Primary image is a 16:9 still); a film's own poster. */
+    fun titlePoster(entity: RemoteItemEntity): String? =
+        if (entity.type == "EPISODE") entity.seriesId?.let { image(it, "Primary", entity.seriesPrimaryImageTag, POSTER_WIDTH) }
+        else image(entity.itemId, "Primary", entity.primaryImageTag, POSTER_WIDTH)
+
     fun item(entity: RemoteItemEntity): CatalogItem {
         val kind = when (entity.type) {
             "SERIES" -> CatalogItem.Kind.SHOW

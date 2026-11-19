@@ -44,10 +44,29 @@ class LocalLibraryQueryTest {
     }
 
     @Test
-    fun offersDecadesAndNoRatingSort() {
+    fun filtersByGenreAnd4kAndSortsByRating() {
+        val tagged = listOf(
+            movie(1, "The Matrix", 1999).copy(genres = "Action|Science Fiction", rating = 8.2f, videoHeight = 2160),
+            movie(2, "Alien", 1979).copy(genres = "Horror|Science Fiction", rating = 8.5f),
+            movie(3, "Zodiac", 2007).copy(genres = "Crime|Thriller", videoHeight = 1080)
+        )
+        fun names(query: LibraryQuery) = LocalLibraryQuery.movies(tagged, emptyMap(), query, seed = 1).items.map { it.title }
+        assertEquals(listOf("Alien", "The Matrix"), names(LibraryQuery(genre = "Science Fiction")))
+        assertEquals(listOf("The Matrix"), names(LibraryQuery(uhdOnly = true)))
+        // Unrated titles go last.
+        assertEquals(listOf("Alien", "The Matrix", "Zodiac"), names(LibraryQuery(sort = LibraryQuery.Sort.RATING, descending = true)))
+        val options = LocalLibraryQuery.movies(tagged, emptyMap(), LibraryQuery(), seed = 1).options
+        assertEquals(listOf("Action", "Crime", "Horror", "Science Fiction", "Thriller"), options.genres)
+        assertTrue(options.offerUhd)
+    }
+
+    @Test
+    fun offersDecadesAndRatingSort() {
         val grid = LocalLibraryQuery.movies(films, emptyMap(), LibraryQuery(), seed = 1)
         assertEquals(listOf(2000, 1990, 1970), grid.options.decades)
-        assertTrue(LibraryQuery.Sort.RATING !in grid.options.sorts)
+        assertTrue(LibraryQuery.Sort.RATING in grid.options.sorts)
+        // Nothing here is tagged 4K, so the filter isn't offered.
+        assertTrue(!grid.options.offerUhd)
         assertEquals(setOf('A', 'M', 'U', 'Z'), grid.letters.keys)
     }
 

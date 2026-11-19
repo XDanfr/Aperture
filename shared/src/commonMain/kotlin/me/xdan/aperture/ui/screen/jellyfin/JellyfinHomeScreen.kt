@@ -11,6 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,11 +40,17 @@ import me.xdan.aperture.ui.theme.ApertureTheme
 
 class JellyfinHomeViewModel(
     catalog: JellyfinCatalog,
-    homeRows: me.xdan.aperture.domain.sidebar.HomeRowsRepository
+    homeRows: me.xdan.aperture.domain.sidebar.HomeRowsRepository,
+    preferences: me.xdan.aperture.domain.repository.UserPreferencesRepository
 ) : ViewModel() {
+    /** The same setting as the local Home: a rounded card, or edge to edge. */
+    val roundedSpotlight: StateFlow<Boolean> = preferences.roundedSpotlight
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     data class Row(val key: String, val title: String, val items: List<CatalogItem>, val landscape: Boolean = false)
     data class State(
-        val spotlight: CatalogItem? = null,
+        /** Up to five titles for the spotlight carousel. */
+        val spotlight: List<CatalogItem> = emptyList(),
         val rows: List<Row>? = null,
         /** How many rows come before the spotlight, as the profile placed it. */
         val spotlightPosition: Int = 0
@@ -58,7 +68,7 @@ class JellyfinHomeViewModel(
             }
             // Next Up and the spotlight come from the server or a random pick, once per visit.
             val extras = flow {
-                emit(Pair(catalog.nextUp(account), catalog.spotlight(account, 1).firstOrNull()))
+                emit(Pair(catalog.nextUp(account), catalog.spotlight(account, SPOTLIGHT_COUNT)))
             }
             combine(listOf(catalog.continueWatching(account)) + recent) { lists -> lists.toList() }
                 .combine(extras) { lists, (nextUp, spotlight) ->
@@ -74,7 +84,7 @@ class JellyfinHomeViewModel(
                     val shown = keys.mapNotNull(rows::get).filter { it.items.isNotEmpty() }
                     val before = keys.takeWhile { it != SPOTLIGHT }.toSet()
                     State(
-                        spotlight = spotlight.takeIf { SPOTLIGHT in keys },
+                        spotlight = if (SPOTLIGHT in keys) spotlight else emptyList(),
                         rows = shown,
                         spotlightPosition = shown.count { it.key in before }
                     )
@@ -84,6 +94,7 @@ class JellyfinHomeViewModel(
 
     companion object {
         private val HOME_ROW_COLLECTIONS = setOf("movies", "tvshows", "homevideos")
+        private const val SPOTLIGHT_COUNT = 5
         const val SPOTLIGHT = "spotlight"
         const val CONTINUE = "continue"
         const val NEXT_UP = "next_up"
@@ -110,6 +121,7 @@ fun JellyfinHomeScreen(
     onContentFocused: (FocusRequester) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val roundedSpotlight by viewModel.roundedSpotlight.collectAsState()
     val rows = state.rows
     if (rows == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { ExpressiveLoadingIndicator(Modifier.size(48.dp)) }
@@ -132,15 +144,44 @@ fun JellyfinHomeScreen(
             if (runCatching { contentEntryFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
         }
     }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // As on the local Home: the spotlight themes the app (Artwork Dynamic) while it's on screen at
+    // the top and nothing in a row has taken over.
+    var rowHasTheme by remember { mutableStateOf(false) }
+    val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24 } }
+    val rowFocused: (FocusRequester) -> Unit = { requester ->
+        rowHasTheme = true
+        onContentFocused(requester)
+    }
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        // The page is the entry point: focus goes back to the card it last had, or the first one
+        // on screen. A single button as the entry failed when Home was scrolled down (coming back
+        // to it from the sidebar), since the button wasn't composed, and nothing got focus.
+        modifier = Modifier.fillMaxSize()
+            .focusRequester(contentEntryFocusRequester)
+            .focusRestorer(),
         contentPadding = PaddingValues(bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(ApertureTheme.spacing.large)
     ) {
         val spotlight = state.spotlight
         val spotlightAt = state.spotlightPosition.coerceIn(0, rows.size)
+        val spotlightItem: @Composable () -> Unit = {
+            SpotlightCarousel(
+                items = spotlight,
+                rounded = roundedSpotlight,
+                onOpen = onItemClick,
+                entryFocusRequester = null,
+                drawerFocusRequester = drawerFocusRequester,
+                onFocused = {
+                    rowHasTheme = false
+                    onContentFocused(it)
+                },
+                allowUnfocusedTheme = spotlightAt == 0 && atTop && !rowHasTheme
+            )
+        }
         rows.forEachIndexed { rowIndex, row ->
-            if (spotlight != null && rowIndex == spotlightAt) item(key = "spotlight") { Spotlight(spotlight) }
+            if (spotlight.isNotEmpty() && rowIndex == spotlightAt) item(key = "spotlight") { spotlightItem() }
             item(key = row.key) {
             Column {
                 Text(
@@ -158,9 +199,9 @@ fun JellyfinHomeScreen(
                             item = item,
                             landscape = row.landscape,
                             onClick = { onItemClick(item, it) },
-                            focusRequester = if (rowIndex == 0 && index == 0) contentEntryFocusRequester else null,
+                            focusRequester = null,
                             drawerFocusRequester = if (index == 0) drawerFocusRequester else null,
-                            onFocused = onContentFocused,
+                            onFocused = rowFocused,
                             modifier = Modifier.width(if (row.landscape) 280.dp else 150.dp)
                         )
                     }
@@ -168,31 +209,117 @@ fun JellyfinHomeScreen(
             }
             }
         }
-        if (spotlight != null && spotlightAt == rows.size) item(key = "spotlight") { Spotlight(spotlight) }
+        if (spotlight.isNotEmpty() && spotlightAt == rows.size) item(key = "spotlight") { spotlightItem() }
     }
 }
 
+/**
+ * The Jellyfin Home's spotlight, the same carousel as the local Home: a few unwatched films that
+ * advance on their own, each with a button that opens its details.
+ */
 @Composable
-private fun Spotlight(item: CatalogItem) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(300.dp)
-            .padding(start = 32.dp, end = 32.dp, top = 24.dp)
-            .clip(ApertureTheme.shapes.hero)
-    ) {
-        item.backdrop?.let {
-            AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+private fun SpotlightCarousel(
+    items: List<CatalogItem>,
+    rounded: Boolean,
+    onOpen: (CatalogItem, FocusRequester) -> Unit,
+    entryFocusRequester: FocusRequester?,
+    drawerFocusRequester: FocusRequester?,
+    onFocused: (FocusRequester) -> Unit,
+    allowUnfocusedTheme: Boolean
+) {
+    val carouselState = androidx.tv.material3.rememberCarouselState()
+    val activeArtwork = me.xdan.aperture.ui.component.LocalActiveArtwork.current
+    val primary = ApertureTheme.colorScheme.primary
+    val requesters = remember(items.map { it.key }) { List(items.size) { FocusRequester() } }
+    var focused by remember { mutableStateOf(false) }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(if (rounded) 32.dp else 0.dp)
+    // The shown title themes the app: at once while focused, otherwise after a moment so a card
+    // taking focus wins, as on the local Home.
+    LaunchedEffect(carouselState.activeItemIndex, items, focused, allowUnfocusedTheme) {
+        val artwork = items.getOrNull(carouselState.activeItemIndex)?.let { it.backdrop ?: it.poster } ?: return@LaunchedEffect
+        if (focused) activeArtwork(artwork)
+        else if (allowUnfocusedTheme) {
+            kotlinx.coroutines.delay(180)
+            activeArtwork(artwork)
         }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.92f)))
+    }
+    androidx.tv.material3.Surface(
+        modifier = Modifier.fillMaxWidth().height(400.dp).padding(16.dp),
+        shape = shape,
+        colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        border = if (rounded) {
+            androidx.tv.material3.Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (focused) 3.dp else 1.dp,
+                    color = primary.copy(alpha = if (focused) 1f else 0.28f)
+                ),
+                shape = shape
             )
-        )
-        Column(Modifier.align(Alignment.BottomStart).padding(32.dp).fillMaxWidth(0.6f)) {
-            Text(item.title, style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            item.overview?.let {
-                Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else androidx.tv.material3.Border.None,
+        glow = me.xdan.aperture.ui.component.rememberFocusGlow(focused)
+    ) {
+        androidx.tv.material3.Carousel(
+            itemCount = items.size,
+            carouselState = carouselState,
+            modifier = Modifier.fillMaxSize().onFocusChanged { focused = it.hasFocus }
+        ) { index ->
+            val item = items[index]
+            val requester = if (entryFocusRequester != null && index == carouselState.activeItemIndex) entryFocusRequester else requesters[index]
+            Box(Modifier.fillMaxSize()) {
+                if (item.backdrop != null) {
+                    AsyncImage(model = item.backdrop, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                } else {
+                    me.xdan.aperture.ui.component.ArtworkFallback(title = item.title, isFocused = false, modifier = Modifier.fillMaxSize())
+                }
+                Box(
+                    Modifier.fillMaxSize().background(
+                        if (rounded) {
+                            Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.22f)))
+                        } else {
+                            Brush.verticalGradient(
+                                listOf(me.xdan.aperture.ui.theme.HeroGradientStart, me.xdan.aperture.ui.theme.HeroGradientEnd)
+                            )
+                        }
+                    )
+                )
+                Column(Modifier.align(Alignment.BottomStart).padding(32.dp).fillMaxWidth(0.6f)) {
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = androidx.compose.ui.graphics.Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    androidx.tv.material3.Button(
+                        onClick = { onOpen(item, requester) },
+                        modifier = Modifier
+                            .then(if (drawerFocusRequester != null) Modifier.focusProperties { left = drawerFocusRequester } else Modifier)
+                            .focusRequester(requester)
+                            .onFocusChanged { if (it.isFocused) onFocused(requester) },
+                        // The theme's colour, as on the local Home's spotlight.
+                        colors = if (ApertureTheme.isMaterialTv) {
+                            androidx.tv.material3.ButtonDefaults.colors()
+                        } else {
+                            androidx.tv.material3.ButtonDefaults.colors(
+                                containerColor = primary.copy(alpha = 0.72f),
+                                contentColor = ApertureTheme.colorScheme.onPrimary,
+                                focusedContainerColor = primary,
+                                focusedContentColor = ApertureTheme.colorScheme.onPrimary,
+                                pressedContainerColor = primary,
+                                pressedContentColor = ApertureTheme.colorScheme.onPrimary
+                            )
+                        }
+                    ) {
+                        Text(
+                            when {
+                                item.progress > 0f -> "Continue"
+                                item.played -> "Rewatch"
+                                else -> "Watch Now"
+                            }
+                        )
+                    }
+                }
             }
         }
     }

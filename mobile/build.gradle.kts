@@ -74,4 +74,5 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.play.services.code.scanner)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    testImplementation(libs.junit)
 }

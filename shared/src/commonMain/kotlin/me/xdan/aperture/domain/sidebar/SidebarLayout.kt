@@ -13,7 +13,12 @@ import me.xdan.aperture.platform.KeyValueStores
  * entries it has arranged and the ones it hid. Entries are keyed: "search", "movies", "shows",
  * "my_list", and "library:<id>" for each server library.
  */
-data class SidebarLayout(val order: List<String> = emptyList(), val hidden: Set<String> = emptySet()) {
+data class SidebarLayout(
+    val order: List<String> = emptyList(),
+    val hidden: Set<String> = emptySet(),
+    /** Icons the profile picked, by entry key: an id from the app's icon set. */
+    val icons: Map<String, String> = emptyMap()
+) {
 
     /**
      * The entries to show, in order. [available] is what exists right now in its default order;
@@ -34,15 +39,20 @@ data class SidebarLayout(val order: List<String> = emptyList(), val hidden: Set<
         return result
     }
 
-    fun encode(): String = order.joinToString(",") + "|" + hidden.joinToString(",")
+    fun encode(): String = order.joinToString(",") + "|" + hidden.joinToString(",") +
+        if (icons.isEmpty()) "" else "|" + icons.entries.joinToString(";") { (key, icon) -> "$key=$icon" }
 
     companion object {
         fun decode(value: String?): SidebarLayout {
             if (value.isNullOrEmpty()) return SidebarLayout()
-            val (order, hidden) = value.split('|', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+            val parts = value.split('|', limit = 3)
             return SidebarLayout(
-                order.split(',').filter { it.isNotBlank() },
-                hidden.split(',').filter { it.isNotBlank() }.toSet()
+                parts[0].split(',').filter { it.isNotBlank() },
+                parts.getOrElse(1) { "" }.split(',').filter { it.isNotBlank() }.toSet(),
+                parts.getOrElse(2) { "" }.split(';').mapNotNull { pair ->
+                    val at = pair.lastIndexOf('=')
+                    if (at <= 0 || at == pair.length - 1) null else pair.substring(0, at) to pair.substring(at + 1)
+                }.toMap()
             )
         }
     }

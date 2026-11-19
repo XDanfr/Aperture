@@ -21,6 +21,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Videocam
+import me.xdan.aperture.data.jellyfin.isDiscover
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
@@ -85,6 +88,7 @@ fun NavGraph(
         val available = sidebarCandidates(libraryMode, allJellyfinLibraries)
         val byKey = available.associateBy { it.key }
         sidebarLayout.arrange(available.map { it.key }).mapNotNull(byKey::get)
+            .map { entry -> SidebarIcons.byId(sidebarLayout.icons[entry.key])?.let { entry.copy(icon = it) } ?: entry }
     }
     val mediaActionsViewModel: MediaActionsViewModel = koinViewModel()
     val mediaActionState by mediaActionsViewModel.state.collectAsState()
@@ -109,6 +113,10 @@ fun NavGraph(
     var settingsRestoreFocusKey by remember { mutableStateOf<String?>(null) }
     var playerOriginFocusKey by remember { mutableStateOf<String?>(null) }
     var pendingPlayerFocusRestore by remember { mutableStateOf<String?>(null) }
+    val playJellyfin: (MediaKey.Jellyfin, Boolean) -> Unit = { key, fromStart ->
+        playerOriginFocusKey = currentFocusKey
+        onNavigate(Destination.Player(key, fromStart))
+    }
     var isRescanVisible by remember { mutableStateOf(false) }
     val homeDrawerRequester = remember { FocusRequester() }
     val searchDrawerRequester = remember { FocusRequester() }
@@ -341,23 +349,17 @@ fun NavGraph(
         }
 
         delay(160.milliseconds)
+        // The remembered card may have gone (a watched title leaves Continue Watching), so fall
+        // back to the screen's entry point, server libraries included. Retry for a few frames:
+        // the player's window can still be closing, and nothing would have focus at all.
         val rememberedRequester = lastFocusedRequesters[focusKey]
-        val fallbackRequester = when (focusKey) {
-            "home" -> homeContentEntryRequester
-            "search" -> searchContentEntryRequester
-            "my_list" -> myListContentEntryRequester
-            "movies" -> moviesContentEntryRequester
-            "shows" -> showsContentEntryRequester
-            "settings" -> settingsContentEntryRequester
-            else -> null
-        }
-        val restoredRememberedFocus = rememberedRequester?.let { requester ->
-            runCatching { requester.requestFocus() }.getOrDefault(false)
-        } == true
-        if (!restoredRememberedFocus) {
-            fallbackRequester?.let { requester ->
-                runCatching { requester.requestFocus() }
+        val fallbackRequester = contentEntryRequesters[focusKey]
+        for (attempt in 0 until 30) {
+            val restored = listOfNotNull(rememberedRequester, fallbackRequester).any { requester ->
+                runCatching { requester.requestFocus() }.getOrDefault(false)
             }
+            if (restored) break
+            withFrameNanos { }
         }
         pendingPlayerFocusRestore = null
         playerOriginFocusKey = null
@@ -567,6 +569,9 @@ fun NavGraph(
                                         }
                                     }
                                 }
+                                // Who's watching, apart from the destinations at the bottom of the rail.
+                                }
+                                // Settings stays pinned below the list, so a long list of libraries can't push it out of view.
                                 NavigationDrawerItem(
                                     colors = drawerItemColors,
                                     selected = currentDestination is Destination.Settings,
@@ -589,8 +594,6 @@ fun NavGraph(
                                     }
                                 }
 
-                                // Who's watching, apart from the destinations at the bottom of the rail.
-                                }
                                 val activeProfile = profiles.firstOrNull { it.id == activeProfileId }
                                 if (activeProfile != null) {
                                     NavigationDrawerItem(
@@ -640,6 +643,7 @@ fun NavGraph(
                 ) {
                     NavContent(
                         homeViewModel = homeViewModel,
+                        onPlayJellyfin = playJellyfin,
                         backstack = backstack,
                         displayedDestinations = backstack.filterNot { it is Destination.Player },
                         browsingPaused = !showDrawer || selectedMediaId != null || contextMediaId != null,
@@ -652,6 +656,7 @@ fun NavGraph(
                         onPlayerBack = returnFromPlayer,
                         onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onActiveArtworkChanged = mainViewModel::setActiveArtwork,
                         onForceRescan = {
                             isRescanVisible = true
                             mainViewModel.startLibraryPreparation(force = true)
@@ -687,6 +692,7 @@ fun NavGraph(
                 if (!showDrawer) {
                     NavContent(
                         homeViewModel = homeViewModel,
+                        onPlayJellyfin = playJellyfin,
                         backstack = backstack,
                         displayedDestinations = listOf(currentDestination),
                         browsingPaused = true,
@@ -703,6 +709,7 @@ fun NavGraph(
                         onPlayerBack = returnFromPlayer,
                         onPlaybackMediaChanged = playbackMediaChanged,
                         onActiveMediaChanged = mainViewModel::setActiveMedia,
+                        onActiveArtworkChanged = mainViewModel::setActiveArtwork,
                         onForceRescan = {
                             isRescanVisible = true
                             mainViewModel.startLibraryPreparation(force = true)
@@ -886,22 +893,24 @@ internal fun sidebarCandidates(
             .filter { it.collectionType in me.xdan.aperture.data.jellyfin.JellyfinSync.INDEXED_COLLECTIONS }
             // In hybrid mode the server's films and shows are inside Movies and Shows already.
             .filterNot { mode.usesLocal && it.collectionType in setOf("movies", "tvshows") }
-            .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it.collectionType), Destination.Library(it.id))) }
+            .forEach { add(SidebarEntry("library:${it.id}", it.name, libraryIcon(it), Destination.Library(it.id))) }
     }
     add(SidebarEntry("my_list", "My List", Icons.AutoMirrored.Rounded.PlaylistAdd, Destination.MyList))
 }
 
-/** Sidebar icon for a Jellyfin library type. */
-private fun libraryIcon(collectionType: String?): androidx.compose.ui.graphics.vector.ImageVector = when (collectionType) {
-    "movies" -> Icons.Rounded.Movie
-    "tvshows" -> Icons.Rounded.Tv
-    "homevideos" -> Icons.Rounded.VideoLibrary
+/** A Jellyfin library's default sidebar icon, by its type; a profile can pick another. */
+private fun libraryIcon(library: me.xdan.aperture.data.local.entity.RemoteLibraryEntity): androidx.compose.ui.graphics.vector.ImageVector = when {
+    library.collectionType == "movies" -> Icons.Rounded.Movie
+    library.collectionType == "tvshows" -> Icons.Rounded.Tv
+    library.collectionType == "homevideos" -> Icons.Rounded.Videocam
+    library.isDiscover -> Icons.Rounded.Explore
     else -> Icons.Rounded.Folder
 }
 
 @Composable
 private fun NavContent(
     homeViewModel: HomeViewModel,
+    onPlayJellyfin: (MediaKey.Jellyfin, Boolean) -> Unit,
     backstack: NavBackStack<Destination>,
     displayedDestinations: List<Destination>,
     browsingPaused: Boolean,
@@ -916,6 +925,7 @@ private fun NavContent(
     onPlayerBack: () -> Unit,
     onPlaybackMediaChanged: (Long) -> Unit,
     onActiveMediaChanged: (Long) -> Unit,
+    onActiveArtworkChanged: (String) -> Unit,
     onForceRescan: () -> Unit,
     onPreviewAmbientMode: () -> Unit,
     onOpenLibrary: (Destination) -> Unit,
@@ -928,6 +938,9 @@ private fun NavContent(
     val libraryMode by org.koin.compose.koinInject<me.xdan.aperture.domain.repository.ProfileRepository>()
         .activeLibraryMode.collectAsState(me.xdan.aperture.domain.model.LibraryMode.LOCAL)
     val currentCanRecoverContentFocus by rememberUpdatedState(canRecoverContentFocus)
+    androidx.compose.runtime.CompositionLocalProvider(
+        me.xdan.aperture.ui.component.LocalActiveArtwork provides onActiveArtworkChanged
+    ) {
     NavDisplay(
         backStack = displayedDestinations
     ) { destination ->
@@ -970,14 +983,18 @@ private fun NavContent(
                     delay(100.milliseconds)
                 }
             }
+            // One details panel and long-press menu per page, for its Jellyfin titles.
+            val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
             Box(
                 Modifier.fillMaxSize()
                     .onFocusChanged { pageHasFocus = it.hasFocus }
                     .focusGroup()
             ) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    me.xdan.aperture.ui.component.LocalCatalogLongClick provides details::openMenu
+                ) {
                 when (destination) {
                     is Destination.Home -> if (libraryMode == me.xdan.aperture.domain.model.LibraryMode.JELLYFIN) {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinHomeScreen(
                             viewModel = koinViewModel(),
                             onItemClick = { item, from -> details.open(item, from) },
@@ -985,7 +1002,7 @@ private fun NavContent(
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     } else HomeScreen(
                         viewModel = homeViewModel,
                         browsingPaused = currentBrowsingPaused,
@@ -1000,7 +1017,6 @@ private fun NavContent(
                         onOpenLibrary = onOpenLibrary
                     )
                     is Destination.Search -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         SearchScreen(
                             viewModel = koinViewModel(),
                             onMediaClick = mediaClick,
@@ -1010,10 +1026,9 @@ private fun NavContent(
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.MyList -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         MyListScreen(
                             viewModel = koinViewModel(),
                             onMediaClick = mediaClick,
@@ -1023,10 +1038,9 @@ private fun NavContent(
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Movies -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         MoviesScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = mediaClick,
@@ -1037,10 +1051,9 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged,
                             onRemoteClick = { item, from -> details.open(item, from) }
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Shows -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         ShowsScreen(
                         viewModel = koinViewModel(),
                         onMediaClick = episodeAwareMediaClick,
@@ -1055,7 +1068,7 @@ private fun NavContent(
                         onActiveMediaChanged = onActiveMediaChanged,
                             onRemoteClick = { item, from -> details.open(item, from) }
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Settings -> SettingsScreen(
                         drawerFocusRequester = drawerFocusRequester,
@@ -1067,7 +1080,6 @@ private fun NavContent(
                         onPreviewAmbientMode = onPreviewAmbientMode
                     )
                     is Destination.Library -> {
-                        val details = me.xdan.aperture.ui.screen.jellyfin.rememberJellyfinDetails()
                         me.xdan.aperture.ui.screen.jellyfin.JellyfinLibraryScreen(
                             viewModel = koinViewModel(key = "library:${destination.libraryId}") {
                                 org.koin.core.parameter.parametersOf(destination.libraryId)
@@ -1077,7 +1089,7 @@ private fun NavContent(
                             contentEntryFocusRequester = contentEntryFocusRequester,
                             onContentFocused = contentFocused
                         )
-                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details)
+                        me.xdan.aperture.ui.screen.jellyfin.JellyfinDetailsHost(details, onPlayJellyfin)
                     }
                     is Destination.Player -> when (val media = destination.media) {
                         is MediaKey.Local -> PlayerScreen(
@@ -1097,14 +1109,22 @@ private fun NavContent(
                                 backstack.add(Destination.Settings)
                             }
                         )
-                        // Jellyfin playback arrives with the player work; nothing links here yet.
-                        is MediaKey.Jellyfin -> LaunchedEffect(media) { onPlayerBack() }
+                        is MediaKey.Jellyfin -> PlayerScreen(
+                            mediaId = me.xdan.aperture.ui.screen.player.PlayerViewModel.jellyfinDisplayId(media.itemId),
+                            startFromBeginning = destination.startFromBeginning,
+                            jellyfinItemId = media.itemId,
+                            viewModel = koinViewModel(),
+                            onBack = onPlayerBack,
+                            onFinished = onPlayerBack
+                        )
                     }
                     else -> Box(modifier = Modifier.fillMaxSize()) {
                         Text("Coming Soon", modifier = Modifier.padding(32.dp))
                     }
                 }
+                }
             }
         }
+    }
     }
 }

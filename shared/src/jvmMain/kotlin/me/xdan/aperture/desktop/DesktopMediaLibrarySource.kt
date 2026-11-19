@@ -24,6 +24,11 @@ class DesktopMediaLibrarySource : MediaLibrarySource {
 
     override fun releaseFolder(folder: String) = Unit
 
+    override fun isGone(location: String, parentLocation: String?): Boolean {
+        val file = File(location)
+        return !file.exists() && file.parentFile?.isDirectory == true
+    }
+
     override suspend fun walkFolder(folder: String, onFile: suspend (DiscoveredFile) -> Unit): Boolean {
         val root = File(folder)
         if (!root.isDirectory || !root.canRead()) return false

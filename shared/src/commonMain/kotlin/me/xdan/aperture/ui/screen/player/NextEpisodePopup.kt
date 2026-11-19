@@ -64,7 +64,7 @@ internal fun NextEpisodePopup(
                     Box(Modifier.width(132.dp).height(74.dp).clip(ApertureTheme.shapes.poster)) {
                         if (!episode.stillPath.isNullOrBlank()) {
                             AsyncImage(
-                                model = TmdbApi.IMAGE_BASE_URL + "w300" + episode.stillPath,
+                                model = me.xdan.aperture.ui.component.artworkUrl(episode.stillPath, "w300"),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

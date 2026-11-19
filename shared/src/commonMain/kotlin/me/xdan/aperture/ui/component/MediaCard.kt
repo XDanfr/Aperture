@@ -75,7 +75,8 @@ fun MediaCard(
         artwork = artworkUrl(artworkPath, "w500"),
         title = fallbackTitle,
         onClick = onClick,
-        modifier = modifier,
+        // A title whose file has gone is greyed out until it's found again or removed.
+        modifier = if (media.missingSince != null) modifier.graphicsLayer { alpha = 0.38f } else modifier,
         focusRequester = focusRequester,
         aspectRatio = aspectRatio,
         progress = progress,
@@ -85,6 +86,18 @@ fun MediaCard(
         onLongClick = onLongClick
     )
 }
+
+/**
+ * Where a focused Jellyfin title names its artwork (an image URL), so Artwork Dynamic can theme
+ * from it the way local cards do through their media id. Does nothing outside the browsing screens.
+ */
+val LocalActiveArtwork = androidx.compose.runtime.staticCompositionLocalOf<(String) -> Unit> { {} }
+
+/**
+ * What holding Select on a catalog card does when the card isn't given its own: the screen's
+ * Jellyfin menu. Arguments are the item, the card, and whether the menu opens to its right.
+ */
+val LocalCatalogLongClick = androidx.compose.runtime.staticCompositionLocalOf<((me.xdan.aperture.domain.catalog.CatalogItem, FocusRequester, Boolean) -> Unit)?> { null }
 
 /** A Jellyfin (or any catalog) item as a poster, or as a 16:9 still when [landscape]. */
 @Composable
@@ -99,6 +112,9 @@ fun CatalogCard(
     onFocused: (FocusRequester) -> Unit = {},
     onLongClick: ((FocusRequester, Boolean) -> Unit)? = null
 ) {
+    val activeArtwork = LocalActiveArtwork.current
+    val screenLongClick = LocalCatalogLongClick.current
+    val longClick = onLongClick ?: screenLongClick?.let { menu -> { requester: FocusRequester, toRight: Boolean -> menu(item, requester, toRight) } }
     ArtworkCard(
         artwork = if (landscape) item.thumb ?: item.backdrop ?: item.poster else item.poster,
         title = if (landscape) listOfNotNull(item.title, item.episodeLabel).joinToString(" · ") else item.title,
@@ -109,8 +125,11 @@ fun CatalogCard(
         progress = item.progress,
         focusScale = focusScale,
         drawerFocusRequester = drawerFocusRequester,
-        onFocused = onFocused,
-        onLongClick = onLongClick
+        onFocused = { requester ->
+            onFocused(requester)
+            (item.backdrop ?: item.poster)?.let(activeArtwork)
+        },
+        onLongClick = longClick
     )
 }
 
