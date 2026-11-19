@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +69,8 @@ import me.xdan.aperture.mobile.ui.components.DotSeparatedRow
 fun DetailsSheet(
     entry: LibraryEntry,
     canControlTv: Boolean,
+    /** A Discover title: Download (a favourite on the server) instead of Play. */
+    isDiscover: Boolean = false,
     onDismiss: () -> Unit,
     onPlay: (CompanionMedia, fromStart: Boolean) -> Unit,
     onFavourite: (CompanionMedia, Boolean) -> Unit
@@ -77,7 +81,7 @@ fun DetailsSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         when (entry) {
-            is LibraryEntry.Movie -> MovieDetails(entry.media, canControlTv, onPlay, onFavourite)
+            is LibraryEntry.Movie -> MovieDetails(entry.media, canControlTv, isDiscover, onPlay, onFavourite)
             is LibraryEntry.Show -> ShowDetails(entry.group, canControlTv, onPlay, onFavourite)
         }
     }
@@ -151,10 +155,44 @@ private fun PlayActions(
     }
 }
 
+/**
+ * Discover's one action: favouriting a title is what asks the server to download it, as on the
+ * TV. Once requested it reads Requested; selecting it again cancels.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DownloadAction(media: CompanionMedia, canControlTv: Boolean, onRequest: (Boolean) -> Unit) {
+    val requested = media.isFavorite
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (requested) {
+            OutlinedButton(
+                onClick = { onRequest(false) },
+                enabled = canControlTv,
+                modifier = Modifier.fillMaxWidth().height(ButtonDefaults.MediumContainerHeight)
+            ) {
+                Icon(Icons.Rounded.DownloadDone, contentDescription = null, modifier = Modifier.size(ButtonDefaults.MediumIconSize))
+                Spacer(Modifier.width(8.dp))
+                Text("Requested · Tap to cancel", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
+            }
+        } else {
+            Button(
+                onClick = { onRequest(true) },
+                enabled = canControlTv,
+                modifier = Modifier.fillMaxWidth().height(ButtonDefaults.MediumContainerHeight)
+            ) {
+                Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(ButtonDefaults.MediumIconSize))
+                Spacer(Modifier.width(8.dp))
+                Text("Download", style = ButtonDefaults.textStyleFor(ButtonDefaults.MediumContainerHeight))
+            }
+        }
+    }
+}
+
 @Composable
 private fun MovieDetails(
     media: CompanionMedia,
     canControlTv: Boolean,
+    isDiscover: Boolean,
     onPlay: (CompanionMedia, Boolean) -> Unit,
     onFavourite: (CompanionMedia, Boolean) -> Unit
 ) {
@@ -165,7 +203,7 @@ private fun MovieDetails(
         Backdrop(media.backdropPath, media.posterPath, media.title)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(media.title, style = MaterialTheme.typography.headlineMedium)
-            DotSeparatedRow(listOfNotNull(media.year?.toString(), media.durationMs?.let(::formatRuntime)))
+            DotSeparatedRow(listOfNotNull(media.year?.toString(), media.durationMs?.let(::formatRuntime), sourceLabel(media.source)))
         }
         if (media.isInProgress) {
             LinearWavyProgressIndicator(
@@ -173,7 +211,8 @@ private fun MovieDetails(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             )
         }
-        PlayActions(media, canControlTv, onPlay, media.isFavorite, { onFavourite(media, it) })
+        if (isDiscover) DownloadAction(media, canControlTv) { onFavourite(media, it) }
+        else PlayActions(media, canControlTv, onPlay, media.isFavorite, { onFavourite(media, it) })
         media.overview?.takeIf { it.isNotBlank() }?.let {
             Text(it, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp))
         }
@@ -200,7 +239,8 @@ private fun ShowDetails(
                         listOfNotNull(
                             show.year?.toString(),
                             "${seasons.size} season${if (seasons.size == 1) "" else "s"}",
-                            "${show.episodes.size} episodes"
+                            "${show.episodes.size} episodes",
+                            sourceLabel(show.representative.source)
                         )
                     )
                 }
@@ -298,3 +338,7 @@ fun formatClock(ms: Long): String {
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+/** "From Jellyfin" for a server title; local titles need no label. */
+internal fun sourceLabel(source: String): String? =
+    "From Jellyfin".takeIf { source == me.xdan.aperture.companion.protocol.MediaSource.JELLYFIN }

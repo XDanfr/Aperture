@@ -32,7 +32,7 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     val onboardingDone = settings.onboardingDone
 
     val library: StateFlow<Library?> = repository.library
-        .map { items -> items?.let(::Library) }
+        .map { snapshot -> snapshot?.let { Library(it.items, it.collections) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** palette id after resolving Sync with TV (Artwork Dynamic → Aperture Purple). */

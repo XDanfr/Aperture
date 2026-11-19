@@ -173,8 +173,8 @@ class PlayerViewModel constructor(
             player.audioDecoderName.collect { _audioDecoderName.value = it }
         }
         checkDisplayCapabilities()
-        // The companion only knows local titles until its next protocol version.
-        viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it?.takeIf { media -> media.id > 0 }) } }
+        // Jellyfin titles go out with their negative display id, the same id the phone's library uses.
+        viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it) } }
         viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
         viewModelScope.launch {
             companionHub.playerCommands.collect { command ->
@@ -197,6 +197,10 @@ class PlayerViewModel constructor(
                     is me.xdan.aperture.companion.CompanionPlayerCommand.Load -> {
                         saveProgressNow()
                         loadMedia(command.mediaId, command.fromStart)
+                    }
+                    is me.xdan.aperture.companion.CompanionPlayerCommand.LoadJellyfin -> {
+                        saveProgressNow()
+                        loadJellyfin(command.itemId, command.fromStart)
                     }
                 }
             }
@@ -890,7 +894,8 @@ private fun jellyfinDisplay(baseUrl: String, item: RemoteItemEntity): MediaEntit
         title = if (episode) item.seriesName ?: item.name else item.name,
         year = item.year,
         tmdbId = item.tmdbId?.toIntOrNull(),
-        posterPath = catalog.poster,
+        // The show's poster for an episode, as the phone shows it.
+        posterPath = JellyfinImages(baseUrl).titlePoster(item) ?: catalog.poster,
         backdropPath = catalog.backdrop,
         overview = item.overview,
         type = if (episode) "EPISODE" else "MOVIE",

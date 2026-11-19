@@ -66,8 +66,8 @@ class TvRepository(
     private val _nowPlaying = MutableStateFlow<LiveNowPlaying?>(null)
     val nowPlaying: StateFlow<LiveNowPlaying?> = _nowPlaying.asStateFlow()
 
-    private val _library = MutableStateFlow<List<CompanionMedia>?>(null)
-    val library: StateFlow<List<CompanionMedia>?> = _library.asStateFlow()
+    private val _library = MutableStateFlow<me.xdan.aperture.companion.protocol.LibrarySnapshot?>(null)
+    val library: StateFlow<me.xdan.aperture.companion.protocol.LibrarySnapshot?> = _library.asStateFlow()
 
     private var connectJob: Job? = null
     private var libraryRevision: Long? = null
@@ -169,7 +169,7 @@ class TvRepository(
         if (!force && _library.value != null) return
         val snapshot = client.library(tv)
         libraryRevision = snapshot.revision
-        _library.value = snapshot.items
+        _library.value = snapshot
     }
 
     // endregion

@@ -1,5 +1,7 @@
 package me.xdan.aperture.mobile.data
 
+import me.xdan.aperture.companion.protocol.CollectionKind
+import me.xdan.aperture.companion.protocol.CompanionCollection
 import me.xdan.aperture.companion.protocol.CompanionMedia
 import me.xdan.aperture.companion.protocol.CompanionMediaType
 
@@ -61,11 +63,47 @@ val CompanionMedia.episodeLabel: String?
         "S$seasonNumber · E$episodeNumber"
     } else null
 
-data class Library(val items: List<CompanionMedia>) {
-    val movies: List<CompanionMedia> = items.filter { it.type != CompanionMediaType.EPISODE }
+data class Library(
+    val items: List<CompanionMedia>,
+    /** The TV's library entries in its sidebar order; empty from older TVs. */
+    private val tvCollections: List<CompanionCollection> = emptyList()
+) {
+    /** The TV's entries, or Movies and TV shows for a TV that predates collections. */
+    val collections: List<CompanionCollection> = tvCollections.ifEmpty {
+        listOf(
+            CompanionCollection(FALLBACK_MOVIES, "Movies", CollectionKind.MOVIES, "movie"),
+            CompanionCollection(FALLBACK_SHOWS, "TV shows", CollectionKind.SHOWS, "tv")
+        )
+    }
+
+    private val discoverKeys = collections.filter { it.kind == CollectionKind.DISCOVER }.map { it.key }.toSet()
+
+    fun collectionOf(media: CompanionMedia): String =
+        media.collection ?: if (media.type == CompanionMediaType.EPISODE) FALLBACK_SHOWS else FALLBACK_MOVIES
+
+    /** A requestable title: the phone offers Download rather than Play. */
+    fun isDiscover(media: CompanionMedia): Boolean = collectionOf(media) in discoverKeys
+
+    /** Everything but Discover's placeholders: what Home, Movies and TV shows draw from. */
+    private val watchable = items.filterNot(::isDiscover)
+
+    val hasDiscover: Boolean get() = discoverKeys.isNotEmpty()
+
+    /** Discover's titles, newest first. */
+    val discover: List<LibraryEntry> by lazy {
+        items.filter(::isDiscover).sortedByDescending { it.dateAdded }.map { LibraryEntry.Movie(it) }
+    }
+
+    /** A collection's titles: films as themselves, episodes grouped into their shows. */
+    fun entriesIn(key: String): List<LibraryEntry> =
+        items.filter { collectionOf(it) == key }.map(::entryFor).distinctBy { it.key }.sortedBy { it.title.lowercase() }
+
+    fun count(key: String): Int = entriesIn(key).size
+
+    val movies: List<CompanionMedia> = watchable.filter { it.type != CompanionMediaType.EPISODE }
         .sortedBy { it.title.lowercase() }
 
-    val shows: List<ShowGroup> = items.filter { it.type == CompanionMediaType.EPISODE }
+    val shows: List<ShowGroup> = watchable.filter { it.type == CompanionMediaType.EPISODE }
         .groupBy { it.title }
         .map { (title, episodes) ->
             ShowGroup(title, episodes.sortedWith(compareBy({ it.seasonNumber ?: Int.MAX_VALUE }, { it.episodeNumber ?: Int.MAX_VALUE }, { it.id })))
@@ -81,17 +119,17 @@ data class Library(val items: List<CompanionMedia>) {
         else LibraryEntry.Movie(media)
 
     /** in-progress titles, one card per show, most recent first. */
-    val continueWatching: List<CompanionMedia> = items.filter { it.isInProgress }
+    val continueWatching: List<CompanionMedia> = watchable.filter { it.isInProgress }
         .sortedByDescending { it.lastWatchedAt ?: 0 }
         .distinctBy { if (it.type == CompanionMediaType.EPISODE) "show:${it.title}" else "media:${it.id}" }
         .take(20)
 
-    val recentlyAdded: List<LibraryEntry> = items.sortedByDescending { it.dateAdded }
+    val recentlyAdded: List<LibraryEntry> = watchable.sortedByDescending { it.dateAdded }
         .map(::entryFor)
         .distinctBy { it.key }
         .take(20)
 
-    val favourites: List<LibraryEntry> = items.filter { it.isFavorite }
+    val favourites: List<LibraryEntry> = watchable.filter { it.isFavorite }
         .map(::entryFor)
         .distinctBy { it.key }
 
@@ -103,3 +141,7 @@ data class Library(val items: List<CompanionMedia>) {
         }.map(::entryFor).distinctBy { it.key }
     }
 }
+
+/** Collection keys for a TV that sends none; the same as the TV's own Movies and TV shows. */
+const val FALLBACK_MOVIES = "movies"
+const val FALLBACK_SHOWS = "shows"

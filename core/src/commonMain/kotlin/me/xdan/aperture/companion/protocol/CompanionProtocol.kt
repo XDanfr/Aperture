@@ -176,13 +176,50 @@ data class CompanionMedia(
     val lastWatchedAt: Long? = null,
     val completed: Boolean = false,
     val isFavorite: Boolean = false,
-    val dateAdded: Long = 0
+    val dateAdded: Long = 0,
+    /**
+     * Where the title is: [MediaSource.LOCAL] on the TV, or [MediaSource.JELLYFIN] on its server.
+     * Jellyfin titles have negative ids, and their artwork paths are full image URLs.
+     */
+    val source: String = MediaSource.LOCAL,
+    /** The [CompanionCollection.key] this title belongs to; null from older TVs. */
+    val collection: String? = null
 )
+
+/**
+ * One of the TV's library entries, as its sidebar shows them: the profile's order, name and
+ * icon (an id from the TV's sidebar icon set, which the phone mirrors).
+ */
+@Serializable
+data class CompanionCollection(
+    val key: String,
+    val name: String,
+    /** A [CollectionKind]. */
+    val kind: String,
+    val icon: String = ""
+)
+
+object CollectionKind {
+    const val MOVIES = "movies"
+    const val SHOWS = "shows"
+    const val HOME_VIDEOS = "homevideos"
+    /** Requestable titles (JellyBridge and the like): favouriting one asks for a download. */
+    const val DISCOVER = "discover"
+    const val OTHER = "other"
+}
+
+object MediaSource {
+    const val LOCAL = "local"
+    const val JELLYFIN = "jellyfin"
+    const val BOTH = "both"
+}
 
 @Serializable
 data class LibrarySnapshot(
     val revision: Long,
-    val items: List<CompanionMedia>
+    val items: List<CompanionMedia>,
+    /** The TV's library entries in its sidebar order; empty from older TVs. */
+    val collections: List<CompanionCollection> = emptyList()
 )
 
 @Serializable
@@ -225,7 +262,12 @@ data class TvState(
     val deviceKind: String = DeviceKind.TV,
     val deviceOs: String = "",
     /** who's watching on the TV; favourites and progress the phone sees are this profile's. */
-    val profileName: String? = null
+    val profileName: String? = null,
+    /**
+     * Where that profile's library comes from: [MediaSource.LOCAL], [MediaSource.JELLYFIN], or
+     * [MediaSource.BOTH]. Blank from TVs that predate Jellyfin.
+     */
+    val librarySource: String = ""
 )
 
 @Serializable
@@ -252,5 +294,8 @@ sealed interface CompanionCommand {
     data class SetFavorite(val mediaId: Long, val favorite: Boolean) : CompanionCommand
 }
 
+/** A TMDB path at [size], or a Jellyfin title's artwork, which arrives as a full URL. */
 fun tmdbImageUrl(path: String?, size: String = "w342"): String? =
-    path?.takeIf { it.isNotBlank() }?.let { CompanionProtocol.TMDB_IMAGE_BASE_URL + size + it }
+    path?.takeIf { it.isNotBlank() }?.let {
+        if (it.startsWith("http://") || it.startsWith("https://")) it else CompanionProtocol.TMDB_IMAGE_BASE_URL + size + it
+    }
