@@ -25,6 +25,8 @@ object CompanionProtocol {
     const val PATH_EVENTS = "/v1/events"
     const val PATH_COMMAND = "/v1/command"
     const val PATH_COLORS = "/v1/colors"
+    /** A JPEG frame from what's playing: `/v1/frame/{positionMs}`, for chapter thumbnails. */
+    const val PATH_FRAME = "/v1/frame/"
 
     const val TXT_TV_ID = "id"
     const val TXT_VERSION = "v"
@@ -236,11 +238,15 @@ data class NowPlaying(
     val hasNextEpisode: Boolean = false,
     /** "Skip Intro", "Skip Credits"…: a Jellyfin segment is playing that [CompanionCommand.SkipSegment] skips. Null from older TVs. */
     val skipLabel: String? = null,
-    /** Starts and ends of the title's Jellyfin segments (ms), where the progress bar splits. */
-    val segmentSplitsMs: List<Long> = emptyList(),
+    /** The title split at its Jellyfin segments (recap, intro, credits…), in order; empty when it has none. */
+    val chapters: List<CompanionChapter> = emptyList(),
     /** wall-clock time the position was sampled, so the phone can interpolate smoothly. */
     val sampledAt: Long = System.currentTimeMillis()
 )
+
+/** One piece of the title, as the TV's split progress bar shows it. */
+@Serializable
+data class CompanionChapter(val name: String, val startMs: Long, val endMs: Long)
 
 /**
  * a phone's Material You accents (dark-theme roles, ARGB), reported so the TV can offer

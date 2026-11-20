@@ -95,6 +95,7 @@ fun PlayerScreen(
     val media by viewModel.media.collectAsState()
     val nextEpisode by viewModel.nextEpisode.collectAsState()
     val activeSegment by viewModel.activeSegment.collectAsState()
+    val previewSource by viewModel.previewSource.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
@@ -399,15 +400,12 @@ fun PlayerScreen(
             enter = fadeIn(animationSpec = tween(220)),
             exit = fadeOut(animationSpec = tween(220))
         ) {
-          val splitsMs by viewModel.segmentSplits.collectAsState()
-          val splitDuration = player.duration
-          val splits = remember(splitsMs, splitDuration) {
-              if (splitDuration <= 0) emptyList() else splitsMs.map { it.toFloat() / splitDuration }.filter { it > 0f && it < 1f }
-          }
-          androidx.compose.runtime.CompositionLocalProvider(LocalProgressSplits provides splits) {
+          val chapters by viewModel.chapters.collectAsState()
+          val splits = remember(chapters) { chapters.splitFractions(chapters.lastOrNull()?.endMs ?: 0L) }
+          androidx.compose.runtime.CompositionLocalProvider(LocalProgressSplits provides splits, LocalPlayerChapters provides chapters) {
             if (classicPlayerControls) {
                 ClassicPlayerOsd(
-                    media = media, mediaSource = media?.filePath, player = player,
+                    media = media, mediaSource = previewSource ?: media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
                     videoDecoderName = videoDecoderName,
                     audioDecoderName = audioDecoderName,
@@ -424,7 +422,7 @@ fun PlayerScreen(
                 )
             } else {
                 ThinPlayerOsd(
-                    media = media, mediaSource = media?.filePath, player = player,
+                    media = media, mediaSource = previewSource ?: media?.filePath, player = player,
                     isVisible = isOsdVisible && !isQuickMenuVisible,
                     videoDecoderName = videoDecoderName,
                     audioDecoderName = audioDecoderName,
@@ -762,7 +760,11 @@ private fun ThinPlayerOsd(
         }
     }
     fun endHold() { holdDirection = 0; seekJob?.cancel(); seekJob = null }
+    // Up while scrubbing: Left and Right jump between chapters (the split bar's pieces), as on YouTube.
+    val chapters = LocalPlayerChapters.current
+    var chapterMode by remember { mutableStateOf(false) }
     fun beginScrubbing(direction: Int, startHold: Boolean = true) {
+        if (isScrubbing && chapterMode) { endHold(); seekPosition = chapters.jump(seekPosition, direction).coerceIn(0L, duration); return }
         if (!isScrubbing) {
             originalPosition = player.currentPosition; seekPosition = originalPosition; wasPlayingBeforeScrub = isPlaying; isScrubbing = true; onScrubbingChanged(true); player.pause()
         }
@@ -793,11 +795,11 @@ private fun ThinPlayerOsd(
     }
     fun commitScrubbing() {
         if (!isScrubbing) return
-        endHold(); player.seekTo(seekPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play()
+        endHold(); chapterMode = false; player.seekTo(seekPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play()
     }
     fun cancelScrubbing(closeOsd: Boolean = false) {
         if (!isScrubbing) return
-        endHold(); player.seekTo(originalPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play(); controlsFocusRequester.requestFocus(); if (closeOsd) onCloseOsd()
+        endHold(); chapterMode = false; player.seekTo(originalPosition.coerceIn(0L, duration)); isScrubbing = false; onScrubbingChanged(false); if (wasPlayingBeforeScrub) player.play(); controlsFocusRequester.requestFocus(); if (closeOsd) onCloseOsd()
     }
     // Desktop mouse scrubbing: the same scrubbing state as the D-pad, positioned directly.
     fun pointerScrubTo(fraction: Float) {
@@ -816,7 +818,7 @@ private fun ThinPlayerOsd(
                 Key.DirectionLeft -> if (isScrubbing || playFocused) { beginScrubbing(-1); true } else false
                 Key.DirectionRight -> if (isScrubbing || playFocused) { beginScrubbing(1); true } else false
                 Key.DirectionCenter, Key.Enter -> if (isScrubbing) { commitScrubbing(); true } else false
-                Key.DirectionUp -> if (isScrubbing) { cancelScrubbing(closeOsd = true); true } else if (playFocused) { topFocusRequester.requestFocus(); true } else false
+                Key.DirectionUp -> if (isScrubbing && chapters.isNotEmpty()) { endHold(); chapterMode = !chapterMode; true } else if (isScrubbing) { cancelScrubbing(closeOsd = true); true } else if (playFocused) { topFocusRequester.requestFocus(); true } else false
                 Key.DirectionDown -> if (isScrubbing) { cancelScrubbing(); onQuickMenu(); true } else if (playFocused) { onQuickMenu(); true } else false
                 else -> false
             }
@@ -857,7 +859,7 @@ private fun ThinPlayerOsd(
             Spacer(Modifier.width(12.dp))
             Text(text = formatTime(currentPosition), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
             Spacer(Modifier.width(10.dp))
-            PlayerSeekProgress(player = player, mediaSource = mediaSource, progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f, isPlaying = isPlaying, scrubbing = isScrubbing, seekPosition = seekPosition, onPointerScrub = ::pointerScrubTo, onPointerScrubEnd = { commitScrubbing(); onInteraction() }, onHover = { onInteraction() }, modifier = Modifier.weight(1f).height(24.dp))
+            PlayerSeekProgress(player = player, mediaSource = mediaSource, progress = if (duration > 0L) (currentPosition.toFloat() / duration).coerceIn(0f, 1f) else 0f, isPlaying = isPlaying, scrubbing = isScrubbing, chapterMode = chapterMode, seekPosition = seekPosition, onPointerScrub = ::pointerScrubTo, onPointerScrubEnd = { commitScrubbing(); onInteraction() }, onHover = { onInteraction() }, modifier = Modifier.weight(1f).height(24.dp))
             Spacer(Modifier.width(10.dp))
             Text(text = formatTime(duration), style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.graphicsLayer { alpha = uiAlpha })
         }
@@ -879,7 +881,7 @@ private fun ThinPlayerOsd(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progress: Float, isPlaying: Boolean, scrubbing: Boolean, seekPosition: Long, onPointerScrub: (Float) -> Unit = {}, onPointerScrubEnd: () -> Unit = {}, onHover: () -> Unit = {}, modifier: Modifier = Modifier) {
+private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progress: Float, isPlaying: Boolean, scrubbing: Boolean, seekPosition: Long, chapterMode: Boolean = false, onPointerScrub: (Float) -> Unit = {}, onPointerScrubEnd: () -> Unit = {}, onHover: () -> Unit = {}, modifier: Modifier = Modifier) {
     val duration = player.duration.coerceAtLeast(0L)
     var previewBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     val previewLoader = rememberPreviewFrames()
@@ -917,7 +919,8 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
                     Box(modifier = Modifier.fillMaxWidth().height(previewHeight).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                         if (previewBitmap != null) Image(bitmap = previewBitmap!!, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) else ExpressiveLoadingIndicator(color = MaterialTheme.colorScheme.primary, size = 28.dp)
                     }
-                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ChapterPreviewLabel(chapters = LocalPlayerChapters.current, positionMs = previewTime, chapterMode = chapterMode)
                         Text(text = formatTime(previewTime), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }

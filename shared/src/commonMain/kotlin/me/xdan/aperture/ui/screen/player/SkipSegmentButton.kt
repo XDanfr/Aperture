@@ -55,3 +55,19 @@ internal fun SkipSegmentButton(label: String, focusRequester: FocusRequester, on
 /** Keys the focused Skip button handles itself instead of the player's shortcuts. */
 internal fun Key.isSkipButtonKey(): Boolean =
     this == Key.DirectionCenter || this == Key.Enter || this == Key.NumPadEnter
+
+/**
+ * The chapter under the scrubbing preview. In chapter mode it carries arrows, since Left and
+ * Right then jump between chapters; outside it, a hint that Up switches it on.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun ChapterPreviewLabel(chapters: List<PlayerChapter>, positionMs: Long, chapterMode: Boolean) {
+    val chapter = chapters.at(positionMs) ?: return
+    val scheme = MaterialTheme.colorScheme
+    Text(
+        text = if (chapterMode) "‹  ${chapter.name}  ›" else chapter.name,
+        style = MaterialTheme.typography.titleMedium,
+        color = if (chapterMode) scheme.primary else scheme.onSurfaceVariant
+    )
+}

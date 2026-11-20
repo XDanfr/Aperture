@@ -3,6 +3,12 @@ package me.xdan.aperture.mobile.ui.screens
 import me.xdan.aperture.mobile.ui.components.LocalDeviceNoun
 import android.os.SystemClock
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +78,9 @@ import me.xdan.aperture.companion.protocol.CompanionCommand
 import me.xdan.aperture.mobile.data.LiveNowPlaying
 import me.xdan.aperture.mobile.ui.components.Artwork
 import me.xdan.aperture.ui.component.SplitWaveProgress
+import me.xdan.aperture.ui.component.SplitSliderTrack
+import me.xdan.aperture.companion.protocol.CompanionChapter
+import androidx.compose.ui.graphics.ImageBitmap
 import me.xdan.aperture.companion.protocol.NowPlaying
 import me.xdan.aperture.mobile.ui.components.CompanionShapes
 
@@ -185,11 +194,13 @@ fun NowPlayingBar(
 fun NowPlayingSheet(
     live: LiveNowPlaying,
     onDismiss: () -> Unit,
-    onCommand: (CompanionCommand) -> Unit
+    onCommand: (CompanionCommand) -> Unit,
+    loadFrame: suspend (Long) -> ImageBitmap? = { null }
 ) {
     val np = live.value
     val progress = rememberSmoothProgress(live)
     val position = progress.positionMs.coerceAtLeast(0L)
+    var showChapters by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var scrubValue by remember { mutableFloatStateOf(0f) }
     ModalBottomSheet(
@@ -228,12 +239,12 @@ fun NowPlayingSheet(
                     },
                     enabled = np.durationMs > 0,
                     track = { state ->
-                        // The usual slider track, cut where the TV's segments (intro, credits…) start and end.
-                        val splits = np.splitFractions()
-                        SliderDefaults.Track(
-                            sliderState = state,
-                            enabled = np.durationMs > 0,
-                            modifier = Modifier.splitGaps(splits)
+                        // Separate rounded bars, split where the TV's chapters (intro, credits…) start.
+                        SplitSliderTrack(
+                            value = state.value,
+                            splits = np.splitFractions(),
+                            activeColor = MaterialTheme.colorScheme.primary,
+                            inactiveColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     }
                 )
@@ -244,6 +255,9 @@ fun NowPlayingSheet(
                     )
                     Spacer(Modifier.weight(1f))
                     Text(formatClock(np.durationMs), style = MaterialTheme.typography.labelMedium)
+                }
+                np.chapters.chapterAt(if (scrubbing) (scrubValue * duration).toLong() else position)?.let { chapter ->
+                    ChapterChip(name = chapter.name, onClick = { showChapters = true })
                 }
             }
             Row(
@@ -302,22 +316,92 @@ fun NowPlayingSheet(
             Spacer(Modifier.height(4.dp))
         }
     }
+    if (showChapters && np.chapters.isNotEmpty()) {
+        ChaptersSheet(
+            chapters = np.chapters,
+            current = np.chapters.chapterAt(position),
+            loadFrame = loadFrame,
+            onPick = { chapter ->
+                onCommand(CompanionCommand.SeekTo(chapter.startMs))
+                progress.fraction = if (np.durationMs > 0) chapter.startMs.toFloat() / np.durationMs else progress.fraction
+                showChapters = false
+            },
+            onDismiss = { showChapters = false }
+        )
+    }
+}
+
+/** The chapter playing now, with an arrow that opens the list of them (as on YouTube). */
+@Composable
+private fun ChapterChip(name: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(name, style = MaterialTheme.typography.titleSmall)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Chapters", modifier = Modifier.size(20.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChaptersSheet(
+    chapters: List<CompanionChapter>,
+    current: CompanionChapter?,
+    loadFrame: suspend (Long) -> ImageBitmap?,
+    onPick: (CompanionChapter) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Text("Chapters", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        LazyColumn(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+            items(chapters, key = { it.startMs }) { chapter ->
+                ChapterRow(chapter, isCurrent = chapter == current, loadFrame = loadFrame, onClick = { onPick(chapter) })
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ChapterRow(chapter: CompanionChapter, isCurrent: Boolean, loadFrame: suspend (Long) -> ImageBitmap?, onClick: () -> Unit) {
+    // A frame a few seconds in: the very first one is often black.
+    val thumbnail by produceState<ImageBitmap?>(null, chapter.startMs) {
+        value = loadFrame(chapter.startMs + minOf(5_000L, (chapter.endMs - chapter.startMs) / 4))
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).clip(MaterialTheme.shapes.large)
+            .background(if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable(onClick = onClick).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(width = 112.dp, height = 63.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            thumbnail?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                chapter.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isCurrent) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                formatClock(chapter.startMs),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 /** The TV's segment starts and ends as fractions of the runtime, for the split progress bar. */
 internal fun NowPlaying.splitFractions(): List<Float> =
     if (durationMs <= 0) emptyList()
-    else segmentSplitsMs.map { it.toFloat() / durationMs }.filter { it > 0f && it < 1f }
+    else chapters.drop(1).map { it.startMs.toFloat() / durationMs }.filter { it > 0f && it < 1f }
 
-/** Clears a thin gap through the track at each split, so the bar reads as pieces. */
-private fun Modifier.splitGaps(splits: List<Float>): Modifier =
-    if (splits.isEmpty()) this else this
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            val gap = 6.dp.toPx()
-            splits.forEach { split ->
-                val x = size.width * split
-                drawRect(Color.Black, topLeft = Offset(x - gap / 2f, 0f), size = Size(gap, size.height), blendMode = BlendMode.Clear)
-            }
-        }
+internal fun List<CompanionChapter>.chapterAt(positionMs: Long): CompanionChapter? =
+    lastOrNull { positionMs >= it.startMs } ?: firstOrNull()
+

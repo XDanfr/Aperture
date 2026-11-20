@@ -56,9 +56,12 @@ class PlayerViewModel constructor(
     private val _activeSegment = MutableStateFlow<JellyfinPlayback.Segment?>(null)
     /** The intro, recap or credits playing now, for the Skip button. */
     val activeSegment: StateFlow<JellyfinPlayback.Segment?> = _activeSegment
-    private val _segmentSplits = MutableStateFlow<List<Long>>(emptyList())
-    /** Segment starts and ends in ms, where the progress bar splits. */
-    val segmentSplits: StateFlow<List<Long>> = _segmentSplits
+    private val _chapters = MutableStateFlow<List<PlayerChapter>>(emptyList())
+    /** What's playing, split at its Jellyfin segments, for the split progress bar. */
+    val chapters: StateFlow<List<PlayerChapter>> = _chapters
+    private val _previewSource = MutableStateFlow<String?>(null)
+    /** What scrubbing previews and chapter thumbnails decode: the file, or the Jellyfin stream. */
+    val previewSource: StateFlow<String?> = _previewSource
     private val _isOsdVisible = MutableStateFlow(true)
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
@@ -185,7 +188,15 @@ class PlayerViewModel constructor(
         // Jellyfin titles go out with their negative display id, the same id the phone's library uses.
         viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it) } }
         viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
-        viewModelScope.launch { _segmentSplits.collect { companionHub.onSegmentSplitsChanged(it) } }
+        viewModelScope.launch {
+            _chapters.collect { chapters ->
+                companionHub.onChaptersChanged(chapters.map { me.xdan.aperture.companion.protocol.CompanionChapter(it.name, it.startMs, it.endMs) })
+            }
+        }
+        viewModelScope.launch {
+            combine(_media, _previewSource) { media, preview -> preview ?: media?.filePath?.takeIf { it.isNotBlank() } }
+                .collect { companionHub.onFrameSourceChanged(it) }
+        }
         viewModelScope.launch { _activeSegment.collect { companionHub.onSkipLabelChanged(it?.kind?.label) } }
         viewModelScope.launch {
             companionHub.playerCommands.collect { command ->
@@ -225,6 +236,7 @@ class PlayerViewModel constructor(
 
     fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
         clearSegments()
+        _previewSource.value = null
         viewModelScope.launch {
             Log.d("PlayerViewModel", "Loading media: $mediaId")
             val mediaEntity = repository.getMediaById(mediaId)
@@ -637,6 +649,7 @@ class PlayerViewModel constructor(
         progressTrackerJob?.cancel()
         if (jellyfinItemId != itemId) finishJellyfinSession()
         jellyfinStream = null
+        _previewSource.value = null
         jellyfinItemId = itemId
         jellyfinNextId = null
         activeMediaId = null
@@ -681,6 +694,7 @@ class PlayerViewModel constructor(
             return
         }
         jellyfinStream = stream
+        _previewSource.value = stream.url
         Log.d("PlayerViewModel", "Jellyfin ${stream.method} for $itemId")
 
         player.setSubtitleDelay(_subtitleDelayMs.value)
@@ -708,7 +722,7 @@ class PlayerViewModel constructor(
     private fun clearSegments() {
         segmentJob?.cancel()
         segments = emptyList()
-        _segmentSplits.value = emptyList()
+        _chapters.value = emptyList()
         autoSkippedStarts.clear()
         _activeSegment.value = null
     }
@@ -718,7 +732,10 @@ class PlayerViewModel constructor(
         segmentJob?.cancel()
         segmentJob = viewModelScope.launch {
             segments = jellyfin.segments(account, itemId)
-            _segmentSplits.value = segments.flatMap { listOf(it.startMs, it.endMs) }.distinct()
+            // The runtime may only be known once the player has the stream.
+            var duration = jellyfinStream?.durationMs ?: 0L
+            while (duration <= 0L) { delay(250); duration = player.duration }
+            _chapters.value = buildChapters(segments, duration)
             Log.d("PlayerViewModel", "Jellyfin segments for $itemId: ${segments.size}")
             if (segments.isEmpty()) return@launch
             while (true) {

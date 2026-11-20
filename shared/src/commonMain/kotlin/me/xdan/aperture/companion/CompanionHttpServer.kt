@@ -50,6 +50,12 @@ internal class CompanionHttpServer(
             out.flush()
         }
 
+        fun sendBytes(status: Int, bytes: ByteArray, contentType: String) {
+            writeHead(status, "Content-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nCache-Control: max-age=3600\r\nConnection: close\r\n")
+            out.write(bytes)
+            out.flush()
+        }
+
         /** starts an event stream. returns a writer that throws [IOException] once the phone disconnects. */
         fun startEventStream(): EventStream {
             writeHead(200, "Content-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n")

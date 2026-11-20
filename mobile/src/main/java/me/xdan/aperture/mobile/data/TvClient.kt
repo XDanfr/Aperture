@@ -91,6 +91,13 @@ class TvClient(private val http: OkHttpClient) {
         }
     }
 
+    /** A JPEG frame of what the TV is playing at [positionMs], for chapter thumbnails; null if it has none. */
+    suspend fun frame(tv: PairedTv, positionMs: Long): ByteArray? = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(tv.baseUrl + CompanionProtocol.PATH_FRAME + positionMs)
+            .header("Authorization", "Bearer ${tv.token}").build()
+        runCatching { http.newCall(request).execute().use { if (it.isSuccessful) it.body?.bytes() else null } }.getOrNull()
+    }
+
     private suspend fun <T> get(url: String, token: String?, serializer: KSerializer<T>): T = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).apply { token?.let { header("Authorization", "Bearer $it") } }.build()
         http.newCall(request).execute().use { response ->

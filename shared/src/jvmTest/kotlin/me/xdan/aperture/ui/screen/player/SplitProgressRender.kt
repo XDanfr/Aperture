@@ -39,5 +39,31 @@ class SplitProgressRender {
         val image = scene.render(1_000_000_000L)
         File(out).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
+        // The scrubbing preview card in chapter mode (Up pressed while scrubbing).
+        val chapters = buildChapters(listOf(
+            me.xdan.aperture.data.jellyfin.JellyfinPlayback.Segment(me.xdan.aperture.data.jellyfin.JellyfinPlayback.SegmentKind.RECAP, 0, 45_000),
+            me.xdan.aperture.data.jellyfin.JellyfinPlayback.Segment(me.xdan.aperture.data.jellyfin.JellyfinPlayback.SegmentKind.INTRO, 70_000, 160_000),
+            me.xdan.aperture.data.jellyfin.JellyfinPlayback.Segment(me.xdan.aperture.data.jellyfin.JellyfinPlayback.SegmentKind.OUTRO, 1_230_000, 1_320_000)
+        ), 1_320_000)
+        val card = ImageComposeScene(1000, 330) {
+            ApertureTheme {
+                Row(Modifier.fillMaxSize().background(Color.Black).padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    listOf(false, true).forEach { mode ->
+                        androidx.tv.material3.Surface(modifier = Modifier.width(320.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)) {
+                            Column {
+                                Box(Modifier.fillMaxWidth().height(180.dp).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF3A2A4A), Color(0xFF1B2735)))))
+                                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                    ChapterPreviewLabel(chapters, 70_000, chapterMode = mode)
+                                    Text("1:10", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        repeat(10) { card.render(it * 33_000_000L) }
+        File(File(out).parentFile, "tv-chapter-preview.png").writeBytes(card.render(1_000_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        card.close()
     }
 }

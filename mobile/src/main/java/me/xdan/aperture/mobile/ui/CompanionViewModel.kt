@@ -1,5 +1,6 @@
 package me.xdan.aperture.mobile.ui
 
+import androidx.compose.ui.graphics.asImageBitmap
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,6 +49,14 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     suspend fun requestPairing(tv: DiscoveredTv): PairingResult = repository.requestPairing(tv)
     suspend fun pairWithCode(host: String, port: Int, code: String, tvId: String = "", tvName: String = ""): PairingResult =
         repository.pair(host, port, code, tvId, tvName)
+
+    /** A chapter thumbnail from the TV, decoded; null when it can't give one. */
+    suspend fun chapterFrame(positionMs: Long): androidx.compose.ui.graphics.ImageBitmap? {
+        val bytes = repository.frame(positionMs) ?: return null
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+        }
+    }
 
     fun send(command: CompanionCommand) {
         viewModelScope.launch { repository.send(command) }

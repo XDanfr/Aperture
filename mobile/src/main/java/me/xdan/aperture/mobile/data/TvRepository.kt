@@ -227,6 +227,11 @@ class TvRepository(
 
     // region commands
 
+    suspend fun frame(positionMs: Long): ByteArray? {
+        val tv = settings.pairedTv.value ?: return null
+        return client.frame(tv, positionMs)
+    }
+
     suspend fun send(command: CompanionCommand): Boolean {
         val tv = settings.pairedTv.value ?: return false
         // optimistic local update so controls feel immediate.

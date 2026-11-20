@@ -123,7 +123,9 @@ class CompanionHub(
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val hasNextEpisode = MutableStateFlow(false)
     private val skipLabel = MutableStateFlow<String?>(null)
-    private val segmentSplits = MutableStateFlow<List<Long>>(emptyList())
+    private val chapters = MutableStateFlow<List<me.xdan.aperture.companion.protocol.CompanionChapter>>(emptyList())
+    @Volatile private var frameSource: String? = null
+    private val frames by lazy { me.xdan.aperture.ui.screen.player.CompanionFrames() }
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
 
     /** The active profile's server titles, so the revision moves when they (or their progress) change. */
@@ -248,7 +250,7 @@ class CompanionHub(
 
     fun onPlaybackMedia(media: MediaEntity?) {
         playerMedia.value = media
-        if (media == null) { hasNextEpisode.value = false; skipLabel.value = null; segmentSplits.value = emptyList() }
+        if (media == null) { hasNextEpisode.value = false; skipLabel.value = null; chapters.value = emptyList() }
     }
 
     /** called by the activity as the player screen enters or leaves the back stack. */
@@ -261,8 +263,14 @@ class CompanionHub(
         skipLabel.value = label
     }
 
-    fun onSegmentSplitsChanged(splitsMs: List<Long>) {
-        segmentSplits.value = splitsMs
+    fun onChaptersChanged(value: List<me.xdan.aperture.companion.protocol.CompanionChapter>) {
+        chapters.value = value
+    }
+
+    /** The file or stream chapter thumbnails are decoded from; null when nothing plays. */
+    fun onFrameSourceChanged(source: String?) {
+        if (source != frameSource) frames.clear()
+        frameSource = source
     }
 
     fun onNextEpisodeAvailable(available: Boolean) {
@@ -303,7 +311,7 @@ class CompanionHub(
             durationMs = player.duration.coerceAtLeast(0),
             hasNextEpisode = hasNextEpisode.value,
             skipLabel = skipLabel.value,
-            segmentSplitsMs = segmentSplits.value
+            chapters = chapters.value
         )
     }
 
@@ -382,7 +390,13 @@ class CompanionHub(
                 devices.remove(device.deviceId)
                 response.send(204, "")
             }
-            else -> response.error(404, "not_found")
+            else -> if (request.method == "GET" && request.path.startsWith(CompanionProtocol.PATH_FRAME)) {
+                val position = request.path.removePrefix(CompanionProtocol.PATH_FRAME).toLongOrNull()
+                    ?: return response.error(400, "bad_position")
+                val source = frameSource ?: return response.error(409, "nothing_playing")
+                val jpeg = frames.jpeg(source, position) ?: return response.error(404, "no_frame")
+                response.sendBytes(200, jpeg, "image/jpeg")
+            } else response.error(404, "not_found")
         }
     }
 

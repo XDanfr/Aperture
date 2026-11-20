@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,6 +47,30 @@ class CompanionNowPlayingRender {
         repeat(40) { scene.render(it * 33_000_000L) }
         File(dir, "companion-now-playing.png").writeBytes(scene.render(2_000_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
+        val list = ImageComposeScene(1080, 1500, Density(2.625f)) {
+            MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFD0BCFF), secondaryContainer = Color(0xFF4A4458), onSecondaryContainer = Color(0xFFE8DEF8), surfaceContainerLow = Color(0xFF1D1B20), surfaceContainerHigh = Color(0xFF2B2930))) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), modifier = Modifier.fillMaxSize().padding(top = 24.dp)) {
+                    Column(Modifier.padding(top = 16.dp)) {
+                        Box(Modifier.align(Alignment.CenterHorizontally).size(32.dp, 4.dp).clip(CircleShapeLike).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)))
+                        Text("Chapters", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+                        val thumbs = listOf(Color(0xFF5A4A6A), Color(0xFF2E4057), Color(0xFF7A3E5A), Color(0xFF3D5A4A), Color(0xFF4A3A2A))
+                        listOf("Recap" to "0:00", "Episode" to "0:45", "Intro" to "1:10", "Episode" to "2:40", "Credits" to "20:30").forEachIndexed { i, (name, time) ->
+                            val current = i == 2
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).clip(MaterialTheme.shapes.large).background(if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(112.dp, 63.dp).clip(MaterialTheme.shapes.medium).background(Brush.linearGradient(listOf(thumbs[i], Color(0xFF141218)))))
+                                Spacer(Modifier.width(16.dp))
+                                Column {
+                                    Text(name, style = MaterialTheme.typography.titleMedium, color = if (current) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface)
+                                    Text(time, style = MaterialTheme.typography.labelLarge, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        File(dir, "companion-chapters.png").writeBytes(list.render(0).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        list.close()
     }
 
     @Composable
@@ -85,9 +110,13 @@ class CompanionNowPlayingRender {
                 }
                 Column {
                     Slider(value = 0.09f, onValueChange = {}, track = { state ->
-                        SliderDefaults.Track(sliderState = state, modifier = Modifier.splitGaps(splits))
+                        me.xdan.aperture.ui.component.SplitSliderTrack(state.value, splits, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondaryContainer)
                     })
                     Row(Modifier.fillMaxWidth()) { Text("1:58", style = MaterialTheme.typography.labelMedium); Spacer(Modifier.weight(1f)); Text("22:00", style = MaterialTheme.typography.labelMedium) }
+                    Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Intro", style = MaterialTheme.typography.titleSmall)
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(20.dp))
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     FilledTonalIconButton(onClick = {}, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) { Icon(Icons.Rounded.Replay10, null) }

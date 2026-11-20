@@ -299,7 +299,7 @@ private fun CompanionHome(viewModel: CompanionViewModel) {
     }
     val live = nowPlaying
     if (nowPlayingExpanded && live != null) {
-        NowPlayingSheet(live, onDismiss = { nowPlayingExpanded = false }, onCommand = viewModel::send)
+        NowPlayingSheet(live, onDismiss = { nowPlayingExpanded = false }, onCommand = viewModel::send, loadFrame = viewModel::chapterFrame)
     } else if (live == null) {
         nowPlayingExpanded = false
     }

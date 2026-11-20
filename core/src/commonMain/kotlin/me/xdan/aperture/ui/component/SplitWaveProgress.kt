@@ -93,7 +93,7 @@ fun SplitWaveProgress(
                 onDrawBehind {
                     val fraction = progress().coerceIn(0f, 1f)
                     val offset = phase * wavelengthPx
-                    val halfGap = if (bounds.size > 2) gapPx / 2f else 0f
+                    val halfGap = if (bounds.size > 2) gapPx else 0f
                     scale(if (layoutDirection == LayoutDirection.Rtl) -1f else 1f, 1f) {
                         for (i in 0 until bounds.size - 1) {
                             // Pieces meet with a gap; the bar's own ends stay at the edges.

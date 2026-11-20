@@ -342,8 +342,13 @@ private fun ClassicPlayerSeekProgress(
         label = "classicSeekHandleSize"
     )
 
+    // Up while scrubbing: Left and Right jump between chapters (the split bar's pieces), as on YouTube.
+    val chapters = LocalPlayerChapters.current
+    var chapterMode by remember { mutableStateOf(false) }
+
     fun beginScrubbing() {
         if (scrubbing) return
+        chapterMode = false
         originalPosition = player.currentPosition
         seekPosition = originalPosition
         wasPlayingBeforeScrub = player.isPlaying.value
@@ -377,6 +382,7 @@ private fun ClassicPlayerSeekProgress(
     }
 
     fun beginHold(direction: Int, startHold: Boolean = true) {
+        if (scrubbing && chapterMode) { seekPosition = chapters.jump(seekPosition, direction).coerceIn(0L, duration); return }
         if (holdDirection == direction && seekJob?.isActive == true) return
         beginScrubbing()
         seekPosition = if (direction < 0) {
@@ -478,7 +484,11 @@ private fun ClassicPlayerSeekProgress(
                             true
                         }
                         Key.DirectionUp -> {
-                            if (scrubbing) {
+                            if (scrubbing && chapters.isNotEmpty()) {
+                                endHold()
+                                chapterMode = !chapterMode
+                                true
+                            } else if (scrubbing) {
                                 endHold()
                                 cancelScrubbing()
                                 onScrubUp()
@@ -548,11 +558,14 @@ private fun ClassicPlayerSeekProgress(
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        ChapterPreviewLabel(chapters = chapters, positionMs = previewTime, chapterMode = chapterMode)
                         Text(
                             text = classicFormatTime(previewTime),
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        }
                     }
                 }
             }

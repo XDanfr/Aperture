@@ -36,7 +36,8 @@ class AndroidPreviewFrameLoader(
     ): Bitmap? = withContext(Dispatchers.IO) {
         val quantisedPosition = quantise(positionMs)
 
-        ensureRetriever(sourcePath)
+        // An unreachable stream or unreadable file means no preview, not a crash.
+        if (runCatching { ensureRetriever(sourcePath) }.isFailure) return@withContext null
 
         synchronized(cache) {
             cache[quantisedPosition]?.let { return@withContext it }
@@ -86,6 +87,9 @@ class AndroidPreviewFrameLoader(
                         setDataSource(descriptor.fileDescriptor)
                     }
                     ?: error("Unable to open preview source: $sourcePath")
+            } else if (sourcePath.startsWith("http://") || sourcePath.startsWith("https://")) {
+                // A Jellyfin stream: frames are fetched over the network.
+                setDataSource(sourcePath, emptyMap())
             } else {
                 setDataSource(File(sourcePath).absolutePath)
             }
