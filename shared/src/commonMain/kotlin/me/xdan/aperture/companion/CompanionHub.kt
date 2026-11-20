@@ -123,6 +123,7 @@ class CompanionHub(
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val hasNextEpisode = MutableStateFlow(false)
     private val skipLabel = MutableStateFlow<String?>(null)
+    private val segmentSplits = MutableStateFlow<List<Long>>(emptyList())
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
 
     /** The active profile's server titles, so the revision moves when they (or their progress) change. */
@@ -247,7 +248,7 @@ class CompanionHub(
 
     fun onPlaybackMedia(media: MediaEntity?) {
         playerMedia.value = media
-        if (media == null) { hasNextEpisode.value = false; skipLabel.value = null }
+        if (media == null) { hasNextEpisode.value = false; skipLabel.value = null; segmentSplits.value = emptyList() }
     }
 
     /** called by the activity as the player screen enters or leaves the back stack. */
@@ -258,6 +259,10 @@ class CompanionHub(
     /** The Skip button's label while a Jellyfin segment plays, null otherwise. */
     fun onSkipLabelChanged(label: String?) {
         skipLabel.value = label
+    }
+
+    fun onSegmentSplitsChanged(splitsMs: List<Long>) {
+        segmentSplits.value = splitsMs
     }
 
     fun onNextEpisodeAvailable(available: Boolean) {
@@ -297,7 +302,8 @@ class CompanionHub(
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.coerceAtLeast(0),
             hasNextEpisode = hasNextEpisode.value,
-            skipLabel = skipLabel.value
+            skipLabel = skipLabel.value,
+            segmentSplitsMs = segmentSplits.value
         )
     }
 

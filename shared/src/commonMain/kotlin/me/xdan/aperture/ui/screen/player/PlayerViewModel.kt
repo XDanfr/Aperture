@@ -185,6 +185,7 @@ class PlayerViewModel constructor(
         // Jellyfin titles go out with their negative display id, the same id the phone's library uses.
         viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it) } }
         viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
+        viewModelScope.launch { _segmentSplits.collect { companionHub.onSegmentSplitsChanged(it) } }
         viewModelScope.launch { _activeSegment.collect { companionHub.onSkipLabelChanged(it?.kind?.label) } }
         viewModelScope.launch {
             companionHub.playerCommands.collect { command ->

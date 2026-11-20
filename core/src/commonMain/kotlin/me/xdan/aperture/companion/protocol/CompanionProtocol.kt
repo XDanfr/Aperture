@@ -236,6 +236,8 @@ data class NowPlaying(
     val hasNextEpisode: Boolean = false,
     /** "Skip Intro", "Skip Credits"…: a Jellyfin segment is playing that [CompanionCommand.SkipSegment] skips. Null from older TVs. */
     val skipLabel: String? = null,
+    /** Starts and ends of the title's Jellyfin segments (ms), where the progress bar splits. */
+    val segmentSplitsMs: List<Long> = emptyList(),
     /** wall-clock time the position was sampled, so the phone can interpolate smoothly. */
     val sampledAt: Long = System.currentTimeMillis()
 )

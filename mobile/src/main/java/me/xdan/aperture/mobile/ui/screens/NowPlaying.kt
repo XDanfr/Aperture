@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -32,11 +33,11 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -58,11 +59,20 @@ import kotlin.math.exp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.xdan.aperture.companion.protocol.CompanionCommand
 import me.xdan.aperture.mobile.data.LiveNowPlaying
 import me.xdan.aperture.mobile.ui.components.Artwork
+import me.xdan.aperture.ui.component.SplitWaveProgress
+import me.xdan.aperture.companion.protocol.NowPlaying
 import me.xdan.aperture.mobile.ui.components.CompanionShapes
 
 /**
@@ -158,8 +168,12 @@ fun NowPlayingBar(
                     )
                 }
             }
-            LinearWavyProgressIndicator(
+            SplitWaveProgress(
                 progress = { progress.fraction.coerceAtLeast(0f) },
+                wavy = np.isPlaying,
+                indicatorColor = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                splits = np.splitFractions(),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp, top = 2.dp)
             )
         }
@@ -212,7 +226,16 @@ fun NowPlayingSheet(
                         progress.fraction = scrubValue
                         scrubbing = false
                     },
-                    enabled = np.durationMs > 0
+                    enabled = np.durationMs > 0,
+                    track = { state ->
+                        // The usual slider track, cut where the TV's segments (intro, credits…) start and end.
+                        val splits = np.splitFractions()
+                        SliderDefaults.Track(
+                            sliderState = state,
+                            enabled = np.durationMs > 0,
+                            modifier = Modifier.splitGaps(splits)
+                        )
+                    }
                 )
                 Row(Modifier.fillMaxWidth()) {
                     Text(
@@ -251,18 +274,22 @@ fun NowPlayingSheet(
                     modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())
                 ) { Icon(Icons.Rounded.Forward10, contentDescription = "Forward 10 seconds") }
             }
+            np.skipLabel?.let { label ->
+                // Its own row: beside Stop and Next episode it doesn't fit a phone's width.
+                Button(
+                    onClick = { onCommand(CompanionCommand.SkipSegment) },
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
+                ) {
+                    Icon(Icons.Rounded.SkipNext, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(label, style = MaterialTheme.typography.titleMedium)
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { onCommand(CompanionCommand.Stop); onDismiss() }) {
                     Icon(Icons.Rounded.Stop, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Stop")
-                }
-                np.skipLabel?.let { label ->
-                    Button(onClick = { onCommand(CompanionCommand.SkipSegment) }) {
-                        Icon(Icons.Rounded.SkipNext, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(label)
-                    }
                 }
                 if (np.hasNextEpisode) {
                     OutlinedButton(onClick = { onCommand(CompanionCommand.NextEpisode) }) {
@@ -276,3 +303,21 @@ fun NowPlayingSheet(
         }
     }
 }
+
+/** The TV's segment starts and ends as fractions of the runtime, for the split progress bar. */
+internal fun NowPlaying.splitFractions(): List<Float> =
+    if (durationMs <= 0) emptyList()
+    else segmentSplitsMs.map { it.toFloat() / durationMs }.filter { it > 0f && it < 1f }
+
+/** Clears a thin gap through the track at each split, so the bar reads as pieces. */
+private fun Modifier.splitGaps(splits: List<Float>): Modifier =
+    if (splits.isEmpty()) this else this
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val gap = 6.dp.toPx()
+            splits.forEach { split ->
+                val x = size.width * split
+                drawRect(Color.Black, topLeft = Offset(x - gap / 2f, 0f), size = Size(gap, size.height), blendMode = BlendMode.Clear)
+            }
+        }
