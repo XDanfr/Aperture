@@ -61,6 +61,7 @@ sealed interface CompanionPlayerCommand {
     data class SeekTo(val positionMs: Long) : CompanionPlayerCommand
     data class SeekBy(val deltaMs: Long) : CompanionPlayerCommand
     data object NextEpisode : CompanionPlayerCommand
+    data object SkipSegment : CompanionPlayerCommand
     data class Load(val mediaId: Long, val fromStart: Boolean) : CompanionPlayerCommand
     data class LoadJellyfin(val itemId: String, val fromStart: Boolean) : CompanionPlayerCommand
 }
@@ -121,6 +122,7 @@ class CompanionHub(
     private val nowPlayingMedia = combine(playerMedia, playerVisible) { media, visible -> media.takeIf { visible } }
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val hasNextEpisode = MutableStateFlow(false)
+    private val skipLabel = MutableStateFlow<String?>(null)
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
 
     /** The active profile's server titles, so the revision moves when they (or their progress) change. */
@@ -245,12 +247,17 @@ class CompanionHub(
 
     fun onPlaybackMedia(media: MediaEntity?) {
         playerMedia.value = media
-        if (media == null) hasNextEpisode.value = false
+        if (media == null) { hasNextEpisode.value = false; skipLabel.value = null }
     }
 
     /** called by the activity as the player screen enters or leaves the back stack. */
     fun onPlayerVisible(visible: Boolean) {
         playerVisible.value = visible
+    }
+
+    /** The Skip button's label while a Jellyfin segment plays, null otherwise. */
+    fun onSkipLabelChanged(label: String?) {
+        skipLabel.value = label
     }
 
     fun onNextEpisodeAvailable(available: Boolean) {
@@ -289,7 +296,8 @@ class CompanionHub(
             isBuffering = player.playbackState.value == me.xdan.aperture.ui.screen.player.PlaybackStates.BUFFERING,
             positionMs = player.currentPosition.coerceAtLeast(0),
             durationMs = player.duration.coerceAtLeast(0),
-            hasNextEpisode = hasNextEpisode.value
+            hasNextEpisode = hasNextEpisode.value,
+            skipLabel = skipLabel.value
         )
     }
 
@@ -412,6 +420,7 @@ class CompanionHub(
             is CompanionCommand.SeekTo -> playing && _playerCommands.tryEmit(CompanionPlayerCommand.SeekTo(command.positionMs))
             is CompanionCommand.SeekBy -> playing && _playerCommands.tryEmit(CompanionPlayerCommand.SeekBy(command.deltaMs))
             CompanionCommand.NextEpisode -> playing && _playerCommands.tryEmit(CompanionPlayerCommand.NextEpisode)
+            CompanionCommand.SkipSegment -> playing && _playerCommands.tryEmit(CompanionPlayerCommand.SkipSegment)
             CompanionCommand.Stop -> playing && _navigation.tryEmit(CompanionNavigation.ExitPlayer)
             is CompanionCommand.SetFavorite -> {
                 if (command.mediaId < 0) {

@@ -234,6 +234,8 @@ data class NowPlaying(
     val positionMs: Long,
     val durationMs: Long,
     val hasNextEpisode: Boolean = false,
+    /** "Skip Intro", "Skip Credits"…: a Jellyfin segment is playing that [CompanionCommand.SkipSegment] skips. Null from older TVs. */
+    val skipLabel: String? = null,
     /** wall-clock time the position was sampled, so the phone can interpolate smoothly. */
     val sampledAt: Long = System.currentTimeMillis()
 )
@@ -286,6 +288,9 @@ sealed interface CompanionCommand {
 
     @Serializable @SerialName("next_episode")
     data object NextEpisode : CompanionCommand
+
+    @Serializable @SerialName("skip_segment")
+    data object SkipSegment : CompanionCommand
 
     @Serializable @SerialName("stop")
     data object Stop : CompanionCommand

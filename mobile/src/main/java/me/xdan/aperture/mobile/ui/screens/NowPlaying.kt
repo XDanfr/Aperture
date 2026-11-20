@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -255,6 +256,13 @@ fun NowPlayingSheet(
                     Icon(Icons.Rounded.Stop, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Stop")
+                }
+                np.skipLabel?.let { label ->
+                    Button(onClick = { onCommand(CompanionCommand.SkipSegment) }) {
+                        Icon(Icons.Rounded.SkipNext, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(label)
+                    }
                 }
                 if (np.hasNextEpisode) {
                     OutlinedButton(onClick = { onCommand(CompanionCommand.NextEpisode) }) {

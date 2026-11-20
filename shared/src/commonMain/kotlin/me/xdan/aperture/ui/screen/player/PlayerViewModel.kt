@@ -182,6 +182,7 @@ class PlayerViewModel constructor(
         // Jellyfin titles go out with their negative display id, the same id the phone's library uses.
         viewModelScope.launch { _media.collect { companionHub.onPlaybackMedia(it) } }
         viewModelScope.launch { _nextEpisode.collect { companionHub.onNextEpisodeAvailable(it != null) } }
+        viewModelScope.launch { _activeSegment.collect { companionHub.onSkipLabelChanged(it?.kind?.label) } }
         viewModelScope.launch {
             companionHub.playerCommands.collect { command ->
                 when (command) {
@@ -200,6 +201,7 @@ class PlayerViewModel constructor(
                         showOsdBriefly()
                     }
                     me.xdan.aperture.companion.CompanionPlayerCommand.NextEpisode -> playNextEpisode()
+                    me.xdan.aperture.companion.CompanionPlayerCommand.SkipSegment -> skipSegment()
                     is me.xdan.aperture.companion.CompanionPlayerCommand.Load -> {
                         saveProgressNow()
                         loadMedia(command.mediaId, command.fromStart)
