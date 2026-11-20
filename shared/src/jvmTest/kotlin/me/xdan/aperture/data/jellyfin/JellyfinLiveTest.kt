@@ -104,6 +104,60 @@ class JellyfinLiveTest {
     }
 
     @Test
+    fun `reads intro skipper segments as chapters with frames`() = runBlocking<Unit> {
+        val itemId = System.getenv("APERTURE_JELLYFIN_SEGMENT_ITEM")
+        assumeTrue("Set APERTURE_JELLYFIN_* and APERTURE_JELLYFIN_SEGMENT_ITEM to run", !url.isNullOrBlank() && !user.isNullOrBlank() && !itemId.isNullOrBlank())
+        val temp = Files.createTempDirectory("jellyfin-live-seg").toFile()
+        val database = Room.databaseBuilder<AppDatabase>(File(temp, "db").absolutePath)
+            .setDriver(BundledSQLiteDriver())
+            .setQueryCoroutineContext(Dispatchers.IO)
+            .build()
+        try {
+            val credentials = JellyfinCredentials(PropertiesStores(File(temp, "prefs")))
+            val clients = JellyfinClients(
+                createJellyfin { clientInfo = ClientInfo("Aperture", "live-test") },
+                credentials,
+                object : CompanionPlatform {
+                    override val hasLocalNetworkPermission = true
+                    override val deviceName = "Aperture live test"
+                    override fun localIpv4Address(): String? = null
+                    override fun advertise(serviceName: String, port: Int, txt: Map<String, String>) = Unit
+                    override fun stopAdvertising() = Unit
+                }
+            )
+            val preferences = UserPreferencesRepositoryImpl(
+                PreferenceDataStoreFactory.createWithPath { File(temp, "prefs.preferences_pb").toOkioPath() }
+            )
+            val profiles = ProfileRepositoryImpl(database.profileDao(), preferences, database.jellyfinDao(), credentials)
+            profiles.profiles.first()
+            val accounts = JellyfinAccounts(database.jellyfinDao(), clients, credentials, profiles)
+            val account = accounts.signInWithPassword(ProfileEntity.DEFAULT_ID, url!!, user!!, password.orEmpty())
+            val playback = JellyfinPlayback(clients, database.jellyfinDao(), kotlinx.coroutines.flow.flowOf(account))
+
+            val segments = playback.segments(account, itemId!!)
+            println("Segments: $segments")
+            assertTrue(segments.isNotEmpty())
+            val stream = playback.prepare(account, itemId, setOf("h264", "hevc"), 0L)!!
+            val chapters = me.xdan.aperture.ui.screen.player.buildChapters(segments, stream.durationMs!!)
+            println("Chapters: ${chapters.joinToString { "${it.name} ${it.startMs / 1000}s" }}")
+            assertTrue(chapters.size > 1)
+
+            // What the TV sends the companion for each chapter's thumbnail.
+            val frames = me.xdan.aperture.ui.screen.player.CompanionFrames()
+            chapters.forEach { chapter ->
+                val jpeg = frames.jpeg(stream.url, chapter.startMs + 5_000)
+                println("Frame for ${chapter.name}: ${jpeg?.size ?: 0} bytes")
+                System.getenv("APERTURE_RENDER_DIR")?.let { dir -> jpeg?.let { File(dir, "frame-${chapter.startMs}.jpg").writeBytes(it) } }
+            }
+            frames.clear()
+            accounts.signOut(ProfileEntity.DEFAULT_ID)
+        } finally {
+            database.close()
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `quick connect signs in once the code is approved elsewhere`() = runBlocking<Unit> {
         assumeTrue("Set APERTURE_JELLYFIN_* to run against a server", !url.isNullOrBlank() && !user.isNullOrBlank())
         val temp = Files.createTempDirectory("jellyfin-live-qc").toFile()

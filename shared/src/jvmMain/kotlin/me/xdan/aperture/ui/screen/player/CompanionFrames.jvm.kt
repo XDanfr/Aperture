@@ -9,22 +9,27 @@ import org.jetbrains.skia.EncodedImageFormat
 
 actual class CompanionFrames actual constructor() {
     private val mutex = Mutex()
-    private var grabber: MpvFrameGrabber? = null
+    private val cache = HashMap<Pair<String, Long>, ByteArray>()
 
+    /**
+     * A fresh mpv per frame: over a network stream, a seek in a reused one can hand back the frame
+     * from before it, and the phone asks for only a handful (one per chapter), which are cached.
+     */
     actual suspend fun jpeg(source: String, positionMs: Long): ByteArray? = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val grabber = grabber ?: MpvFrameGrabber.create()?.also { grabber = it } ?: return@withLock null
-            runCatching {
-                grabber.grab(source, PreviewFrameLoader.quantise(positionMs), 320, 180)?.use { image ->
-                    image.encodeToData(EncodedImageFormat.JPEG, 80)?.bytes
-                }
-            }.getOrNull()
+            cache[source to positionMs]?.let { return@withLock it }
+            val grabber = MpvFrameGrabber.create() ?: return@withLock null
+            try {
+                runCatching {
+                    grabber.grab(source, positionMs, 320, 180)?.use { image -> image.encodeToData(EncodedImageFormat.JPEG, 80)?.bytes }
+                }.getOrNull()?.also { cache[source to positionMs] = it }
+            } finally {
+                grabber.release()
+            }
         }
     }
 
     actual fun clear() {
-        val released = grabber ?: return
-        grabber = null
-        Thread({ kotlinx.coroutines.runBlocking { mutex.withLock { released.release() } } }, "mpv-frames-release").start()
+        kotlinx.coroutines.runBlocking { mutex.withLock { cache.clear() } }
     }
 }
