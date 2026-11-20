@@ -72,6 +72,8 @@ class SettingsViewModel constructor(
         SharingStarted.WhileSubscribed(5_000),
         SubtitleAppearanceSettings()
     )
+    val autoSkipSegments = userPreferencesRepository.autoSkipSegments.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val classicPlayerControls = userPreferencesRepository.classicPlayerControls.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -189,6 +191,10 @@ class SettingsViewModel constructor(
 
     fun setRoundedSpotlight(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setRoundedSpotlight(enabled) }
+    }
+
+    fun setAutoSkipSegments(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setAutoSkipSegments(enabled) }
     }
 
     fun setClassicPlayerControls(enabled: Boolean) {

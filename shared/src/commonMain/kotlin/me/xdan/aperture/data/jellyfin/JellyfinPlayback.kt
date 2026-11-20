@@ -9,6 +9,13 @@ import kotlinx.coroutines.flow.first
 import me.xdan.aperture.platform.Log
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
+import org.jellyfin.sdk.api.client.extensions.mediaSegmentApi
+import org.jellyfin.sdk.model.api.MediaSegmentType
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.booleanOrNull
 import org.jellyfin.sdk.api.client.extensions.sessionApi
 import org.jellyfin.sdk.model.api.DeviceProfile
 import org.jellyfin.sdk.model.api.DirectPlayProfile
@@ -56,6 +63,52 @@ class JellyfinPlayback(
     )
 
     data class ServerSubtitle(val url: String, val mimeType: String, val label: String, val language: String?, val isDefault: Boolean)
+
+    enum class SegmentKind(val label: String, val autoSkippable: Boolean) {
+        INTRO("Skip Intro", true), RECAP("Skip Recap", true), PREVIEW("Skip Preview", true),
+        COMMERCIAL("Skip Ad", true), OUTRO("Skip Credits", false)
+    }
+
+    data class Segment(val kind: SegmentKind, val startMs: Long, val endMs: Long)
+
+    /**
+     * The item's skippable parts, as Intro Skipper (or any segment provider) marked them. Uses the
+     * server's media segments, then the plugin's own endpoint for older plugin versions. Empty when
+     * there are none or the server can't say.
+     */
+    suspend fun segments(account: JellyfinAccountEntity, itemId: String): List<Segment> = withContext(Dispatchers.IO) {
+        val api = clients.forAccount(account) ?: return@withContext emptyList()
+        val id = itemId.toUUIDOrNull() ?: return@withContext emptyList()
+        val fromServer = runCatching {
+            api.mediaSegmentApi.getItemSegments(id).content.items.mapNotNull { dto ->
+                val kind = when (dto.type) {
+                    MediaSegmentType.INTRO -> SegmentKind.INTRO
+                    MediaSegmentType.RECAP -> SegmentKind.RECAP
+                    MediaSegmentType.PREVIEW -> SegmentKind.PREVIEW
+                    MediaSegmentType.COMMERCIAL -> SegmentKind.COMMERCIAL
+                    MediaSegmentType.OUTRO -> SegmentKind.OUTRO
+                    else -> null
+                } ?: return@mapNotNull null
+                Segment(kind, dto.startTicks / 10_000, dto.endTicks / 10_000)
+            }
+        }.onFailure { Log.w(TAG, "Media segments failed: ${it.message}") }.getOrDefault(emptyList())
+        fromServer.ifEmpty { introSkipperSegments(api, itemId) }
+            .filter { it.endMs - it.startMs >= 1_000 }
+            .sortedBy { it.startMs }
+    }
+
+    /** Intro Skipper's own endpoint: {"Introduction": {"Start": s, "End": s, "Valid": true}, "Credits": …}. */
+    private fun introSkipperSegments(api: ApiClient, itemId: String): List<Segment> = runCatching {
+        val base = api.baseUrl?.trimEnd('/') ?: return emptyList()
+        val token = api.accessToken ?: return emptyList()
+        val connection = java.net.URL("$base/Episode/$itemId/IntroSkipperSegments").openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 5_000
+        connection.readTimeout = 5_000
+        connection.setRequestProperty("Authorization", "MediaBrowser Token=\"$token\"")
+        if (connection.responseCode != 200) return emptyList()
+        val body = connection.inputStream.bufferedReader().use { it.readText() }
+        parseIntroSkipperSegments(body)
+    }.getOrDefault(emptyList())
 
     suspend fun activeAccount(): JellyfinAccountEntity? = activeAccountFlow.first()
 
@@ -287,3 +340,21 @@ class JellyfinPlayback(
         )
     }
 }
+
+/** Parses Intro Skipper's segment map; seconds, with Start/End (newer) or IntroStart/IntroEnd (older). */
+internal fun parseIntroSkipperSegments(body: String): List<JellyfinPlayback.Segment> =
+    Json.parseToJsonElement(body).jsonObject.mapNotNull { (key, value) ->
+        val kind = when (key.lowercase()) {
+            "introduction", "intro" -> JellyfinPlayback.SegmentKind.INTRO
+            "credits", "outro" -> JellyfinPlayback.SegmentKind.OUTRO
+            "recap" -> JellyfinPlayback.SegmentKind.RECAP
+            "preview" -> JellyfinPlayback.SegmentKind.PREVIEW
+            "commercial" -> JellyfinPlayback.SegmentKind.COMMERCIAL
+            else -> null
+        } ?: return@mapNotNull null
+        val fields = runCatching { value.jsonObject }.getOrNull() ?: return@mapNotNull null
+        if (fields["Valid"]?.jsonPrimitive?.booleanOrNull == false) return@mapNotNull null
+        val start = (fields["Start"] ?: fields["IntroStart"])?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+        val end = (fields["End"] ?: fields["IntroEnd"])?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+        if (end <= start) null else JellyfinPlayback.Segment(kind, (start * 1000).toLong(), (end * 1000).toLong())
+    }

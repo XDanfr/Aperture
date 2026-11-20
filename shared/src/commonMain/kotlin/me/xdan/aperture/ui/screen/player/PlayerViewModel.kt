@@ -50,6 +50,12 @@ class PlayerViewModel constructor(
     val media: StateFlow<MediaEntity?> = _media
     private val _nextEpisode = MutableStateFlow<MediaEntity?>(null)
     val nextEpisode: StateFlow<MediaEntity?> = _nextEpisode
+    private var segments: List<JellyfinPlayback.Segment> = emptyList()
+    private var segmentJob: kotlinx.coroutines.Job? = null
+    private val autoSkippedStarts = mutableSetOf<Long>()
+    private val _activeSegment = MutableStateFlow<JellyfinPlayback.Segment?>(null)
+    /** The intro, recap or credits playing now, for the Skip button. */
+    val activeSegment: StateFlow<JellyfinPlayback.Segment?> = _activeSegment
     private val _isOsdVisible = MutableStateFlow(true)
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
@@ -212,6 +218,7 @@ class PlayerViewModel constructor(
     }
 
     fun loadMedia(mediaId: Long, startFromBeginning: Boolean = false) {
+        clearSegments()
         viewModelScope.launch {
             Log.d("PlayerViewModel", "Loading media: $mediaId")
             val mediaEntity = repository.getMediaById(mediaId)
@@ -636,6 +643,7 @@ class PlayerViewModel constructor(
         _audioDecoderName.value = null
         downloadedSubtitleFiles.clear()
         _onlineSubtitles.value = OnlineSubtitleState.Idle
+        clearSegments()
 
         val account = jellyfin.activeAccount()
         val entity = account?.let { jellyfin.item(it, itemId) }
@@ -687,7 +695,46 @@ class PlayerViewModel constructor(
         player.play()
         jellyfin.reportStart(stream, stream.startPositionMs)
         startJellyfinTracker(stream)
+        startSegmentWatcher(account, itemId)
         resetOsdTimer()
+    }
+
+    private fun clearSegments() {
+        segmentJob?.cancel()
+        segments = emptyList()
+        autoSkippedStarts.clear()
+        _activeSegment.value = null
+    }
+
+    /** Fetches the item's segments, then follows playback to show the Skip button or skip on its own. */
+    private fun startSegmentWatcher(account: me.xdan.aperture.data.local.entity.JellyfinAccountEntity, itemId: String) {
+        segmentJob?.cancel()
+        segmentJob = viewModelScope.launch {
+            segments = jellyfin.segments(account, itemId)
+            Log.d("PlayerViewModel", "Jellyfin segments for $itemId: ${segments.size}")
+            if (segments.isEmpty()) return@launch
+            while (true) {
+                val position = player.currentPosition
+                // The last second is left alone: skipping there gains nothing, and the button would flash.
+                val current = segments.firstOrNull { position >= it.startMs && position < it.endMs - 1_000 }
+                if (current != null && current.kind.autoSkippable && preferences.autoSkipSegments.first() &&
+                    autoSkippedStarts.add(current.startMs)
+                ) {
+                    skipSegment(current)
+                } else {
+                    _activeSegment.value = current
+                }
+                delay(250)
+            }
+        }
+    }
+
+    /** Jumps past [segment] (the one playing now by default). */
+    fun skipSegment(segment: JellyfinPlayback.Segment? = _activeSegment.value) {
+        segment ?: return
+        val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        _activeSegment.value = null
+        player.seekTo(segment.endMs.coerceAtMost(duration))
     }
 
     private fun jellyfinMediaItem(stream: JellyfinPlayback.Stream): Pair<String, List<ExternalSubtitle>> {
@@ -716,6 +763,7 @@ class PlayerViewModel constructor(
      */
     fun onPlayerClosed() {
         progressTrackerJob?.cancel()
+        clearSegments()
         finishJellyfinSession()
     }
 

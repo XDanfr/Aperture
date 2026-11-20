@@ -94,6 +94,7 @@ fun PlayerScreen(
 ) {
     val media by viewModel.media.collectAsState()
     val nextEpisode by viewModel.nextEpisode.collectAsState()
+    val activeSegment by viewModel.activeSegment.collectAsState()
     val isOsdVisible by viewModel.isOsdVisible.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val classicPlayerControls by viewModel.classicPlayerControls.collectAsState()
@@ -127,6 +128,7 @@ fun PlayerScreen(
     val quickMenuFocusRequester = remember { FocusRequester() }
     val noticeFocusRequester = remember { FocusRequester() }
     val nextEpisodeFocusRequester = remember { FocusRequester() }
+    val skipFocusRequester = remember { FocusRequester() }
     var nextEpisodeDismissed by remember(media?.id) { mutableStateOf(false) }
     var remainingMillis by remember(media?.id) { mutableLongStateOf(Long.MAX_VALUE) }
     var advancingEpisode by remember { mutableStateOf(false) }
@@ -150,6 +152,10 @@ fun PlayerScreen(
     val nextEpisodeVisible = nextEpisode != null && !nextEpisodeDismissed && !advancingEpisode &&
         remainingMillis <= 10_000L && playbackState == PlaybackStates.READY &&
         !isQuickMenuVisible && !noticeVisible
+    val skipVisible = activeSegment != null && !nextEpisodeVisible && !isQuickMenuVisible && !noticeVisible &&
+        playbackState == PlaybackStates.READY
+    // With the controls hidden the Skip button has focus, so OK skips, as in other Jellyfin clients.
+    val skipFocused = skipVisible && !isOsdVisible
     fun advanceEpisode() {
         if (advancingEpisode || nextEpisode == null) return
         advancingEpisode = true
@@ -227,6 +233,7 @@ fun PlayerScreen(
     val desiredFocusRequester = when {
         noticeVisible -> noticeFocusRequester
         nextEpisodeVisible -> nextEpisodeFocusRequester
+        skipFocused -> skipFocusRequester
         isQuickMenuVisible -> quickMenuFocusRequester
         isOsdVisible -> controlsFocusRequester
         else -> playerFocusRequester
@@ -316,7 +323,7 @@ fun PlayerScreen(
                         backDispatcher()
                     }
                     true
-                } else if (noticeVisible || nextEpisodeVisible) false else if (keyEvent.type == KeyEventType.KeyDown) {
+                } else if (noticeVisible || nextEpisodeVisible || (skipFocused && keyEvent.key.isSkipButtonKey())) false else if (keyEvent.type == KeyEventType.KeyDown) {
                     if (isOsdVisible && !isQuickMenuVisible && !keyEvent.isBackKey()) {
                         viewModel.showOsdBriefly()
                     }
@@ -448,6 +455,16 @@ fun PlayerScreen(
                 onClose = ::closeQuickMenu,
                 onLeavePlayerToOpenSubtitles = onLeavePlayerToOpenSubtitles
             )
+        }
+
+        AnimatedVisibility(
+            visible = skipVisible,
+            enter = fadeIn(ApertureTheme.motion.enter()) + slideInHorizontally(ApertureTheme.motion.enter()) { it / 4 },
+            exit = fadeOut(ApertureTheme.motion.exit()),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = if (isOsdVisible) 160.dp else 48.dp)
+        ) {
+            val label = activeSegment?.kind?.label ?: ""
+            SkipSegmentButton(label = label, focusRequester = skipFocusRequester, onSkip = { viewModel.skipSegment() })
         }
 
         AnimatedVisibility(

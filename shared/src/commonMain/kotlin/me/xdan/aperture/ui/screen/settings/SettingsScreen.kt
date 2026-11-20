@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ViewSidebar
@@ -125,6 +126,7 @@ fun SettingsScreen(
     val ambientSettings by viewModel.ambientSettings.collectAsState()
     val tunnelingEnabled by viewModel.tunnelingEnabled.collectAsState()
     val losslessPassthrough by viewModel.losslessPassthrough.collectAsState()
+    val autoSkipSegments by viewModel.autoSkipSegments.collectAsState()
     val softwareVideoDecoding by viewModel.softwareVideoDecoding.collectAsState()
     val playbackEngine by viewModel.playbackEngine.collectAsState()
     var showLicenses by remember { mutableStateOf(false) }
@@ -491,6 +493,20 @@ fun SettingsScreen(
                                 onCheckedChange = null,
                                 isFocused = false
                             )
+                        }
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        title = "Skip intros automatically",
+                        subtitle = if (autoSkipSegments) "On · Jellyfin intros, recaps and previews are skipped as they start" else "Off · A Skip button shows during Jellyfin intros, recaps and credits",
+                        icon = Icons.Rounded.SkipNext,
+                        drawerFocusRequester = drawerFocusRequester,
+                        onFocused = { requester -> onContentFocused(requester) },
+                        onClick = { viewModel.setAutoSkipSegments(!autoSkipSegments) },
+                        trailingContent = {
+                            ExpressiveToggle(checked = autoSkipSegments, onCheckedChange = null, isFocused = false)
                         }
                     )
                 }

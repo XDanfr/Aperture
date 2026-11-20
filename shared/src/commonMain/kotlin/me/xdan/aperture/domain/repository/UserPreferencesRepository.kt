@@ -30,6 +30,8 @@ interface UserPreferencesRepository {
     val ambientWallBrandPlacement: Flow<AmbientBrandPlacement>
     val ambientShowClock: Flow<Boolean>
     val classicPlayerControls: Flow<Boolean>
+    /** Skip Jellyfin intros, recaps and previews without asking (a Skip button shows otherwise). */
+    val autoSkipSegments: Flow<Boolean>
     val shouldShowCompatibilityWarning: Flow<Boolean>
     val tunnelingEnabled: Flow<Boolean>
     /** Send DTS and Dolby TrueHD to the TV or receiver undecoded. Off: decoded on this device. */
@@ -51,6 +53,7 @@ interface UserPreferencesRepository {
     suspend fun setAmbientWallBrandPlacement(placement: AmbientBrandPlacement)
     suspend fun setAmbientShowClock(enabled: Boolean)
     suspend fun setClassicPlayerControls(enabled: Boolean)
+    suspend fun setAutoSkipSegments(enabled: Boolean)
     suspend fun setShouldShowCompatibilityWarning(enabled: Boolean)
     suspend fun setTunnelingEnabled(enabled: Boolean)
     suspend fun setLosslessPassthrough(enabled: Boolean)

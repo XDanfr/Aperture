@@ -36,6 +36,7 @@ class UserPreferencesRepositoryImpl(
     private val AMBIENT_WALL_BRAND_PLACEMENT = stringPreferencesKey("ambient_wall_brand_placement")
     private val AMBIENT_SHOW_CLOCK = booleanPreferencesKey("ambient_show_clock")
     private val CLASSIC_PLAYER_CONTROLS = ProfileKey("classic_player_controls", ::booleanPreferencesKey)
+    private val AUTO_SKIP_SEGMENTS = ProfileKey("auto_skip_segments", ::booleanPreferencesKey)
     private val SHOULD_SHOW_COMPATIBILITY_WARNING = booleanPreferencesKey("should_show_compatibility_warning")
     private val TUNNELING_ENABLED = booleanPreferencesKey("tunneling_enabled")
     private val LOSSLESS_PASSTHROUGH = booleanPreferencesKey("lossless_passthrough")
@@ -59,7 +60,7 @@ class UserPreferencesRepositoryImpl(
     private val profileKeys = listOf(
         HIDE_FINISHED_FROM_SPOTLIGHT, FINISHED_SPOTLIGHT_EXCLUSION_DAYS, ROUNDED_SPOTLIGHT, THEME_ID,
         SHOW_PRESENTATION_MODE, SUBTITLE_TEXT_SCALE, SUBTITLE_COLOUR, SUBTITLE_BACKGROUND_OPACITY,
-        CLASSIC_PLAYER_CONTROLS
+        CLASSIC_PLAYER_CONTROLS, AUTO_SKIP_SEGMENTS
     )
 
     override val activeProfileId: Flow<Long> = dataStore.data
@@ -129,6 +130,9 @@ class UserPreferencesRepositoryImpl(
 
     override val classicPlayerControls: Flow<Boolean> = dataStore.data
         .map { preferences -> preferences[preferences.profileKey(CLASSIC_PLAYER_CONTROLS)] ?: false }
+
+    override val autoSkipSegments: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[preferences.profileKey(AUTO_SKIP_SEGMENTS)] ?: false }
 
     override val shouldShowCompatibilityWarning: Flow<Boolean> = dataStore.data
         .map { preferences -> preferences[SHOULD_SHOW_COMPATIBILITY_WARNING] ?: true }
@@ -211,6 +215,10 @@ class UserPreferencesRepositoryImpl(
 
     override suspend fun setClassicPlayerControls(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[preferences.profileKey(CLASSIC_PLAYER_CONTROLS)] = enabled }
+    }
+
+    override suspend fun setAutoSkipSegments(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[preferences.profileKey(AUTO_SKIP_SEGMENTS)] = enabled }
     }
 
     override suspend fun setShouldShowCompatibilityWarning(enabled: Boolean) {
