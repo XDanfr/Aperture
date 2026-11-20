@@ -26,7 +26,8 @@ fun SplitSliderTrack(
     height: Dp = 16.dp,
     gap: Dp = 4.dp,
     thumbGap: Dp = 6.dp,
-    innerCorner: Dp = 4.dp
+    innerCorner: Dp = 4.dp,
+    stopIndicatorSize: Dp = 4.dp
 ) {
     Canvas(modifier.fillMaxWidth().height(height)) {
         val h = size.height
@@ -61,5 +62,9 @@ fun SplitSliderTrack(
             pill(start, activeEnd, activeColor, roundStart = true, roundEnd = activeEnd >= end)
             pill(inactiveStart, end, inactiveColor, roundStart = inactiveStart <= start, roundEnd = true)
         }
+        // M3 Expressive's stop indicator: a dot inside the track's end, until the thumb reaches it.
+        val dot = stopIndicatorSize.toPx()
+        val dotX = size.width - h / 2f
+        if (thumbX + thumbHalf < dotX - dot / 2f) drawCircle(activeColor, radius = dot / 2f, center = Offset(dotX, h / 2f))
     }
 }
