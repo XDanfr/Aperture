@@ -56,6 +56,9 @@ class PlayerViewModel constructor(
     private val _activeSegment = MutableStateFlow<JellyfinPlayback.Segment?>(null)
     /** The intro, recap or credits playing now, for the Skip button. */
     val activeSegment: StateFlow<JellyfinPlayback.Segment?> = _activeSegment
+    private val _segmentSplits = MutableStateFlow<List<Long>>(emptyList())
+    /** Segment starts and ends in ms, where the progress bar splits. */
+    val segmentSplits: StateFlow<List<Long>> = _segmentSplits
     private val _isOsdVisible = MutableStateFlow(true)
     val isOsdVisible: StateFlow<Boolean> = _isOsdVisible
     private val _onlineSubtitles = MutableStateFlow<OnlineSubtitleState>(OnlineSubtitleState.Idle)
@@ -704,6 +707,7 @@ class PlayerViewModel constructor(
     private fun clearSegments() {
         segmentJob?.cancel()
         segments = emptyList()
+        _segmentSplits.value = emptyList()
         autoSkippedStarts.clear()
         _activeSegment.value = null
     }
@@ -713,6 +717,7 @@ class PlayerViewModel constructor(
         segmentJob?.cancel()
         segmentJob = viewModelScope.launch {
             segments = jellyfin.segments(account, itemId)
+            _segmentSplits.value = segments.flatMap { listOf(it.startMs, it.endMs) }.distinct()
             Log.d("PlayerViewModel", "Jellyfin segments for $itemId: ${segments.size}")
             if (segments.isEmpty()) return@launch
             while (true) {

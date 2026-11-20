@@ -399,6 +399,12 @@ fun PlayerScreen(
             enter = fadeIn(animationSpec = tween(220)),
             exit = fadeOut(animationSpec = tween(220))
         ) {
+          val splitsMs by viewModel.segmentSplits.collectAsState()
+          val splitDuration = player.duration
+          val splits = remember(splitsMs, splitDuration) {
+              if (splitDuration <= 0) emptyList() else splitsMs.map { it.toFloat() / splitDuration }.filter { it > 0f && it < 1f }
+          }
+          androidx.compose.runtime.CompositionLocalProvider(LocalProgressSplits provides splits) {
             if (classicPlayerControls) {
                 ClassicPlayerOsd(
                     media = media, mediaSource = media?.filePath, player = player,
@@ -434,6 +440,7 @@ fun PlayerScreen(
                     onInitialScrubConsumed = { pendingScrubDirection = 0 }
                 )
             }
+          }
         }
 
         AnimatedVisibility(

@@ -21,13 +21,20 @@ import androidx.tv.material3.MaterialTheme
 import kotlinx.coroutines.isActive
 import me.xdan.aperture.ui.theme.ApertureTheme
 
+/**
+ * Where the bar splits, as fractions of the runtime: the starts and ends of the title's Jellyfin
+ * segments (intro, credits…). Empty for one unbroken bar.
+ */
+internal val LocalProgressSplits = compositionLocalOf { emptyList<Float>() }
+
 /** Playback needs amplitude transitions that can reverse before their previous animation finishes. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun PlaybackWaveProgress(
     progress: () -> Float,
     wavy: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    splits: List<Float> = LocalProgressSplits.current
 ) {
     val amplitude by animateFloatAsState(
         targetValue = if (wavy) 1f else 0f,
@@ -76,22 +83,43 @@ internal fun PlaybackWaveProgress(
                 val segment = Path()
                 val matrix = Matrix()
                 val gapPx = gap.toPx() + (stroke.width + trackStroke.width) / 2f
+                // Split points too close to each other or an end would leave slivers.
+                val minPiece = gapPx * 3f / width.coerceAtLeast(1f)
+                val bounds = buildList {
+                    add(0f)
+                    splits.sorted().forEach { split -> if (split - last() > minPiece && 1f - split > minPiece) add(split) }
+                    add(1f)
+                }
                 onDrawBehind {
                     val fraction = progress().coerceIn(0f, 1f)
-                    val end = inset + width * fraction
-                    val trackStart = if (fraction == 0f) inset else end + gapPx
                     val offset = phase * wavelengthPx
-                    segment.rewind()
-                    measure.getSegment(offset * pathScale, (offset + width * fraction) * pathScale, segment)
-                    matrix.reset()
-                    matrix.scale(1f, amplitude.coerceIn(0f, 1f))
-                    segment.transform(matrix)
-                    segment.translate(Offset(inset - offset, center))
+                    val halfGap = if (bounds.size > 2) gapPx / 2f else 0f
                     scale(if (layoutDirection == LayoutDirection.Rtl) -1f else 1f, 1f) {
-                        if (trackStart < size.width - inset) {
-                            drawLine(trackColor, Offset(trackStart, center), Offset(size.width - inset, center), trackStroke.width, trackStroke.cap)
+                        for (i in 0 until bounds.size - 1) {
+                            // Pieces meet with a gap; the bar's own ends stay at the edges.
+                            val pieceStart = inset + width * bounds[i] + if (i > 0) halfGap else 0f
+                            val pieceEnd = inset + width * bounds[i + 1] - if (i < bounds.size - 2) halfGap else 0f
+                            if (pieceEnd <= pieceStart) continue
+                            val played = (inset + width * fraction).coerceIn(pieceStart, pieceEnd)
+                            val isCurrent = fraction > bounds[i] && fraction <= bounds[i + 1]
+                            val trackStart = if (played <= pieceStart) pieceStart else played + gapPx
+                            if (trackStart < pieceEnd) {
+                                drawLine(trackColor, Offset(trackStart, center), Offset(pieceEnd, center), trackStroke.width, trackStroke.cap)
+                            }
+                            if (played <= pieceStart) continue
+                            if (isCurrent && amplitude > 0f) {
+                                // Only the piece playing now waves; it shares one wave with the whole bar.
+                                segment.rewind()
+                                measure.getSegment((offset + pieceStart - inset) * pathScale, (offset + played - inset) * pathScale, segment)
+                                matrix.reset()
+                                matrix.scale(1f, amplitude.coerceIn(0f, 1f))
+                                segment.transform(matrix)
+                                segment.translate(Offset(inset - offset, center))
+                                drawPath(segment, indicatorColor, style = stroke)
+                            } else {
+                                drawLine(indicatorColor, Offset(pieceStart, center), Offset(played, center), stroke.width, stroke.cap)
+                            }
                         }
-                        if (fraction > 0f) drawPath(segment, indicatorColor, style = stroke)
                     }
                 }
             }

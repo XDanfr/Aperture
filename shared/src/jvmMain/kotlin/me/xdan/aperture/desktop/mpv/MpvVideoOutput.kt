@@ -43,6 +43,8 @@ internal class MpvVideoOutput(private val lib: LibMpv, private val mpv: Pointer)
     @Volatile private var running = true
     @Volatile private var targetWidth = 0
     @Volatile private var targetHeight = 0
+    /** Crop to fill, done here rather than with mpv's panscan (see [setResizeMode]). */
+    @Volatile private var zoom = false
 
     private var front: Bitmap? = null
     private var back: Bitmap? = null
@@ -102,9 +104,7 @@ internal class MpvVideoOutput(private val lib: LibMpv, private val mpv: Pointer)
             }
             if (!running) break
             val flags = lib.mpv_render_context_update(renderContext)
-            val width = targetWidth
-            val height = targetHeight
-            if (width <= 0 || height <= 0) continue
+            val (width, height) = renderSize() ?: continue
             val target = back?.takeIf { it.width == width && it.height == height }
             val resized = target == null
             if (flags and LibMpv.RENDER_UPDATE_FRAME == 0L && !resized) continue
@@ -137,6 +137,35 @@ internal class MpvVideoOutput(private val lib: LibMpv, private val mpv: Pointer)
         }
     }
 
+    /**
+     * The bitmap size to render at. When zooming, mpv stretches the frame (keepaspect=no) into a
+     * bitmap with the video's own shape that covers the view, and [draw] crops off the overflow.
+     */
+    private fun renderSize(): Pair<Int, Int>? {
+        val viewW = targetWidth
+        val viewH = targetHeight
+        if (viewW <= 0 || viewH <= 0) return null
+        if (!zoom) return viewW to viewH
+        val aspect = videoAspect() ?: return viewW to viewH
+        var w = viewW.toFloat()
+        var h = w / aspect
+        if (h < viewH) {
+            h = viewH.toFloat()
+            w = h * aspect
+        }
+        val scale = min(1f, min(MAX_RENDER_WIDTH / w, MAX_RENDER_HEIGHT / h))
+        return (w * scale).roundToInt().coerceAtLeast(1) to (h * scale).roundToInt().coerceAtLeast(1)
+    }
+
+    private fun videoAspect(): Float? {
+        val ptr = lib.mpv_get_property_string(mpv, "video-params/aspect") ?: return null
+        return try {
+            ptr.getString(0).toFloatOrNull()?.takeIf { it > 0f && it.isFinite() }
+        } finally {
+            lib.mpv_free(ptr)
+        }
+    }
+
     private fun newBitmap(width: Int, height: Int): Bitmap {
         // Rows aligned to 64 bytes let mpv use its fast SIMD paths.
         val rowBytes = (width * 4 + 63) / 64 * 64
@@ -149,10 +178,23 @@ internal class MpvVideoOutput(private val lib: LibMpv, private val mpv: Pointer)
     fun draw(canvas: Canvas, dst: Rect) {
         swapLock.withLock {
             val frame = front ?: return
+            val fw = frame.width.toFloat()
+            val fh = frame.height.toFloat()
+            var src = Rect.makeWH(fw, fh)
+            if (zoom && dst.width > 0f && dst.height > 0f) {
+                val dstAspect = dst.width / dst.height
+                src = if (fw / fh > dstAspect) {
+                    val cw = fh * dstAspect
+                    Rect.makeXYWH((fw - cw) / 2f, 0f, cw, fh)
+                } else {
+                    val ch = fw / dstAspect
+                    Rect.makeXYWH(0f, (fh - ch) / 2f, fw, ch)
+                }
+            }
             Image.makeFromBitmap(frame).use { image ->
                 canvas.drawImageRect(
                     image,
-                    Rect.makeWH(frame.width.toFloat(), frame.height.toFloat()),
+                    src,
                     dst,
                     FilterMipmap(FilterMode.LINEAR, MipmapMode.NONE),
                     paint,
@@ -162,15 +204,18 @@ internal class MpvVideoOutput(private val lib: LibMpv, private val mpv: Pointer)
         }
     }
 
-    /** Fit, stretch or crop to fill; [mode] is one of [VideoResizeModes]. */
+    /**
+     * Fit, stretch or crop to fill; [mode] is one of [VideoResizeModes].
+     *
+     * Zoom never uses mpv's panscan: the software renderer crops the source frame at whatever
+     * offset panscan gives, and an odd offset on a 4:2:0 frame trips an assertion in
+     * mp_image_crop that aborts the whole app.
+     */
     fun setResizeMode(mode: Int) {
-        val (keepAspect, panScan) = when (mode) {
-            VideoResizeModes.FILL -> "no" to "0"
-            VideoResizeModes.ZOOM -> "yes" to "1"
-            else -> "yes" to "0"
-        }
-        lib.mpv_set_property_string(mpv, "keepaspect", keepAspect)
-        lib.mpv_set_property_string(mpv, "panscan", panScan)
+        zoom = mode == VideoResizeModes.ZOOM
+        lib.mpv_set_property_string(mpv, "keepaspect", if (mode == VideoResizeModes.FILL || zoom) "no" else "yes")
+        lib.mpv_set_property_string(mpv, "panscan", "0")
+        requestRender()
     }
 
     /** Must run before the mpv handle is destroyed. */

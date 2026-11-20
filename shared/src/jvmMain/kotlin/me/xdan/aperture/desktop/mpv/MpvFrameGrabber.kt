@@ -99,7 +99,7 @@ internal class MpvFrameGrabber private constructor(private val lib: LibMpv, priv
             listOf(
                 "vo" to "libmpv", "aid" to "no", "sid" to "no", "pause" to "yes", "idle" to "yes",
                 "keep-open" to "always", "config" to "no", "terminal" to "no", "hwdec" to "no",
-                "input-default-bindings" to "no", "panscan" to "1",
+                "input-default-bindings" to "no",
             ).forEach { (name, value) -> lib.mpv_set_option_string(mpv, name, value) }
             if (lib.mpv_initialize(mpv) < 0) {
                 lib.mpv_terminate_destroy(mpv)
