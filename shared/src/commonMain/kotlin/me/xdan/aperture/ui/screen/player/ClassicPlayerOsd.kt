@@ -524,7 +524,8 @@ private fun ClassicPlayerSeekProgress(
                 modifier = Modifier
                     .width(previewWidth)
                     .wrapContentHeight()
-                    .offset(x = previewX, y = -(previewHeight + 28.dp) / 2)
+                    // The chapter name makes the card taller; lift it clear of the bar.
+                    .offset(x = previewX, y = -(previewHeight + 28.dp) / 2 - if (chapters.isNotEmpty()) 32.dp else 0.dp)
                     .align(Alignment.CenterStart),
                 shape = RoundedCornerShape(24.dp),
                 colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)),

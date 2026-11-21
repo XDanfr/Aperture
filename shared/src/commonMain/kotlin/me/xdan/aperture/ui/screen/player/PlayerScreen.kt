@@ -914,7 +914,7 @@ private fun PlayerSeekProgress(player: PlayerEngine, mediaSource: String?, progr
             val previewWidth = 320.dp; val previewHeight = 180.dp
             val previewFraction = if (scrubbing) animatedProgress else hoverFraction ?: 0f
             val previewX = ((maxWidth - previewWidth) * previewFraction).coerceIn(0.dp, (maxWidth - previewWidth).coerceAtLeast(0.dp))
-            Surface(modifier = Modifier.width(previewWidth).wrapContentHeight().offset(x = previewX, y = -(previewHeight + 28.dp) / 2).align(Alignment.CenterStart), shape = RoundedCornerShape(24.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)), tonalElevation = 6.dp) {
+            Surface(modifier = Modifier.width(previewWidth).wrapContentHeight().offset(x = previewX, y = -(previewHeight + 28.dp) / 2 - if (LocalPlayerChapters.current.isNotEmpty()) 32.dp else 0.dp).align(Alignment.CenterStart), shape = RoundedCornerShape(24.dp), colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)), tonalElevation = 6.dp) {
                 Column {
                     Box(modifier = Modifier.fillMaxWidth().height(previewHeight).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                         if (previewBitmap != null) Image(bitmap = previewBitmap!!, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) else ExpressiveLoadingIndicator(color = MaterialTheme.colorScheme.primary, size = 28.dp)
