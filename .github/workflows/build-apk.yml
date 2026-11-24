@@ -127,7 +127,12 @@ jobs:
           else
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --generate-notes
           fi
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber signed-apks/*.apk signed-apks/SHA256SUMS.txt
+          # Releases ship the standard TV app and the companion; the creator variant stays an artifact.
+          gh release delete-asset "$TAG" Aperture-creator-release.apk -R "$GITHUB_REPOSITORY" -y 2>/dev/null || true
+          mkdir -p release-apks
+          cp signed-apks/Aperture-standard-release.apk signed-apks/Aperture-companion-release.apk release-apks/
+          (cd release-apks && sha256sum *.apk > SHA256SUMS.txt)
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber release-apks/*
 
       - name: Clean up private build inputs
         if: always()
