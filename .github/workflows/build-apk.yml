@@ -7,6 +7,10 @@ on:
         description: 'Optional: create (or update) this draft release, tagging the selected commit'
         required: false
         default: ''
+      move_tag:
+        description: 'Move an existing release_tag to the selected commit (unpublished drafts only)'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -114,10 +118,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release_tag || github.ref_name }}
+          MOVE_TAG: ${{ inputs.move_tag }}
         run: |
-          if [ "$GITHUB_REF" != "refs/tags/$TAG" ] && ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-            git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
-            git push origin "refs/tags/$TAG"
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/$TAG"
+            elif [ "$MOVE_TAG" = "true" ]; then
+              git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -fa "$TAG" -m "$TAG" "$GITHUB_SHA"
+              git push --force origin "refs/tags/$TAG"
+            fi
           fi
           notes="docs/releases/$TAG.md"
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
