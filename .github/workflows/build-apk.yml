@@ -115,6 +115,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ] && ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
           notes="docs/releases/$TAG.md"
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             [ -f "$notes" ] && gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file "$notes"
