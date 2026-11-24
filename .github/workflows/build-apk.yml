@@ -2,6 +2,11 @@ name: Build signed APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: create (or update) this draft release, tagging the selected commit'
+        required: false
+        default: ''
   push:
     tags: ['v*']
 
@@ -105,18 +110,18 @@ jobs:
 
       # On a tag, attach the signed APKs to the draft release (notes from docs/releases/<tag>.md).
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           notes="docs/releases/$TAG.md"
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             [ -f "$notes" ] && gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file "$notes"
           elif [ -f "$notes" ]; then
-            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --title "$TAG" --notes-file "$notes"
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file "$notes"
           else
-            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --title "$TAG" --generate-notes
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --generate-notes
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber signed-apks/*.apk signed-apks/SHA256SUMS.txt
 
