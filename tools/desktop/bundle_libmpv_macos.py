@@ -196,7 +196,12 @@ def write_notices(out, names, sources_dir):
             subprocess.run(["brew", "fetch", "--quiet", "--build-from-source", formula], check=True)
             cached = Path(run("brew", "--cache", "--build-from-source", formula).strip())
             sources_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(cached, sources_dir / f"{formula}-{version}-{cached.name.split('--', 1)[-1]}")
+            target = sources_dir / f"{formula}-{version}-{cached.name.split('--', 1)[-1]}"
+            if cached.is_dir():
+                # Formulae fetched from git (e.g. x264) cache a checkout, not an archive.
+                shutil.make_archive(str(target), "gztar", root_dir=cached.parent, base_dir=cached.name)
+            else:
+                shutil.copy2(cached, target)
     (out / "THIRD_PARTY_NOTICES.txt").write_text("\n".join(lines))
 
 
