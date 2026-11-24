@@ -1,95 +1,130 @@
 <p align="center">
-  <img src="Aperture.png" width="128" height="128" alt="Aperture Icon" />
-</p>
-
-<h1 align="center">Aperture</h1>
-
-<p align="center">
-  <i>Finally, a Material 3 media player for Android TV!</i>
+  <img src="docs/readme/banner.svg" width="800" alt="Aperture: a Material 3 Expressive media player for Android TV" />
 </p>
 
 <div align="center">
 
-[![Sponsor Aperture](https://emblem.xdan.cc/s/github/sponsors/XDanfr?palette=purple&logo=github&label=Sponsor&font=outfit)](https://github.com/sponsors/XDanfr)
-[![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord&font=outfit)](https://discord.gg/fuxMAVBccK)
-[![Download Aperture APK — total downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=android&label=Download&font=outfit)](https://github.com/XDanfr/Aperture/releases/latest)
+[![Sponsor Aperture](https://emblem.xdan.cc/s/github/sponsors/XDanfr?palette=purple&logo=github&label=Sponsor&font=outfit&theme=light&color=%237D5260&textColor=%23FFFFFF&labelColor=%23FFD8E4&labelTextColor=%2331111D)](https://github.com/sponsors/XDanfr)
+[![Aperture Discord](https://emblem.xdan.cc/s/discord/1525645205720662117?palette=purple&logo=discord&label=Discord&font=outfit&theme=dark&color=%23D0BCFF&textColor=%23381E72&labelColor=%234F378B&labelTextColor=%23EADDFF)](https://discord.gg/fuxMAVBccK)
+[![Download Aperture APK — total downloads](https://emblem.xdan.cc/s/github/downloads/XDanfr/Aperture/total?palette=purple&logo=android&label=Downloads&font=outfit&theme=light&color=%23625B71&textColor=%23FFFFFF&labelColor=%23E8DEF8&labelTextColor=%231D192B)](https://github.com/XDanfr/Aperture/releases/latest)
 <br>
-[![Aperture website](https://emblem.xdan.cc/badge.svg?font=outfit&theme=auto&message=Website&look=expressive&logo=globe&shape=6-sided-cookie&palette=purple)](https://xdan.cc/aperture)
-[![Instagram: axis.eco](https://emblem.xdan.cc/badge.svg?font=outfit&theme=auto&message=Instagram&look=expressive&logo=platform%3Ainstagram&shape=4-leaf-clover&palette=purple)](https://instagram.com/axis.eco)
+<a href="https://xdan.cc/aperture"><img src="docs/readme/badges/website.svg" alt="Aperture website" /></a>
+<a href="https://instagram.com/axis.eco"><img src="docs/readme/badges/instagram.svg" alt="Instagram: axis.eco" /></a>
 
 </div>
 
 <p align="center">
-  <img src="screenshots/expressive/home.webp" alt="Aperture home screen with Spotlight and Recently Added media" />
+  <b>Finally, a Material 3 media player for Android TV!</b><br />
 </p>
 
 <p align="center">
-  Aperture turns the films and shows already on your TV, USB drive or computer into a library that looks like a streaming service.
-  It finds artwork and details on TMDB, plays almost anything through Media3, and is built to be driven entirely with a remote.
+  <a href="https://github.com/XDanfr/Aperture/releases/latest"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/buttons/download-apk-dark.svg" />
+    <img src="docs/readme/buttons/download-apk-light.svg" height="56" alt="Download APK" />
+  </picture></a>&nbsp;
 </p>
 
 <p align="center">
-  <a href="#-whats-new-in-v05">What's new</a> ·
-  <a href="#-features">Features</a> ·
-  <a href="#-getting-started">Getting started</a> ·
-  <a href="#-screenshots">Screenshots</a> ·
-  <a href="#%EF%B8%8F-roadmap">Roadmap</a> ·
-  <a href="#-faq">FAQ</a>
+  <img src="docs/readme/screens/home.webp" width="800" alt="Aperture home screen with Spotlight and Recently Added media" />
 </p>
 
----
+<p align="center">
+  <a href="#whats-new">What's new</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#roadmap">Roadmap</a> ·
+  <a href="#faq">FAQ</a>
+</p>
 
-## 🆕 What's new in v0.5
+<a id="whats-new"></a>
+## <img src="docs/readme/icons/h-new.svg" width="36" height="36" align="absmiddle" alt="" /> What's new in v0.5
 
 v0.5 is the biggest Aperture update yet! The whole UI has been rebuilt on **Material 3 Expressive**.
 
-* 🎨 **Material 3 Expressive redesign** using the official Expressive colour, shape and motion tokens, with a new launch animation and an animated sidebar, plus much more
-* 📱 **Aperture Companion**: an Android phone app that browses your TV's library, starts playback and works as a remote
-* 💬 **Full OpenSubtitles integration**: sign in, then search for and download subtitles without leaving the player
-* ⏭️ **Next episode popup** with a countdown in the last 10 seconds of an episode
-* 📺 **Grouped TV shows**: one poster per show, with a season and episode selector that continues where you left off
-* 🧭 **New onboarding** that's comfortable with a remote, plus an optional **Learn Aperture** tour
-* 🖥️ **Desktop builds** for Windows, macOS and Linux, from the same code as the TV app!
+<img src="docs/readme/icons/b-palette.svg" width="24" height="24" align="absmiddle" alt="" /> **Material 3 Expressive redesign** using the official Expressive colour, shape and motion tokens, with a new launch animation and an animated sidebar, plus much more
+
+<img src="docs/readme/icons/b-companion.svg" width="24" height="24" align="absmiddle" alt="" /> **Aperture Companion**: an Android phone app that browses your TV's library, starts playback and works as a remote
+
+<img src="docs/readme/icons/b-subtitles.svg" width="24" height="24" align="absmiddle" alt="" /> **Full OpenSubtitles integration**: sign in, then search for and download subtitles without leaving the player
+
+<img src="docs/readme/icons/b-next.svg" width="24" height="24" align="absmiddle" alt="" /> **Next episode popup** with a countdown in the last 10 seconds of an episode
+
+<img src="docs/readme/icons/b-shows.svg" width="24" height="24" align="absmiddle" alt="" /> **Grouped TV shows**: one poster per show, with a season and episode selector that continues where you left off
+
+<img src="docs/readme/icons/b-onboard.svg" width="24" height="24" align="absmiddle" alt="" /> **New onboarding** that's comfortable with a remote, plus an optional **Learn Aperture** tour
+
+<img src="docs/readme/icons/b-desktop.svg" width="24" height="24" align="absmiddle" alt="" /> **Desktop builds** for Windows, macOS and Linux, from the same code as the TV app!
 
 > [!IMPORTANT]
 > **Coming from 0.4.2-alpha or earlier?** v0.5 is a new package (`cc.xdan.aperture`) with a new signing key, so your settings, My List and watch progress start fresh. Your media files aren't touched. See [Updating from 0.4.x](#updating-from-04x).
 
-## ✨ Features
+<a id="features"></a>
+## <img src="docs/readme/icons/h-features.svg" width="36" height="36" align="absmiddle" alt="" /> Features
 
-### 🎨 Interface and themes
-* Material 3 Expressive throughout, designed for the remote first. Focus, Back and the sidebar always return you to where you were
-* **Spotlight** on Home showcases your library, with the option to hide finished titles for a set number of days
-* Ten themes: Aperture Purple, Material TV, Emerald, Cinema Red, Sunset Orange, Electric Blue, Ocean Teal and Neon Pink, plus **Artwork Dynamic** (preview), which takes its colours from the artwork on screen and **match phone**, which gives the TV the Material You colours of a paired phone
-* **Ambient mode** for when the TV is idle: cinematic full-screen backdrops or a poster wall, with an optional clock
+### <img src="docs/readme/icons/s-interface.svg" width="28" height="28" align="absmiddle" alt="" /> Interface and themes
 
-### 📚 Library
-* Scans `Movies/` and `TV Shows/` folders on internal storage, plus `Download`, `DCIM` and `Videos`. Add more folders, such as USB drives, in Settings.
-* Matches titles and finds posters, backdrops and synopses using **TMDB**. You can correct or add a match yourself in the app.
-* Two TV show layouts: **Grouped shows** (one poster per show) or **Episode rows**. You can switch without rescanning.
-* **Continue Watching** and **My List**, with shows opening on the current or next episode wherever you find them
-* Search, hidden media, and library tools for rescanning or clearing the artwork cache
+<img src="docs/readme/icons/b-palette.svg" width="24" height="24" align="absmiddle" alt="" /> **Material 3 Expressive throughout**, designed for the remote first. Focus, Back and the sidebar always return you to where you were
 
-### ▶️ Playback
-* Powered by **Media3 / ExoPlayer**, with an FFmpeg software-decoding fallback for formats your TV can't decode in hardware.
-  * Desktop is powered by **MPV**
-* Quick Menu for audio tracks, subtitles and aspect ratio (fit, crop or stretch).
-* **Subtitles**: local and embedded tracks, OpenSubtitles search and download, timing sync, and customisable size and background.
-* **Next episode popup** that plays the next episode automatically, or lets you dismiss it.
-* Experimental tunnelling for 4K A/V sync on supported hardware.
+<img src="docs/readme/icons/b-spotlight.svg" width="24" height="24" align="absmiddle" alt="" /> **Spotlight** on Home showcases your library, with the option to hide finished titles for a set number of days
 
-### 📱 Aperture Companion (pre-alpha)
-* Pair your phone with a QR code or a 6-digit code over your home network.
-* Browse the TV's library, start something on the TV, and control playback from your phone.
-* Follows the TV's theme, or uses Material You or any Aperture palette.
-* Only metadata and remote control commands are sent between devices. Video never leaves the TV.
+<img src="docs/readme/icons/b-themes.svg" width="24" height="24" align="absmiddle" alt="" /> **Ten themes**: Aperture Purple, Material TV, Emerald, Cinema Red, Sunset Orange, Electric Blue, Ocean Teal and Neon Pink, plus **Artwork Dynamic** (preview), which takes its colours from the artwork on screen and **match phone**, which gives the TV the Material You colours of a paired phone
 
-### 🖥️ Desktop
-* Windows, macOS and Linux builds share the TV app's screens, themes and animations, with mpv for playback.
-* Use the mouse or the keyboard: arrow keys and Enter work just like a remote.
+<img src="docs/readme/icons/b-ambient.svg" width="24" height="24" align="absmiddle" alt="" /> **Ambient mode** for when the TV is idle: cinematic full-screen backdrops or a poster wall, with an optional clock
 
-## 🚀 Getting started
+### <img src="docs/readme/icons/s-library.svg" width="28" height="28" align="absmiddle" alt="" /> Library
 
-### 1. Install on Android TV
+<img src="docs/readme/icons/b-scan.svg" width="24" height="24" align="absmiddle" alt="" /> **Folder scanning** of `Movies/` and `TV Shows/` on internal storage, plus `Download`, `DCIM` and `Videos`. Add more folders, such as USB drives, in Settings.
+
+<img src="docs/readme/icons/b-match.svg" width="24" height="24" align="absmiddle" alt="" /> **TMDB matching** finds posters, backdrops and synopses for your titles. You can correct or add a match yourself in the app.
+
+<img src="docs/readme/icons/b-layout.svg" width="24" height="24" align="absmiddle" alt="" /> **Two TV show layouts**: **Grouped shows** (one poster per show) or **Episode rows**. You can switch without rescanning.
+
+<img src="docs/readme/icons/b-continue.svg" width="24" height="24" align="absmiddle" alt="" /> **Continue Watching** and **My List**, with shows opening on the current or next episode wherever you find them
+
+<img src="docs/readme/icons/b-search.svg" width="24" height="24" align="absmiddle" alt="" /> **Search**, hidden media, and library tools for rescanning or clearing the artwork cache
+
+### <img src="docs/readme/icons/s-playback.svg" width="28" height="28" align="absmiddle" alt="" /> Playback
+
+<img src="docs/readme/icons/b-exo.svg" width="24" height="24" align="absmiddle" alt="" /> **Media3 / ExoPlayer**, with an FFmpeg software-decoding fallback for formats your TV can't decode in hardware
+
+<img src="docs/readme/icons/b-mpv.svg" width="24" height="24" align="absmiddle" alt="" /> **MPV** powers playback on desktop
+
+<img src="docs/readme/icons/b-menu.svg" width="24" height="24" align="absmiddle" alt="" /> **Quick Menu** for audio tracks, subtitles and aspect ratio (fit, crop or stretch)
+
+<img src="docs/readme/icons/b-subtitles.svg" width="24" height="24" align="absmiddle" alt="" /> **Subtitles**: local and embedded tracks, OpenSubtitles search and download, timing sync, and customisable size and background
+
+<img src="docs/readme/icons/b-next.svg" width="24" height="24" align="absmiddle" alt="" /> **Next episode popup** that plays the next episode automatically, or lets you dismiss it
+
+<img src="docs/readme/icons/b-tunnel.svg" width="24" height="24" align="absmiddle" alt="" /> **Experimental tunnelling** for 4K A/V sync on supported hardware
+
+### <img src="docs/readme/icons/s-companion.svg" width="28" height="28" align="absmiddle" alt="" /> Aperture Companion (pre-alpha)
+
+<img src="docs/readme/icons/b-pair.svg" width="24" height="24" align="absmiddle" alt="" /> **Easy pairing** with a QR code or a 6-digit code over your home network
+
+<img src="docs/readme/icons/b-remote.svg" width="24" height="24" align="absmiddle" alt="" /> **Browse and control**: browse the TV's library, start something on the TV, and control playback from your phone
+
+<img src="docs/readme/icons/b-themes.svg" width="24" height="24" align="absmiddle" alt="" /> **Themed to match**: follows the TV's theme, or uses Material You or any Aperture palette
+
+<img src="docs/readme/icons/b-privacy.svg" width="24" height="24" align="absmiddle" alt="" /> **Private by design**: only metadata and remote control commands are sent between devices. Video never leaves the TV
+
+### <img src="docs/readme/icons/s-desktop.svg" width="28" height="28" align="absmiddle" alt="" /> Desktop
+
+<img src="docs/readme/icons/b-desktop.svg" width="24" height="24" align="absmiddle" alt="" /> **Windows, macOS and Linux** builds share the TV app's screens, themes and animations, with mpv for playback
+
+<img src="docs/readme/icons/b-keyboard.svg" width="24" height="24" align="absmiddle" alt="" /> **Mouse or keyboard**: arrow keys and Enter work just like a remote
+
+<a id="getting-started"></a>
+## <img src="docs/readme/icons/h-start.svg" width="36" height="36" align="absmiddle" alt="" /> Getting started
+
+### <img src="docs/readme/icons/s-tv.svg" width="28" height="28" align="absmiddle" alt="" /> 1. Install on Android TV
+
+<p>
+  <a href="https://github.com/XDanfr/Aperture/releases/latest"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/buttons/download-apk-dark.svg" />
+    <img src="docs/readme/buttons/download-apk-light.svg" height="56" alt="Download APK" />
+  </picture></a>
+</p>
 
 1. On your TV, install [Downloader by AFTVNews](https://play.google.com/store/apps/details?id=com.esaba.downloader) (Google Play) or from the [Amazon Appstore](https://www.amazon.com/dp/B01N0BP507/?tag=aftvn-20).
 2. Download the latest `.apk` from [**Releases**](https://github.com/XDanfr/Aperture/releases/latest) and install it. Allow Downloader to install unknown apps if Android asks.
@@ -99,7 +134,7 @@ v0.5 is the biggest Aperture update yet! The whole UI has been rebuilt on **Mate
 > [!NOTE]
 > Aperture runs on Android TV and Google TV devices with Android 8.1 (API 27) or later.
 
-### 2. Organise your media
+### <img src="docs/readme/icons/s-folder.svg" width="28" height="28" align="absmiddle" alt="" /> 2. Organise your media
 
 Aperture works best with clean file names and a standard folder layout. Here's an example:
 
@@ -121,7 +156,7 @@ TV Shows/
 * Including the year helps Aperture choose the right TMDB match. Quality tags like `1080p` or `x265` are ignored, so no need to strip them.
 * If something is matched incorrectly, open it and choose **Choose artwork and metadata** (picture search icon) to search TMDB again, where you can type the name of the title.
 
-### 3. Pair the phone companion (optional)
+### <img src="docs/readme/icons/s-phone.svg" width="28" height="28" align="absmiddle" alt="" /> 3. Pair the phone companion (optional)
 
 1. Install the Aperture Companion APK from [Releases](https://github.com/XDanfr/Aperture/releases/latest) on an Android phone (Android 10 or later).
 2. On the TV, open **Settings → Phone companion**. Aperture shows a QR code and a 6-digit code.
@@ -129,11 +164,12 @@ TV Shows/
 
 Your phone and TV need to be on the same network. On Android 17, both devices will ask for local network access.
 
-### 4. Turn on OpenSubtitles (optional)
+### <img src="docs/readme/icons/s-subtitles.svg" width="28" height="28" align="absmiddle" alt="" /> 4. Turn on OpenSubtitles (optional)
 
 Sign in to your [OpenSubtitles.com](https://www.opensubtitles.com) account under **Settings → Playback & subtitles**. You can then search for and download subtitles from the player's Quick Menu.
 
-### Updating from 0.4.x
+<a id="updating-from-04x"></a>
+### <img src="docs/readme/icons/s-update.svg" width="28" height="28" align="absmiddle" alt="" /> Updating from 0.4.x
 
 v0.5 uses a new signing key and the package name `cc.xdan.aperture`, so it installs alongside the old app rather than replacing it.
 
@@ -143,13 +179,13 @@ v0.5 uses a new signing key and the package name `cc.xdan.aperture`, so it insta
 
 Settings, My List, watch progress and sign-ins aren't carried over. Your media files stay where they are.
 
-### Desktop (Windows, macOS, Linux)
+### <img src="docs/readme/icons/s-desktop.svg" width="28" height="28" align="absmiddle" alt="" /> Desktop (Windows, macOS, Linux)
 
 The Windows installers (MSI, EXE) and the macOS DMG include mpv. The Linux packages (deb, rpm, AUR, Flatpak) install mpv from your distribution or include it. When you first open Aperture, choose the folders that make up your library.
 
 See [docs/DESKTOP.md](docs/DESKTOP.md) for controls, packaging and licensing.
 
-### Build from source
+### <img src="docs/readme/icons/s-code.svg" width="28" height="28" align="absmiddle" alt="" /> Build from source
 
 1. Clone the repository:
 
@@ -169,43 +205,45 @@ See [docs/DESKTOP.md](docs/DESKTOP.md) for controls, packaging and licensing.
 > [!NOTE]
 > `master` moves quickly and the latest commits may contain bugs. For a stable experience, use a build from [Releases](https://github.com/XDanfr/Aperture/releases/latest).
 
-## 📸 Screenshots
+<a id="screenshots"></a>
+## <img src="docs/readme/icons/h-screens.svg" width="36" height="36" align="absmiddle" alt="" /> Screenshots
 
 <table>
   <tr>
-    <td width="50%"><img src="screenshots/expressive/home-sidebar.webp" alt="Aperture home screen with expanded navigation and Power Ballad in Spotlight" /></td>
-    <td width="50%"><img src="screenshots/expressive/details.webp" alt="Aperture Big Hero 6 details with playback and My List controls" /></td>
+    <td width="50%"><img src="docs/readme/screens/home-sidebar.webp" alt="Aperture home screen with expanded navigation and Power Ballad in Spotlight" /></td>
+    <td width="50%"><img src="docs/readme/screens/details.webp" alt="Aperture Big Hero 6 details with playback and My List controls" /></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Home</b> with the sidebar open</sub></td>
     <td align="center"><sub><b>Details</b>, with playback and My List controls</sub></td>
   </tr>
   <tr>
-    <td><img src="screenshots/expressive/movies.webp" alt="Aperture movies library with a focused poster" /></td>
-    <td><img src="screenshots/expressive/episodes.webp" alt="Aperture season and episode selector for Breaking Bad" /></td>
+    <td><img src="docs/readme/screens/movies.webp" alt="Aperture movies library with a focused poster" /></td>
+    <td><img src="docs/readme/screens/episodes.webp" alt="Aperture season and episode selector for Breaking Bad" /></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Movies</b>, A–Z</sub></td>
     <td align="center"><sub><b>Season and episode selector</b> for grouped shows</sub></td>
   </tr>
   <tr>
-    <td><img src="screenshots/expressive/search.webp" alt="Aperture search results with the on-screen keyboard" /></td>
-    <td><img src="screenshots/expressive/buffering.webp" alt="Aperture Breaking Bad buffering screen" /></td>
+    <td><img src="docs/readme/screens/search.webp" alt="Aperture search results with the on-screen keyboard" /></td>
+    <td><img src="docs/readme/screens/buffering.webp" alt="Aperture Breaking Bad buffering screen" /></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Search</b></sub></td>
     <td align="center"><sub><b>Loading playback</b> with the title's artwork</sub></td>
   </tr>
   <tr>
-    <td><img src="screenshots/expressive/splash-minions.webp" alt="Aperture Minions artwork splash screen" /></td>
-    <td><img src="screenshots/expressive/splash-project-hail-mary.webp" alt="Aperture Project Hail Mary artwork splash screen" /></td>
+    <td><img src="docs/readme/screens/splash-minions.webp" alt="Aperture Minions artwork splash screen" /></td>
+    <td><img src="docs/readme/screens/splash-project-hail-mary.webp" alt="Aperture Project Hail Mary artwork splash screen" /></td>
   </tr>
   <tr>
     <td align="center" colspan="2"><sub><b>Artwork splash screens</b></sub></td>
   </tr>
 </table>
 
-## 🗺️ Roadmap
+<a id="roadmap"></a>
+## <img src="docs/readme/icons/h-roadmap.svg" width="36" height="36" align="absmiddle" alt="" /> Roadmap
 
 Aperture is in **ALPHA**. These are next:
 
@@ -241,7 +279,8 @@ Aperture is in **ALPHA**. These are next:
 
 </details>
 
-## 🛠️ Tech stack
+<a id="tech-stack"></a>
+## <img src="docs/readme/icons/h-tech.svg" width="36" height="36" align="absmiddle" alt="" /> Tech stack
 
 * **Language:** [Kotlin](https://kotlinlang.org/)
 * **UI:** [Jetpack Compose for TV](https://developer.android.com/training/tv/playback/compose), shared with desktop through [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/)
@@ -250,7 +289,8 @@ Aperture is in **ALPHA**. These are next:
 * **Metadata:** [TMDB](https://www.themoviedb.org) and [OpenSubtitles](https://www.opensubtitles.com)
 * **Website components:** [matraic/m3e](https://github.com/matraic/m3e)
 
-## 🤝 Contributing
+<a id="contributing"></a>
+## <img src="docs/readme/icons/h-contribute.svg" width="36" height="36" align="absmiddle" alt="" /> Contributing
 
 Contributions are what make the open-source community such an amazing place! Want a feature or a bugfix? Pull requests are super welcome, and so are issues.
 
@@ -258,7 +298,8 @@ Contributions are what make the open-source community such an amazing place! Wan
 * **Pull requests:** Fork the project, create a branch and open a PR. Please follow the existing project style, and lean towards Material 3 Expressive as Aperture moves to that look.
 * **Docs:** [Desktop](docs/DESKTOP.md) · [Phone companion](docs/development/phone-companion.md) · [Signed APK builds](docs/signed-apk-builds.md) · [Privacy](docs/PRIVACY.md)
 
-## 💬 FAQ
+<a id="faq"></a>
+## <img src="docs/readme/icons/h-faq.svg" width="36" height="36" align="absmiddle" alt="" /> FAQ
 
 **Q: How does Aperture find media on local drives?**
 
@@ -270,11 +311,10 @@ Contributions are what make the open-source community such an amazing place! Wan
 
 **Q: Was any AI used for this?**
 
-**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand! See [AI.md](/AI.md) for more.
+**A:** Gemini was used as a starter to build the baseline template. Some AI features (like autocomplete) were used to speed up development. However, all code is human-reviewed, manually structured, and the trickier bugs are tackled by hand! See [AI.md](AI.md) for more.
 
----
-
-## 💜 Sponsors
+<a id="sponsors"></a>
+## <img src="docs/readme/icons/h-sponsors.svg" width="36" height="36" align="absmiddle" alt="" /> Sponsors
 
 Aperture wouldn't have active development without sponsors. Special thanks to them for keeping the app running :)
 
@@ -282,6 +322,11 @@ Aperture wouldn't have active development without sponsors. Special thanks to th
 
 [![Current and past sponsors of XDanfr](https://emblem.xdan.cc/sponsors/XDanfr.svg?palette=purple&theme=auto&status=all&width=320&columns=1&avatarSize=72&shapes=6-sided-cookie%2Cpuffy%2C4-leaf-clover&radius=24&outline=true&borderWidth=1.5&font=outfit)](https://github.com/sponsors/XDanfr)
 
+<a href="https://github.com/sponsors/XDanfr"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/buttons/sponsor-dark.svg" />
+  <img src="docs/readme/buttons/sponsor-light.svg" height="56" alt="Sponsor on GitHub" />
+</picture></a>
+
 </div>
 
-<p align="center"><sub>If you like Aperture, please consider <a href="https://github.com/sponsors/XDanfr">supporting its development on GitHub Sponsors</a> 💜</sub></p>
+<p align="center"><sub>If you like Aperture, please consider supporting its development on GitHub Sponsors 💜</sub></p>
