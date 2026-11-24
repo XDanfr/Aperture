@@ -2,9 +2,11 @@ name: Build signed APKs
 
 on:
   workflow_dispatch:
+  push:
+    tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: signed-apks-${{ github.ref }}
@@ -100,6 +102,23 @@ jobs:
             signed-apks/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+
+      # On a tag, attach the signed APKs to the draft release (notes from docs/releases/<tag>.md).
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes="docs/releases/$TAG.md"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            [ -f "$notes" ] && gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file "$notes"
+          elif [ -f "$notes" ]; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --title "$TAG" --notes-file "$notes"
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber signed-apks/*.apk signed-apks/SHA256SUMS.txt
 
       - name: Clean up private build inputs
         if: always()
