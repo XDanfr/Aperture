@@ -53,9 +53,11 @@ android {
             buildConfigField("Boolean", "GITHUB_SPONSORSHIP_ENABLED", "false")
             buildConfigField("Boolean", "SIDELOAD_UPDATES_ENABLED", "false")
             if (!System.getenv("PLAY_UPLOAD_STORE_FILE").isNullOrBlank()) {
-                // A signed upload without a key ships a library that never gets metadata.
-                check(!localProps.getProperty("TMDB_API_KEY").isNullOrBlank()) {
-                    "TMDB_API_KEY is required for a signed Play upload"
+                // A signed upload without these keys ships without metadata or online subtitles.
+                for (key in listOf("TMDB_API_KEY", "OPENSUBTITLES_API_KEY")) {
+                    check(!localProps.getProperty(key).isNullOrBlank()) {
+                        "$key is required for a signed Play upload"
+                    }
                 }
                 signingConfig = signingConfigs.getByName("playUpload")
             }
