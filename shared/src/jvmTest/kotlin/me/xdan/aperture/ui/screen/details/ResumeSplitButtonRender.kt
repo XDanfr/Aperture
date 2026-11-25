@@ -24,6 +24,8 @@ import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
 import kotlin.test.Test
 
+private val SplitButtonHeight = 40.dp
+
 /** Renders the details action row with the Continue/Restart split button; set APERTURE_RENDER_DIR to run. */
 class ResumeSplitButtonRender {
     @Test
