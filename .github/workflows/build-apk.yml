@@ -2,9 +2,20 @@ name: Build signed APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: create (or update) this draft release, tagging the selected commit'
+        required: false
+        default: ''
+      move_tag:
+        description: 'Move an existing release_tag to the selected commit (unpublished drafts only)'
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: signed-apks-${{ github.ref }}
@@ -100,6 +111,38 @@ jobs:
             signed-apks/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+
+      # On a tag, attach the signed APKs to the draft release (notes from docs/releases/<tag>.md).
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag || github.ref_name }}
+          MOVE_TAG: ${{ inputs.move_tag }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/$TAG"
+            elif [ "$MOVE_TAG" = "true" ]; then
+              git -c user.name=XDan -c user.email=109234186+XDanfr@users.noreply.github.com tag -fa "$TAG" -m "$TAG" "$GITHUB_SHA"
+              git push --force origin "refs/tags/$TAG"
+            fi
+          fi
+          notes="docs/releases/$TAG.md"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            [ -f "$notes" ] && gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file "$notes"
+          elif [ -f "$notes" ]; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file "$notes"
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          fi
+          # Releases ship the standard TV app and the companion; the creator variant stays an artifact.
+          gh release delete-asset "$TAG" Aperture-creator-release.apk -R "$GITHUB_REPOSITORY" -y 2>/dev/null || true
+          mkdir -p release-apks
+          cp signed-apks/Aperture-standard-release.apk signed-apks/Aperture-companion-release.apk release-apks/
+          (cd release-apks && sha256sum *.apk > SHA256SUMS.txt)
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber release-apks/*
 
       - name: Clean up private build inputs
         if: always()
